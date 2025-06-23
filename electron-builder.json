@@ -1,0 +1,8 @@
+{
+  "appId": "com.example.app",
+  "files": ["dist-electron", "dist-renderer"],
+  "productName": "My App",
+  "mac": {
+    "target": ["dmg"]
+  }
+}
