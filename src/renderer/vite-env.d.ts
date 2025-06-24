@@ -44,5 +44,18 @@ interface Window {
      * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
      */
     sendMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
+
+    /**
+     * Captures a screenshot using the system's native screenshot tool
+     *
+     * @returns {Promise<{success: boolean, filePath?: string, message?: string, error?: string, platform?: string}>} Screenshot result
+     */
+    captureScreenshot: () => Promise<{
+      success: boolean;
+      filePath?: string;
+      message?: string;
+      error?: string;
+      platform?: string;
+    }>;
   };
 }

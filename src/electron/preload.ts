@@ -16,6 +16,8 @@ const electronAPI = {
   sendMessage: (message: string) => ipcRenderer.invoke("gemini:send-message", message),
 
   sendMessageWithHistory: (messages: any[]) => ipcRenderer.invoke("gemini:send-message-with-history", messages),
+
+  captureScreenshot: () => ipcRenderer.invoke("screenshot:capture"),
 };
 
 console.log("Exposing electronAPI:", electronAPI);

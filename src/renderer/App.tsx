@@ -10,6 +10,8 @@ export default function App() {
 
   const [error, setError] = useState<string | null>(null);
 
+  const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
+
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -48,6 +50,32 @@ export default function App() {
     setError(null);
   };
 
+  const handleScreenshot = async () => {
+    try {
+      setScreenshotStatus("Taking screenshot...");
+      const result = await window.electronAPI.captureScreenshot();
+
+      if (result.success) {
+        if (result.platform === "windows") {
+          setScreenshotStatus("Snipping Tool opened. Please capture your screenshot manually.");
+          setTimeout(() => setScreenshotStatus(null), 5000);
+        } else if (result.filePath) {
+          setScreenshotStatus(`Screenshot saved: ${result.filePath}`);
+          setTimeout(() => setScreenshotStatus(null), 3000);
+        } else {
+          setScreenshotStatus(result.message || "Screenshot completed");
+          setTimeout(() => setScreenshotStatus(null), 3000);
+        }
+      } else {
+        setScreenshotStatus(`Screenshot failed: ${result.error}`);
+        setTimeout(() => setScreenshotStatus(null), 5000);
+      }
+    } catch (error) {
+      setScreenshotStatus("Failed to take screenshot");
+      setTimeout(() => setScreenshotStatus(null), 5000);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -60,6 +88,26 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleScreenshot}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded flex items-center space-x-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span>Screenshot</span>
+            </button>
             <button
               onClick={handleClearChat}
               className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
@@ -84,6 +132,25 @@ export default function App() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screenshotStatus && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">{screenshotStatus}</p>
             </div>
           </div>
         </div>
