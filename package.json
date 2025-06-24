@@ -9,16 +9,18 @@
     "dev:react": "vite",
     "dev:electron": "npm run transpile:electron && NODE_ENV=development electron .",
     "build:react": "tsc -b && vite build",
-    "build:electron": "tsc -b",
-    "build": "tsc && vite build",
+    "build:electron": "npm run transpile:electron",
+    "build": "npm run transpile:electron && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "transpile:electron": "tsc -p src/electron/tsconfig.json",
-    "dist:mac": "npm run transpile:electron && npm run build && electron-builder --mac --arm64",
+    "transpile:electron": "tsc -p src/electron/tsconfig.json && tsc -p src/electron/tsconfig.preload.json && mv dist-electron/preload.js dist-electron/preload.cjs",
+    "dist:mac": "npm run build:electron && npm run build:react && electron-builder --mac --arm64",
     "start": "npm run dev:electron"
   },
   "dependencies": {
+    "@google/genai": "^1.6.0",
     "@tailwindcss/postcss": "^4.1.10",
+    "dotenv": "^16.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
