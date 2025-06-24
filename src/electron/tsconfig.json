@@ -5,6 +5,20 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "outDir": "../../dist-electron",
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../../dist-electron",
+    "preload.ts"
+  ]
 }
