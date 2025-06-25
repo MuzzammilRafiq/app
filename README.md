@@ -6,6 +6,7 @@ A modern AI chat application built with React, Electron, TypeScript, and Google 
 
 - 🤖 **AI Chat Interface**: Chat with Google Gemini AI using natural language
 - 💬 **Real-time Messaging**: Send and receive messages with a beautiful UI
+- ⚡ **Streaming Responses**: Real-time streaming of AI responses for better user experience
 - 🔐 **Secure API Handling**: API calls go through Electron's main process for enhanced security
 - 📸 **Screenshot to Clipboard**: Capture screenshots directly to clipboard using native system tools
 - 📱 **Cross-platform**: Works on Windows, macOS, and Linux
@@ -110,6 +111,14 @@ User Input → React Component → IPC Call → Main Process → Gemini API → 
 - Message timestamps
 - Loading states during AI responses
 - Error handling and display
+
+### Streaming Responses
+
+- **Real-time Streaming**: AI responses appear word-by-word as they're generated
+- **Visual Indicators**: Typing animations show when AI is responding
+- **Smooth UX**: No waiting for complete responses before seeing content
+- **Error Handling**: Graceful fallback to non-streaming mode if needed
+- **Performance**: Faster perceived response times with streaming
 
 ### Environment Configuration
 

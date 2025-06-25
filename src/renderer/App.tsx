@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { sendMessageWithHistory, type ChatMessage } from "./services/geminiService";
+import { sendMessageWithHistory, streamMessageWithHistory, type ChatMessage } from "./services/geminiService";
 import ChatContainer from "./components/ChatContainer";
 import ChatInput from "./components/ChatInput";
 import FloatingMenu from "./components/FloatingMenu";
@@ -7,8 +7,8 @@ import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
@@ -21,10 +21,42 @@ export default function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    try {
-      const response = await sendMessageWithHistory([...messages, userMessage]);
+    // Create a placeholder assistant message for streaming
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      content: "",
+      role: "assistant",
+      timestamp: new Date(),
+    };
 
-      if (response.error) {
+    setMessages((prev) => [...prev, assistantMessage]);
+    setIsStreaming(true);
+
+    let streamingCompleted = false;
+
+    try {
+      // Use streaming API
+      const response = await streamMessageWithHistory([...messages, userMessage], (chunk) => {
+        if (chunk.isComplete) {
+          // Update the final message with complete text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, content: chunk.fullText || msg.content } : msg
+            )
+          );
+          streamingCompleted = true;
+          setIsStreaming(false);
+        } else {
+          // Update the message with the new chunk
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, content: msg.content + chunk.chunk } : msg))
+          );
+        }
+      });
+
+      // Only handle error if streaming didn't complete successfully
+      if (response.error && !streamingCompleted) {
         let errorContent = "An error occurred";
 
         try {
@@ -36,34 +68,48 @@ export default function App() {
           errorContent = response.error;
         }
 
-        const errorMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: errorContent,
-          role: "assistant",
-          timestamp: new Date(),
-          isError: true,
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } else {
-        const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: response.text,
-          role: "assistant",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+        // Update the assistant message with error, preserving any partial content
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id === assistantMessageId) {
+              const currentContent = msg.content;
+              const errorSuffix = currentContent ? `\n\nError: ${errorContent}` : errorContent;
+              return {
+                ...msg,
+                content: currentContent + errorSuffix,
+                isError: true,
+              };
+            }
+            return msg;
+          })
+        );
       }
     } catch (err) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: "Failed to send message. Please try again.",
-        role: "assistant",
-        timestamp: new Date(),
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      // Only update with error if streaming didn't complete successfully
+      if (!streamingCompleted) {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id === assistantMessageId) {
+              const currentContent = msg.content;
+              const errorSuffix = currentContent
+                ? `\n\nError: Failed to send message. Please try again.`
+                : "Failed to send message. Please try again.";
+              return {
+                ...msg,
+                content: currentContent + errorSuffix,
+                isError: true,
+              };
+            }
+            return msg;
+          })
+        );
+      }
     } finally {
       setIsLoading(false);
+      // Only set streaming to false if it wasn't already set to false in the callback
+      if (!streamingCompleted) {
+        setIsStreaming(false);
+      }
     }
   };
 
@@ -91,7 +137,12 @@ export default function App() {
       <div className="h-screen flex flex-col bg-gray-50">
         <ChatContainer messages={messages} />
 
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} onScreenshot={handleScreenshot} />
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          onScreenshot={handleScreenshot}
+        />
 
         <FloatingMenu onClearChat={handleClearChat} />
       </div>
