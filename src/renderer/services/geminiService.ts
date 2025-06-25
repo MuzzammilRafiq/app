@@ -3,6 +3,7 @@ export interface ChatMessage {
   content: string;
   role: "user" | "assistant";
   timestamp: Date;
+  isError?: boolean;
 }
 
 export interface ChatResponse {

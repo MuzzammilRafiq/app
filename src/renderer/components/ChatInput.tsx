@@ -4,9 +4,10 @@ interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   disabled?: boolean;
+  onScreenshot?: () => void;
 }
 
-export default function ChatInput({ onSendMessage, isLoading, disabled = false }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, isLoading, disabled = false, onScreenshot }: ChatInputProps) {
   const [message, setMessage] = useState("");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -34,9 +35,9 @@ export default function ChatInput({ onSendMessage, isLoading, disabled = false }
   }, [message]);
 
   return (
-    <div className="border-t border-gray-200 p-4 bg-white">
+    <div className="border-t border-gray-200 p-6 bg-white shadow-lg">
       <div className="flex items-end space-x-3">
-        <div className="flex-1">
+        <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
             value={message}
@@ -44,24 +45,53 @@ export default function ChatInput({ onSendMessage, isLoading, disabled = false }
             onKeyUp={handleKeyPress}
             placeholder="Type your message..."
             disabled={isLoading || disabled}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-32 min-h-[40px] disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none max-h-32 min-h-[48px] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200 placeholder-gray-400"
             rows={1}
           />
         </div>
+
+        {onScreenshot && (
+          <button
+            onClick={onScreenshot}
+            className="p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all duration-200 flex items-center justify-center border border-gray-200 hover:border-gray-300"
+            title="Take Screenshot"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        )}
+
         <button
           onClick={handleSend}
           disabled={!message.trim() || isLoading || disabled}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed flex items-center space-x-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none"
         >
           {isLoading ? (
             // Loading state with spinner animation
             <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>...</span>
+              <span>Sending...</span>
             </>
           ) : (
             // Normal send button state
-            <span>Send</span>
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+              <span>Send</span>
+            </>
           )}
         </button>
       </div>
