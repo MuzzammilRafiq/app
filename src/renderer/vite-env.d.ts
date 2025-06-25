@@ -46,16 +46,15 @@ interface Window {
     sendMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
 
     /**
-     * Captures a screenshot using the system's native screenshot tool
+     * Captures a screenshot using the system's native screenshot tool and saves to clipboard
      *
-     * @returns {Promise<{success: boolean, filePath?: string, message?: string, error?: string, platform?: string}>} Screenshot result
+     * @returns {Promise<{success: boolean, hasImage?: boolean, message?: string, error?: string}>} Screenshot result
      */
     captureScreenshot: () => Promise<{
       success: boolean;
-      filePath?: string;
+      hasImage?: boolean;
       message?: string;
       error?: string;
-      platform?: string;
     }>;
   };
 }
