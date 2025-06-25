@@ -77,13 +77,14 @@ export async function streamMessageWithHistory(
     // Set up stream listener
     api.onStreamChunk(onChunk);
 
-    // Start streaming
-    const response = await api.streamMessageWithHistory(messages);
-
-    // Clean up listener
-    api.removeStreamChunkListener();
-
-    return response;
+    try {
+      // Start streaming
+      const response = await api.streamMessageWithHistory(messages);
+      return response;
+    } finally {
+      // Clean up listener - this will always execute, even if an error occurs
+      api.removeStreamChunkListener();
+    }
   } catch (error) {
     console.error("Error calling Gemini API through Electron:", error);
     return {
