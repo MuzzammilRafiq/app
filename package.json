@@ -19,15 +19,24 @@
   },
   "dependencies": {
     "@google/genai": "^1.6.0",
+    "@radix-ui/react-alert-dialog": "^1.1.14",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-toast": "^1.2.14",
     "@tailwindcss/postcss": "^4.1.10",
+    "chalk": "^5.4.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "dotenv": "^16.5.0",
+    "lucide-react": "^0.523.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "sharp": "^0.34.2"
+    "react-hot-toast": "^2.5.2",
+    "sharp": "^0.34.2",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
-    "@types/react": "^19.1.2",
+    "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",

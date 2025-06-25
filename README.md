@@ -7,6 +7,7 @@ A modern AI chat application built with React, Electron, TypeScript, and Google 
 - 🤖 **AI Chat Interface**: Chat with Google Gemini AI using natural language
 - 💬 **Real-time Messaging**: Send and receive messages with a beautiful UI
 - 🔐 **Secure API Handling**: API calls go through Electron's main process for enhanced security
+- 📸 **Screenshot to Clipboard**: Capture screenshots directly to clipboard using native system tools
 - 📱 **Cross-platform**: Works on Windows, macOS, and Linux
 - 🎨 **Modern UI**: Clean, responsive design with Tailwind CSS
 - ⚡ **Fast Performance**: Built with Vite for quick development and builds

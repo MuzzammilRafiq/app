@@ -32,8 +32,8 @@ function createWindow(): BrowserWindow {
 
   // Create the main application window
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 800,
+    width: 1500,
+    height: 1000,
     webPreferences: {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
