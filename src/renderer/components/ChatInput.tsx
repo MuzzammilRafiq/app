@@ -21,7 +21,7 @@ export default function ChatInput({
 
   const handleSend = () => {
     const trimmedMessage = message.trim();
-    if (trimmedMessage && !isLoading && !disabled) {
+    if (trimmedMessage && !isLoading && !isStreaming && !disabled) {
       onSendMessage(trimmedMessage);
       setMessage("");
     }
@@ -77,7 +77,7 @@ export default function ChatInput({
 
         <button
           onClick={handleSend}
-          disabled={!message.trim() || isLoading || disabled}
+          disabled={!message.trim() || isLoading || isStreaming || disabled}
           className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed flex items-center space-x-2 font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none"
         >
           {isLoading ? (
