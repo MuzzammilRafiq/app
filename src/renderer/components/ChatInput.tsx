@@ -3,11 +3,18 @@ import { useState, useRef, useEffect } from "react";
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  isStreaming?: boolean;
   disabled?: boolean;
   onScreenshot?: () => void;
 }
 
-export default function ChatInput({ onSendMessage, isLoading, disabled = false, onScreenshot }: ChatInputProps) {
+export default function ChatInput({
+  onSendMessage,
+  isLoading,
+  isStreaming = false,
+  disabled = false,
+  onScreenshot,
+}: ChatInputProps) {
   const [message, setMessage] = useState("");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -78,6 +85,24 @@ export default function ChatInput({ onSendMessage, isLoading, disabled = false, 
             <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               <span>Sending...</span>
+            </>
+          ) : isStreaming ? (
+            // Streaming state with typing indicator
+            <>
+              <div className="w-4 h-4 flex items-center justify-center">
+                <div className="flex space-x-1">
+                  <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
+                  <div
+                    className="w-1 h-1 bg-white rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-1 h-1 bg-white rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                </div>
+              </div>
+              <span>Streaming...</span>
             </>
           ) : (
             // Normal send button state

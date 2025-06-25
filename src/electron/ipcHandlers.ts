@@ -108,6 +108,68 @@ export function setupGeminiHandlers() {
       };
     }
   });
+
+  // IPC handler for streaming conversation history to Gemini AI
+  ipcMain.handle("gemini:stream-message-with-history", async (event, messages: any[]) => {
+    // Check if AI service is properly initialized
+    if (!ai || !apiKey) {
+      return {
+        text: "",
+        error: "Gemini service not initialized. Please check your GEMINI_API_KEY environment variable.",
+      };
+    }
+
+    try {
+      // Transform message history to Gemini API format
+      const contents = messages.map((msg) => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.content }],
+      }));
+
+      // Create streaming response
+      const result = await ai.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      });
+
+      let fullText = "";
+
+      // Stream the response chunks
+      for await (const chunk of result) {
+        const chunkText = chunk.text;
+        if (chunkText) {
+          fullText += chunkText;
+          // Send chunk to renderer process
+          event.sender.send("gemini:stream-chunk", {
+            chunk: chunkText,
+            isComplete: false,
+          });
+        }
+      }
+
+      // Send completion signal
+      event.sender.send("gemini:stream-chunk", {
+        chunk: "",
+        isComplete: true,
+        fullText,
+      });
+
+      return {
+        text: fullText,
+      };
+    } catch (error) {
+      console.error("Error calling Gemini API with streaming:", error);
+      return {
+        text: "",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  });
 }
 
 // IPC handler for capturing screenshots using system tools

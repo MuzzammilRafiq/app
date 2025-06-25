@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { sendMessageWithHistory, type ChatMessage } from "./services/geminiService";
+import { sendMessageWithHistory, streamMessageWithHistory, type ChatMessage } from "./services/geminiService";
 import ChatContainer from "./components/ChatContainer";
 import ChatInput from "./components/ChatInput";
 import FloatingMenu from "./components/FloatingMenu";
@@ -7,8 +7,8 @@ import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
@@ -21,8 +21,36 @@ export default function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Create a placeholder assistant message for streaming
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      content: "",
+      role: "assistant",
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, assistantMessage]);
+    setIsStreaming(true);
+
     try {
-      const response = await sendMessageWithHistory([...messages, userMessage]);
+      // Use streaming API
+      const response = await streamMessageWithHistory([...messages, userMessage], (chunk) => {
+        if (chunk.isComplete) {
+          // Update the final message with complete text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, content: chunk.fullText || msg.content } : msg
+            )
+          );
+          setIsStreaming(false);
+        } else {
+          // Update the message with the new chunk
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, content: msg.content + chunk.chunk } : msg))
+          );
+        }
+      });
 
       if (response.error) {
         let errorContent = "An error occurred";
@@ -36,34 +64,23 @@ export default function App() {
           errorContent = response.error;
         }
 
-        const errorMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: errorContent,
-          role: "assistant",
-          timestamp: new Date(),
-          isError: true,
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } else {
-        const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: response.text,
-          role: "assistant",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+        // Update the assistant message with error
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, content: errorContent, isError: true } : msg))
+        );
       }
     } catch (err) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: "Failed to send message. Please try again.",
-        role: "assistant",
-        timestamp: new Date(),
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      // Update the assistant message with error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Failed to send message. Please try again.", isError: true }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
     }
   };
 
@@ -91,7 +108,12 @@ export default function App() {
       <div className="h-screen flex flex-col bg-gray-50">
         <ChatContainer messages={messages} />
 
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} onScreenshot={handleScreenshot} />
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          onScreenshot={handleScreenshot}
+        />
 
         <FloatingMenu onClearChat={handleClearChat} />
       </div>

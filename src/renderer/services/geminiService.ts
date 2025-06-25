@@ -11,6 +11,14 @@ export interface ChatResponse {
   error?: string;
 }
 
+export interface StreamChunk {
+  chunk: string;
+  isComplete: boolean;
+  fullText?: string;
+}
+
+export type StreamCallback = (chunk: StreamChunk) => void;
+
 function waitForElectronAPI(timeout = 5000): Promise<typeof window.electronAPI> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
@@ -49,6 +57,32 @@ export async function sendMessageWithHistory(messages: ChatMessage[]): Promise<C
     const api = await waitForElectronAPI();
 
     const response = await api.sendMessageWithHistory(messages);
+    return response;
+  } catch (error) {
+    console.error("Error calling Gemini API through Electron:", error);
+    return {
+      text: "",
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+export async function streamMessageWithHistory(
+  messages: ChatMessage[],
+  onChunk: StreamCallback
+): Promise<ChatResponse> {
+  try {
+    const api = await waitForElectronAPI();
+
+    // Set up stream listener
+    api.onStreamChunk(onChunk);
+
+    // Start streaming
+    const response = await api.streamMessageWithHistory(messages);
+
+    // Clean up listener
+    api.removeStreamChunkListener();
+
     return response;
   } catch (error) {
     console.error("Error calling Gemini API through Electron:", error);
