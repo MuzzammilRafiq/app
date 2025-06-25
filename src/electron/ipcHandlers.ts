@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog } from "electron";
+import { ipcMain, BrowserWindow, dialog, clipboard } from "electron";
 import { GoogleGenAI } from "@google/genai";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -123,57 +123,31 @@ export function setupScreenshotHandlers() {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
-      // Prepare screenshot command based on operating system
-      let command: string;
-      const timestamp = Date.now();
-      const filename = `screenshot-${timestamp}.png`;
-      const desktopPath = path.join(process.env.HOME || process.env.USERPROFILE || "", "Desktop");
-      const filePath = path.join(desktopPath, filename);
+      // macOS - use built-in screencapture with interactive selection and clipboard output
+      const command = `screencapture -i -c`;
 
-      if (process.platform === "darwin") {
-        // macOS - use built-in screencapture with interactive selection (-i flag)
-        command = `screencapture -i "${filePath}"`;
-      } else if (process.platform === "win32") {
-        // Windows - open Snipping Tool (user handles capture manually)
-        command = `start snippingtool`;
-      } else {
-        // Linux - use GNOME screenshot tool with area selection (-a flag)
-        command = `gnome-screenshot -a -f "${filePath}"`;
-      }
+      // Execute screenshot command
+      await execAsync(command);
 
-      if (process.platform === "win32") {
-        // Windows: Just open snipping tool, let user handle the rest
-        await execAsync(command);
-        if (mainWindow) mainWindow.show();
+      // Wait a moment for the clipboard to be updated
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Restore the main window
+      if (mainWindow) mainWindow.show();
+
+      // Check if clipboard contains an image
+      const clipboardImage = clipboard.readImage();
+      if (!clipboardImage.isEmpty()) {
         return {
           success: true,
-          message: "Snipping Tool opened. Please capture your screenshot manually.",
-          platform: "windows",
+          message: "Screenshot captured and saved to clipboard",
+          hasImage: true,
         };
       } else {
-        // macOS and Linux: Execute screenshot command
-        await execAsync(command);
-
-        // Wait for file to be written to disk
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Restore the main window
-        if (mainWindow) mainWindow.show();
-
-        // Verify that screenshot file was created
-        const fs = await import("fs");
-        if (fs.existsSync(filePath)) {
-          return {
-            success: true,
-            filePath: filePath,
-            message: "Screenshot saved successfully",
-          };
-        } else {
-          return {
-            success: false,
-            error: "Screenshot was cancelled or failed",
-          };
-        }
+        return {
+          success: false,
+          error: "Screenshot was cancelled or failed",
+        };
       }
     } catch (error) {
       console.error("Error taking screenshot:", error);
@@ -204,22 +178,6 @@ export function setupScreenshotHandlers() {
       selectionWindow.close();
       if (mainWindow) mainWindow.show();
 
-      // Show save dialog to let user choose where to save screenshot
-      const result = await dialog.showSaveDialog({
-        title: "Save Screenshot",
-        defaultPath: `screenshot-${Date.now()}.png`,
-        filters: [
-          { name: "PNG Files", extensions: ["png"] },
-          { name: "JPEG Files", extensions: ["jpg", "jpeg"] },
-          { name: "All Files", extensions: ["*"] },
-        ],
-      });
-
-      // If user cancels save dialog
-      if (result.canceled) {
-        return { success: false, error: "Screenshot cancelled" };
-      }
-
       // Start with original screenshot buffer
       let finalBuffer = buffer;
 
@@ -244,17 +202,17 @@ export function setupScreenshotHandlers() {
           .toBuffer();
       }
 
-      // Write the final image to disk
-      const fs = await import("fs");
-      fs.writeFileSync(result.filePath, finalBuffer);
+      // Save the final image to clipboard
+      const nativeImage = require("electron").nativeImage;
+      const image = nativeImage.createFromBuffer(finalBuffer);
+      clipboard.writeImage(image);
 
       // Clean up global screenshot data
       delete global.screenshotData;
 
       return {
         success: true,
-        filePath: result.filePath,
-        message: "Screenshot saved successfully",
+        message: "Screenshot saved to clipboard successfully",
       };
     } catch (error) {
       console.error("Error finishing screenshot:", error);
