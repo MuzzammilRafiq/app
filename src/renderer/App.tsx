@@ -33,6 +33,8 @@ export default function App() {
     setMessages((prev) => [...prev, assistantMessage]);
     setIsStreaming(true);
 
+    let streamingCompleted = false;
+
     try {
       // Use streaming API
       const response = await streamMessageWithHistory([...messages, userMessage], (chunk) => {
@@ -43,6 +45,7 @@ export default function App() {
               msg.id === assistantMessageId ? { ...msg, content: chunk.fullText || msg.content } : msg
             )
           );
+          streamingCompleted = true;
           setIsStreaming(false);
         } else {
           // Update the message with the new chunk
@@ -52,7 +55,8 @@ export default function App() {
         }
       });
 
-      if (response.error) {
+      // Only handle error if streaming didn't complete successfully
+      if (response.error && !streamingCompleted) {
         let errorContent = "An error occurred";
 
         try {
@@ -64,23 +68,48 @@ export default function App() {
           errorContent = response.error;
         }
 
-        // Update the assistant message with error
+        // Update the assistant message with error, preserving any partial content
         setMessages((prev) =>
-          prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, content: errorContent, isError: true } : msg))
+          prev.map((msg) => {
+            if (msg.id === assistantMessageId) {
+              const currentContent = msg.content;
+              const errorSuffix = currentContent ? `\n\nError: ${errorContent}` : errorContent;
+              return {
+                ...msg,
+                content: currentContent + errorSuffix,
+                isError: true,
+              };
+            }
+            return msg;
+          })
         );
       }
     } catch (err) {
-      // Update the assistant message with error
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: "Failed to send message. Please try again.", isError: true }
-            : msg
-        )
-      );
+      // Only update with error if streaming didn't complete successfully
+      if (!streamingCompleted) {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id === assistantMessageId) {
+              const currentContent = msg.content;
+              const errorSuffix = currentContent
+                ? `\n\nError: Failed to send message. Please try again.`
+                : "Failed to send message. Please try again.";
+              return {
+                ...msg,
+                content: currentContent + errorSuffix,
+                isError: true,
+              };
+            }
+            return msg;
+          })
+        );
+      }
     } finally {
       setIsLoading(false);
-      setIsStreaming(false);
+      // Only set streaming to false if it wasn't already set to false in the callback
+      if (!streamingCompleted) {
+        setIsStreaming(false);
+      }
     }
   };
 
