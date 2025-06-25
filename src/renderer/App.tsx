@@ -25,9 +25,20 @@ export default function App() {
       const response = await sendMessageWithHistory([...messages, userMessage]);
 
       if (response.error) {
+        let errorContent = "An error occurred";
+
+        try {
+          // Try to parse as JSON first
+          const parsedError = JSON.parse(response.error);
+          errorContent = parsedError.error?.message || parsedError.message || response.error;
+        } catch {
+          // If JSON parsing fails, treat as plain string
+          errorContent = response.error;
+        }
+
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          content: JSON.parse(response.error || "{}").error.message,
+          content: errorContent,
           role: "assistant",
           timestamp: new Date(),
           isError: true,
