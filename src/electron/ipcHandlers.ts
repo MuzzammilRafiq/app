@@ -1,8 +1,11 @@
-import { ipcMain, BrowserWindow, dialog, clipboard } from "electron";
+import { ipcMain, BrowserWindow, clipboard } from "electron";
 import { GoogleGenAI } from "@google/genai";
 import { exec } from "child_process";
 import { promisify } from "util";
-import * as path from "path";
+import chalk from "chalk";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Convert exec to promise-based function for async/await usage
 const execAsync = promisify(exec);
@@ -24,12 +27,11 @@ declare global {
 // Initialize Google Gemini AI service
 let ai: GoogleGenAI | null = null;
 const apiKey = process.env.GEMINI_API_KEY;
-
 // Check if API key exists and initialize AI service
 if (apiKey) {
   ai = new GoogleGenAI({ apiKey });
 } else {
-  console.warn("GEMINI_API_KEY not found in environment variables");
+  console.warn(chalk.red("GEMINI_API_KEY not found in environment variables"));
 }
 
 // IPC handler for sending single messages to Gemini AI
@@ -147,6 +149,7 @@ export function setupScreenshotHandlers() {
         return {
           success: false,
           error: "Screenshot was cancelled or failed",
+          hasImage: false,
         };
       }
     } catch (error) {
