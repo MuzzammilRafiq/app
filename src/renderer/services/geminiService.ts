@@ -4,6 +4,13 @@ export interface ChatMessage {
   role: "user" | "assistant";
   timestamp: Date;
   isError?: boolean;
+  images?: ImageData[];
+}
+
+export interface ImageData {
+  data: string;
+  mimeType: string;
+  name?: string;
 }
 
 export interface ChatResponse {
@@ -92,4 +99,36 @@ export async function streamMessageWithHistory(
       error: error instanceof Error ? error.message : "Unknown error occurred",
     };
   }
+}
+
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      if (base64) {
+        resolve(base64);
+      } else {
+        reject(new Error("Failed to convert file to base64"));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function validateImageFile(file: File): { isValid: boolean; error?: string } {
+  const maxSize = 20 * 1024 * 1024;
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+
+  if (file.size > maxSize) {
+    return { isValid: false, error: "Image file size must be less than 20MB" };
+  }
+
+  if (!allowedTypes.includes(file.type)) {
+    return { isValid: false, error: "Only JPEG, PNG, WebP, and GIF images are supported" };
+  }
+
+  return { isValid: true };
 }

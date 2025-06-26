@@ -26,7 +26,31 @@ export default function ChatMessage(message: ChatMessageType) {
             <span className="text-gray-600 text-sm">AI is typing...</span>
           </div>
         ) : (
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          <div className="space-y-3">
+            {/* Display images if present */}
+            {message.images && message.images.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {message.images.map((image, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={`data:${image.mimeType};base64,${image.data}`}
+                      alt={image.name || `Image ${index + 1}`}
+                      className="max-w-full max-h-48 rounded-lg border border-gray-300"
+                      style={{ maxWidth: "200px" }}
+                    />
+                    {image.name && (
+                      <div className={`text-xs mt-1 opacity-70 ${isUser ? "text-blue-100" : "text-gray-500"}`}>
+                        {image.name}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Display text content */}
+            {message.content && <div className="whitespace-pre-wrap break-words">{message.content}</div>}
+          </div>
         )}
 
         <div

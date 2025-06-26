@@ -81,10 +81,31 @@ export function setupGeminiHandlers() {
 
     try {
       // Transform message history to Gemini API format
-      const contents = messages.map((msg) => ({
-        role: msg.role === "user" ? "user" : "model", // Map roles to Gemini format
-        parts: [{ text: msg.content }], // Wrap content in parts array
-      }));
+      const contents = messages.map((msg) => {
+        const parts = [];
+
+        // Add text content if present
+        if (msg.content) {
+          parts.push({ text: msg.content });
+        }
+
+        // Add image data if present
+        if (msg.images && msg.images.length > 0) {
+          for (const image of msg.images) {
+            parts.push({
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.data,
+              },
+            });
+          }
+        }
+
+        return {
+          role: msg.role === "user" ? "user" : "model",
+          parts: parts,
+        };
+      });
 
       // Send conversation history to Gemini API
       const response = await ai.models.generateContent({
@@ -121,10 +142,31 @@ export function setupGeminiHandlers() {
 
     try {
       // Transform message history to Gemini API format
-      const contents = messages.map((msg) => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.content }],
-      }));
+      const contents = messages.map((msg) => {
+        const parts = [];
+
+        // Add text content if present
+        if (msg.content) {
+          parts.push({ text: msg.content });
+        }
+
+        // Add image data if present
+        if (msg.images && msg.images.length > 0) {
+          for (const image of msg.images) {
+            parts.push({
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.data,
+              },
+            });
+          }
+        }
+
+        return {
+          role: msg.role === "user" ? "user" : "model",
+          parts: parts,
+        };
+      });
 
       // Create streaming response
       const result = await ai.models.generateContentStream({
