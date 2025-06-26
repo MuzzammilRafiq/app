@@ -229,6 +229,10 @@ export function setupScreenshotHandlers() {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
+      // Store the clipboard content before taking screenshot
+      const clipboardBefore = clipboard.readImage();
+      const clipboardBeforeBuffer = clipboardBefore.isEmpty() ? null : clipboardBefore.toPNG();
+
       // macOS - use built-in screencapture with interactive selection and clipboard output
       const command = `screencapture -i -c`;
 
@@ -241,14 +245,38 @@ export function setupScreenshotHandlers() {
       // Restore the main window
       if (mainWindow) mainWindow.show();
 
-      // Check if clipboard contains an image
+      // Check if clipboard contains an image and if it's different from before
       const clipboardImage = clipboard.readImage();
       if (!clipboardImage.isEmpty()) {
-        return {
-          success: true,
-          message: "Screenshot captured and saved to clipboard",
-          hasImage: true,
-        };
+        const clipboardAfterBuffer = clipboardImage.toPNG();
+
+        // Check if the clipboard content actually changed (new screenshot was taken)
+        const isNewScreenshot =
+          !clipboardBeforeBuffer ||
+          clipboardBeforeBuffer.length !== clipboardAfterBuffer.length ||
+          !clipboardBeforeBuffer.equals(clipboardAfterBuffer);
+
+        if (isNewScreenshot) {
+          // Convert clipboard image to base64 for sending to renderer
+          const base64Data = clipboardAfterBuffer.toString("base64");
+
+          return {
+            success: true,
+            message: "Screenshot captured and saved to clipboard",
+            hasImage: true,
+            imageData: {
+              data: base64Data,
+              mimeType: "image/png",
+            },
+          };
+        } else {
+          // Clipboard content didn't change, user likely cancelled
+          return {
+            success: false,
+            error: "Screenshot was cancelled",
+            hasImage: false,
+          };
+        }
       } else {
         return {
           success: false,

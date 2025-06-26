@@ -68,13 +68,29 @@ interface Window {
     /**
      * Captures a screenshot using the system's native screenshot tool and saves to clipboard
      *
-     * @returns {Promise<{success: boolean, hasImage?: boolean, message?: string, error?: string}>} Screenshot result
+     * @returns {Promise<{success: boolean, hasImage?: boolean, message?: string, error?: string, imageData?: {data: string, mimeType: string}}>} Screenshot result
      */
     captureScreenshot: () => Promise<{
       success: boolean;
       hasImage?: boolean;
       message?: string;
       error?: string;
+      imageData?: {
+        data: string;
+        mimeType: string;
+      };
     }>;
+
+    /**
+     * Sets up a listener for global screenshot trigger (Option+Space hotkey)
+     *
+     * @param {Function} callback - Callback function to handle global screenshot trigger
+     */
+    onGlobalScreenshotTrigger: (callback: () => void) => void;
+
+    /**
+     * Removes all global screenshot trigger listeners
+     */
+    removeGlobalScreenshotListener: () => void;
   };
 }

@@ -28,6 +28,14 @@ const electronAPI = {
   },
 
   captureScreenshot: () => ipcRenderer.invoke("screenshot:capture"),
+
+  onGlobalScreenshotTrigger: (callback: () => void) => {
+    ipcRenderer.on("global-screenshot-trigger", () => callback());
+  },
+
+  removeGlobalScreenshotListener: () => {
+    ipcRenderer.removeAllListeners("global-screenshot-trigger");
+  },
 };
 
 console.log("Exposing electronAPI:", electronAPI);

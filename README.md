@@ -13,12 +13,26 @@ A modern AI chat application built with React, Electron, TypeScript, and Google 
 - 📱 **Cross-platform**: Works on Windows, macOS, and Linux
 - 🎨 **Modern UI**: Clean, responsive design with Tailwind CSS
 - ⚡ **Fast Performance**: Built with Vite for quick development and builds
+- 🔥 **Global Screenshot Hotkey**: Press `Option+Space` (macOS) to take a screenshot and automatically append it to the chat
+
+## Global Screenshot Feature
+
+The app includes a global hotkey feature that allows you to take screenshots from anywhere on your system and automatically append them to the chat:
+
+- **Hotkey**: `Option+Space` (macOS)
+- **How it works**:
+  1. Press `Option+Space` from anywhere on your system
+  2. The app will hide itself and open the macOS screenshot selection tool
+  3. Select the area you want to capture
+  4. The screenshot is automatically added to the chat as a new message
+  5. You can then ask the AI about the screenshot
 
 ## Prerequisites
 
 - Node.js (v16 or higher)
 - npm or yarn
 - Google Gemini API key
+- macOS (for global hotkey functionality)
 
 ## Getting Started
 

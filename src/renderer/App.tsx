@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { streamMessageWithHistory, type ChatMessage, type ImageData } from "./services/geminiService";
 import ChatContainer from "./components/ChatContainer";
-import ChatInput from "./components/ChatInput";
+import ChatInput, { type ChatInputHandle } from "./components/ChatInput";
 import FloatingMenu from "./components/FloatingMenu";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -9,6 +9,41 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Ref to ChatInput to programmatically add images
+  const chatInputRef = useRef<ChatInputHandle>(null);
+
+  // Listen for global screenshot trigger
+  useEffect(() => {
+    const handleGlobalScreenshot = async () => {
+      try {
+        const result = await window.electronAPI.captureScreenshot();
+
+        if (result.success && result.hasImage && result.imageData) {
+          // Add screenshot to chat input instead of chat
+          chatInputRef.current?.addImage(result.imageData);
+          toast.success("Screenshot added to input");
+        } else if (result.success) {
+          toast.success(result.message || "Screenshot completed");
+        } else {
+          // Only show error toast if it's not a cancellation
+          if (result.error !== "Screenshot was cancelled") {
+            toast.error(`Screenshot failed: ${result.error}`);
+          }
+        }
+      } catch (error) {
+        toast.error("Failed to take screenshot");
+      }
+    };
+
+    // Set up the listener
+    window.electronAPI.onGlobalScreenshotTrigger(handleGlobalScreenshot);
+
+    // Cleanup function
+    return () => {
+      window.electronAPI.removeGlobalScreenshotListener();
+    };
+  }, []);
 
   const handleSendMessage = async (content: string, images?: ImageData[]) => {
     const userMessage: ChatMessage = {
@@ -125,7 +160,10 @@ export default function App() {
       if (result.success) {
         toast.success(result.message || "Screenshot completed");
       } else {
-        toast.error(`Screenshot failed: ${result.error}`);
+        // Only show error toast if it's not a cancellation
+        if (result.error !== "Screenshot was cancelled") {
+          toast.error(`Screenshot failed: ${result.error}`);
+        }
       }
     } catch (error) {
       toast.error("Failed to take screenshot");
@@ -139,6 +177,7 @@ export default function App() {
         <ChatContainer messages={messages} />
 
         <ChatInput
+          ref={chatInputRef}
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
           isStreaming={isStreaming}
