@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { fileToBase64, validateImageFile, type ImageData } from "../services/geminiService";
 import toast from "react-hot-toast";
 
@@ -10,13 +10,14 @@ interface ChatInputProps {
   onScreenshot?: () => void;
 }
 
-export default function ChatInput({
-  onSendMessage,
-  isLoading,
-  isStreaming = false,
-  disabled = false,
-  onScreenshot,
-}: ChatInputProps) {
+export interface ChatInputHandle {
+  addImage: (image: ImageData) => void;
+}
+
+const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
+  { onSendMessage, isLoading, isStreaming = false, disabled = false, onScreenshot },
+  ref
+) {
   const [message, setMessage] = useState("");
   const [selectedImages, setSelectedImages] = useState<ImageData[]>([]);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -214,6 +215,12 @@ export default function ChatInput({
     }
   }, [message]);
 
+  useImperativeHandle(ref, () => ({
+    addImage: (image: ImageData) => {
+      setSelectedImages((prev) => [...prev, image]);
+    },
+  }));
+
   return (
     <div className="border-t border-gray-200 p-6 bg-white shadow-lg" onDragOver={handleDragOver} onDrop={handleDrop}>
       {/* Image preview section */}
@@ -349,4 +356,6 @@ export default function ChatInput({
       </div>
     </div>
   );
-}
+});
+
+export default ChatInput;

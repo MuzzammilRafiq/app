@@ -1,5 +1,5 @@
 // Import necessary Electron modules and other dependencies
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -69,6 +69,21 @@ app.whenReady().then(() => {
   setupGeminiHandlers();
   setupScreenshotHandlers();
 
+  // Register global hotkey for screenshot (Option+Space)
+  const ret = globalShortcut.register("Alt+Space", () => {
+    console.log("Global hotkey Option+Space pressed");
+    if (mainWindow) {
+      // Send message to renderer to trigger screenshot with auto-append
+      mainWindow.webContents.send("global-screenshot-trigger");
+    }
+  });
+
+  if (!ret) {
+    console.log("Global hotkey registration failed");
+  } else {
+    console.log("Global hotkey Option+Space registered successfully");
+  }
+
   // Create the main window
   createWindow();
 });
@@ -102,4 +117,9 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+// Clean up global shortcuts when app is about to quit
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
