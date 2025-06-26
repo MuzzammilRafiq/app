@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { sendMessageWithHistory, streamMessageWithHistory, type ChatMessage } from "./services/geminiService";
+import { streamMessageWithHistory, type ChatMessage, type ImageData } from "./services/geminiService";
 import ChatContainer from "./components/ChatContainer";
 import ChatInput from "./components/ChatInput";
 import FloatingMenu from "./components/FloatingMenu";
@@ -10,12 +10,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, images?: ImageData[]) => {
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       content,
       role: "user",
       timestamp: new Date(),
+      images: images,
     };
 
     setMessages((prev) => [...prev, userMessage]);

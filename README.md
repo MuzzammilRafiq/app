@@ -6,6 +6,7 @@ A modern AI chat application built with React, Electron, TypeScript, and Google 
 
 - 🤖 **AI Chat Interface**: Chat with Google Gemini AI using natural language
 - 💬 **Real-time Messaging**: Send and receive messages with a beautiful UI
+- 🖼️ **Image Input Support**: Upload and paste images to chat with AI about visual content
 - ⚡ **Streaming Responses**: Real-time streaming of AI responses for better user experience
 - 🔐 **Secure API Handling**: API calls go through Electron's main process for enhanced security
 - 📸 **Screenshot to Clipboard**: Capture screenshots directly to clipboard using native system tools
@@ -111,6 +112,19 @@ User Input → React Component → IPC Call → Main Process → Gemini API → 
 - Message timestamps
 - Loading states during AI responses
 - Error handling and display
+
+### Image Input Support
+
+- **Multiple Upload Methods**:
+  - Click the image button to select files from your computer
+  - Paste images directly from clipboard (Ctrl/Cmd+V)
+  - Drag and drop support for image files
+- **Image Preview**: See thumbnails of selected images before sending
+- **File Validation**: Automatic validation of file size (max 20MB) and format (JPEG, PNG, WebP, GIF)
+- **Multiple Images**: Upload and send multiple images in a single message
+- **Visual AI Chat**: Ask questions about images, get descriptions, or analyze visual content
+- **Image Management**: Remove individual images before sending
+- **Responsive Display**: Images are properly displayed in chat messages with appropriate sizing
 
 ### Streaming Responses
 
