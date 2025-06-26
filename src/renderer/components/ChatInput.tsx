@@ -154,19 +154,31 @@ export default function ChatInput({
     const items = event.clipboardData?.items;
     if (!items) return;
 
+    let hasImages = false;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (!item) continue;
 
       if (item.type.startsWith("image/")) {
-        event.preventDefault();
+        hasImages = true;
+        break;
+      }
+    }
 
-        const file = item.getAsFile();
-        if (!file) continue;
+    if (!hasImages) return;
 
-        setIsProcessingImage(true);
+    event.preventDefault();
+    setIsProcessingImage(true);
 
-        try {
+    try {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item) continue;
+
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) continue;
+
           // Validate the file
           const validation = validateImageFile(file);
           if (!validation.isValid) {
@@ -185,13 +197,13 @@ export default function ChatInput({
 
           setSelectedImages((prev) => [...prev, newImage]);
           toast.success("Image pasted successfully");
-        } catch (error) {
-          console.error("Error processing pasted image:", error);
-          toast.error("Failed to process pasted image");
-        } finally {
-          setIsProcessingImage(false);
         }
       }
+    } catch (error) {
+      console.error("Error processing pasted image:", error);
+      toast.error("Failed to process pasted image");
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
