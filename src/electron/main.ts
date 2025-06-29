@@ -53,13 +53,15 @@ function createWindow(): BrowserWindow {
   // Open DevTools in development mode
   if (isDev) {
     mainWindow.webContents.openDevTools();
-    // Disable DevTools console logging to suppress autofill errors
+    // Filter out autofill-related console messages
     mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
-      // Filter out autofill-related errors
+      // Filter out autofill-related errors by simply not logging them
       if (message.includes("Autofill.enable") || message.includes("Autofill.setAddresses")) {
-        event.preventDefault();
+        // Silently ignore autofill messages - they cannot be prevented
         return;
       }
+      // For other messages, you can optionally log them to a different location
+      // console.log(`[Renderer] ${message}`);
     });
   }
 
