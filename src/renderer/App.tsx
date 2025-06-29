@@ -157,7 +157,11 @@ export default function App() {
     try {
       const result = await window.electronAPI.captureScreenshot();
 
-      if (result.success) {
+      if (result.success && result.hasImage && result.imageData) {
+        // Add screenshot to chat input instead of chat
+        chatInputRef.current?.addImage(result.imageData);
+        toast.success("Screenshot added to input");
+      } else if (result.success) {
         toast.success(result.message || "Screenshot completed");
       } else {
         // Only show error toast if it's not a cancellation
