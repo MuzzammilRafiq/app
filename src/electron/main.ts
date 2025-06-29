@@ -53,6 +53,14 @@ function createWindow(): BrowserWindow {
   // Open DevTools in development mode
   if (isDev) {
     mainWindow.webContents.openDevTools();
+    // Disable DevTools console logging to suppress autofill errors
+    mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
+      // Filter out autofill-related errors
+      if (message.includes("Autofill.enable") || message.includes("Autofill.setAddresses")) {
+        event.preventDefault();
+        return;
+      }
+    });
   }
 
   // Handle window closed event
