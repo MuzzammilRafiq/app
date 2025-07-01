@@ -5,6 +5,7 @@
     "moduleResolution": "Node",
     "strict": true,
     "outDir": "../../dist-electron",
+    "rootDir": ".",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
