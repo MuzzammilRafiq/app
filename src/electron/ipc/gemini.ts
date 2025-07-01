@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { GoogleGenAI } from "@google/genai";
 import chalk from "chalk";
 import dotenv from "dotenv";
+import { ToolHandler } from "../tools/toolHandler.js";
 
 dotenv.config();
 
@@ -15,6 +16,9 @@ if (apiKey) {
   console.warn(chalk.red("GEMINI_API_KEY not found in environment variables"));
 }
 
+// Initialize tool handler
+const toolHandler = ToolHandler.getInstance();
+
 // IPC handler for sending single messages to Gemini AI
 export function setupGeminiHandlers() {
   ipcMain.handle("gemini:send-message", async (event, message: string) => {
@@ -27,10 +31,17 @@ export function setupGeminiHandlers() {
     }
 
     try {
-      // Send message to Gemini API with specific model and configuration
+      // Process message through tool handler first
+      const { enhancedMessage } = await toolHandler.processMessage(message);
+
+      // Log the enhanced message after tool calling
+      console.log(chalk.blue("[Gemini] Enhanced message after tool calling:"));
+      console.log(chalk.gray(enhancedMessage));
+
+      // Send enhanced message to Gemini API with specific model and configuration
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash", // Using flash model for faster responses
-        contents: message,
+        contents: enhancedMessage,
         config: {
           thinkingConfig: {
             thinkingBudget: 0, // Disable thinking budget for faster response
@@ -61,8 +72,36 @@ export function setupGeminiHandlers() {
     }
 
     try {
+      // Process the last user message through tool handler
+      const lastUserMessage = messages.filter((msg) => msg.role === "user" && msg.content).pop();
+      let processedMessages = [...messages];
+
+      if (lastUserMessage) {
+        const { enhancedMessage, toolResults } = await toolHandler.processMessage(lastUserMessage.content);
+
+        // Log the enhanced message after tool calling
+        console.log(chalk.blue("[Gemini History] Enhanced message after tool calling:"));
+        console.log(chalk.gray(enhancedMessage));
+
+        // Update the last user message with enhanced content
+        processedMessages = messages.map((msg) => {
+          if (msg === lastUserMessage) {
+            return {
+              ...msg,
+              content: enhancedMessage,
+            };
+          }
+          return msg;
+        });
+
+        // Log tool results for debugging
+        if (toolResults.length > 0) {
+          console.log(`[Gemini] Applied ${toolResults.length} tool results to message`);
+        }
+      }
+
       // Transform message history to Gemini API format
-      const contents = messages.map((msg) => {
+      const contents = processedMessages.map((msg) => {
         const parts = [];
 
         // Add text content if present
@@ -122,8 +161,36 @@ export function setupGeminiHandlers() {
     }
 
     try {
+      // Process the last user message through tool handler
+      const lastUserMessage = messages.filter((msg) => msg.role === "user" && msg.content).pop();
+      let processedMessages = [...messages];
+
+      if (lastUserMessage) {
+        const { enhancedMessage, toolResults } = await toolHandler.processMessage(lastUserMessage.content);
+
+        // Log the enhanced message after tool calling
+        console.log(chalk.blue("[Gemini Stream] Enhanced message after tool calling:"));
+        console.log(chalk.green(enhancedMessage));
+
+        // Update the last user message with enhanced content
+        processedMessages = messages.map((msg) => {
+          if (msg === lastUserMessage) {
+            return {
+              ...msg,
+              content: enhancedMessage,
+            };
+          }
+          return msg;
+        });
+
+        // Log tool results for debugging
+        if (toolResults.length > 0) {
+          console.log(`[Gemini Stream] Applied ${toolResults.length} tool results to message`);
+        }
+      }
+
       // Transform message history to Gemini API format
-      const contents = messages.map((msg) => {
+      const contents = processedMessages.map((msg) => {
         const parts = [];
 
         // Add text content if present
