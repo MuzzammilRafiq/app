@@ -13,12 +13,10 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": [
-    "**/*.ts"
-  ],
+  "include": ["**/*.ts"],
   "exclude": [
     "node_modules",
     "../../dist-electron",
-    "preload.ts"
+    "ipc/preload.ts" // it is handled seperately
   ]
 }

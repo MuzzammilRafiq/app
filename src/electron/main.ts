@@ -3,8 +3,8 @@ import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { isDev } from "./util.js";
-import { setupGeminiHandlers, setupScreenshotHandlers } from "./ipcHandlers.js";
+import { setupGeminiHandlers } from "./ipc/gemini.js";
+import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 
 // Get current file path and directory (needed for ES modules)
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +42,7 @@ function createWindow(): BrowserWindow {
   });
 
   // Load appropriate content based on development/production mode
-  if (isDev) {
+  if (process.env.NODE_ENV === "development") {
     // Development: Load from Vite dev server
     mainWindow.loadURL("http://localhost:5173");
   } else {
@@ -51,7 +51,7 @@ function createWindow(): BrowserWindow {
   }
 
   // Open DevTools in development mode
-  if (isDev) {
+  if (process.env.NODE_ENV === "development") {
     mainWindow.webContents.openDevTools();
     // Filter out autofill-related console messages
     mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
@@ -81,19 +81,11 @@ app.whenReady().then(() => {
 
   // Register global hotkey for screenshot (Option+Space)
   const ret = globalShortcut.register("Alt+Space", () => {
-    console.log("Global hotkey Option+Space pressed");
     if (mainWindow) {
       // Send message to renderer to trigger screenshot with auto-append
       mainWindow.webContents.send("global-screenshot-trigger");
     }
   });
-
-  if (!ret) {
-    console.log("Global hotkey registration failed");
-  } else {
-    console.log("Global hotkey Option+Space registered successfully");
-  }
-
   // Create the main window
   createWindow();
 });
