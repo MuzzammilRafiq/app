@@ -1,20 +1,10 @@
 import { ipcMain } from 'electron';
-import { GoogleGenAI } from '@google/genai';
 import chalk from 'chalk';
-import dotenv from 'dotenv';
 import { ToolHandler } from '../tools/toolHandler.js';
+import { aiService } from '../services/aiService.js';
 
-dotenv.config();
-
-// Initialize Google Gemini AI service
-let ai: GoogleGenAI | null = null;
-const apiKey = process.env.GEMINI_API_KEY;
-// Check if API key exists and initialize AI service
-if (apiKey) {
-  ai = new GoogleGenAI({ apiKey });
-} else {
-  console.warn(chalk.red('GEMINI_API_KEY not found in environment variables'));
-}
+// Get the global AI instance
+const ai = aiService.getAI();
 
 // Initialize tool handler
 const toolHandler = ToolHandler.getInstance();
@@ -23,7 +13,7 @@ const toolHandler = ToolHandler.getInstance();
 export function setupGeminiHandlers() {
   ipcMain.handle('gemini:send-message', async (event, message: string) => {
     // Check if AI service is properly initialized
-    if (!ai || !apiKey) {
+    if (!aiService.isInitialized()) {
       return {
         text: '',
         error:
@@ -68,7 +58,7 @@ export function setupGeminiHandlers() {
     'gemini:send-message-with-history',
     async (event, messages: any[]) => {
       // Check if AI service is properly initialized
-      if (!ai || !apiKey) {
+      if (!aiService.isInitialized()) {
         return {
           text: '',
           error:
@@ -169,7 +159,7 @@ export function setupGeminiHandlers() {
     'gemini:stream-message-with-history',
     async (event, messages: any[]) => {
       // Check if AI service is properly initialized
-      if (!ai || !apiKey) {
+      if (!aiService.isInitialized()) {
         return {
           text: '',
           error:
