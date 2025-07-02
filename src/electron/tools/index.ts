@@ -1,7 +1,7 @@
 import {
   getCurrentDateTime,
   getCurrentDateTimeFunctionDeclaration,
-} from './date-time.js';
+} from './time/index.js';
 
 export default {
   default: () => 'No function found',
