@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+bun.lock
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+dist-electron/
+out/
+build/
+
+# Generated files
+*.min.js
+*.min.css
+*.d.ts.map
+*.js.map
+
+# Config files that should maintain their formatting
+.gitignore
+
+# Electron specific
+*.asar
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage reports
+coverage/
+.nyc_output/ 
