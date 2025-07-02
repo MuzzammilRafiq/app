@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Custom styles for markdown rendering */
 .prose {
@@ -121,4 +121,3 @@
 .prose-invert th {
   background-color: #4b5563;
 }
-

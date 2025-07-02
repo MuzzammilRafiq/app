@@ -1,6 +1,6 @@
-import { Type, FunctionDeclaration } from "@google/genai";
-import os from "os";
-import { app } from "electron";
+import { Type, FunctionDeclaration } from '@google/genai';
+import os from 'os';
+import { app } from 'electron';
 
 export const getSystemInfo = () => {
   try {
@@ -27,13 +27,14 @@ Uptime: ${info.uptime}
 Hostname: ${info.hostname}
 User: ${info.userInfo}`;
   } catch (error) {
-    return `Error getting system information: ${error instanceof Error ? error.message : "Unknown error"}`;
+    return `Error getting system information: ${error instanceof Error ? error.message : 'Unknown error'}`;
   }
 };
 
 export const getSystemInfoFunctionDeclaration: FunctionDeclaration = {
-  name: "get_system_info",
-  description: "Get basic system information including platform, memory, versions, etc.",
+  name: 'get_system_info',
+  description:
+    'Get basic system information including platform, memory, versions, etc.',
   parameters: {
     type: Type.OBJECT,
     properties: {},

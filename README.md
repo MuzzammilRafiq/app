@@ -174,7 +174,6 @@ User Input → React Component → IPC Call → Main Process → Gemini API → 
 ### Common Issues
 
 1. **API Key Not Working**
-
    - Make sure you have a valid Gemini API key
    - Check that your `.env` file is in the root directory
    - Verify the environment variable name is `GEMINI_API_KEY`
@@ -182,7 +181,6 @@ User Input → React Component → IPC Call → Main Process → Gemini API → 
    - Restart the application after adding the API key
 
 2. **App Won't Start**
-
    - Ensure Node.js is installed (v16+)
    - Run `npm install` to install dependencies
    - Check console for error messages

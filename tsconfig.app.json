@@ -21,9 +21,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "noUncheckedSideEffectImports": true,
+    "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist-renderer","src/electron"]
-
+  "exclude": ["node_modules", "dist-renderer", "src/electron"]
 }

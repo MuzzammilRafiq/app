@@ -1,6 +1,6 @@
-import { ipcMain, BrowserWindow, clipboard } from "electron";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { ipcMain, BrowserWindow, clipboard } from 'electron';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 // Convert exec to promise-based function for async/await usage
 const execAsync = promisify(exec);
@@ -20,22 +20,25 @@ declare global {
 }
 
 export function setupScreenshotHandlers() {
-  ipcMain.handle("screenshot:capture", async (event) => {
+  ipcMain.handle('screenshot:capture', async event => {
     try {
       // Get the currently focused window or the first available window
-      const mainWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      const mainWindow =
+        BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
 
       if (mainWindow) {
         // Hide the main window to avoid it appearing in the screenshot
         mainWindow.hide();
 
         // Wait for window to hide completely
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
       // Store the clipboard content before taking screenshot
       const clipboardBefore = clipboard.readImage();
-      const clipboardBeforeBuffer = clipboardBefore.isEmpty() ? null : clipboardBefore.toPNG();
+      const clipboardBeforeBuffer = clipboardBefore.isEmpty()
+        ? null
+        : clipboardBefore.toPNG();
 
       // macOS - use built-in screencapture with interactive selection and clipboard output
       const command = `screencapture -i -c`;
@@ -44,7 +47,7 @@ export function setupScreenshotHandlers() {
       await execAsync(command);
 
       // Wait a moment for the clipboard to be updated
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Restore the main window
       if (mainWindow) mainWindow.show();
@@ -62,56 +65,59 @@ export function setupScreenshotHandlers() {
 
         if (isNewScreenshot) {
           // Convert clipboard image to base64 for sending to renderer
-          const base64Data = clipboardAfterBuffer.toString("base64");
+          const base64Data = clipboardAfterBuffer.toString('base64');
 
           return {
             success: true,
-            message: "Screenshot captured and saved to clipboard",
+            message: 'Screenshot captured and saved to clipboard',
             hasImage: true,
             imageData: {
               data: base64Data,
-              mimeType: "image/png",
+              mimeType: 'image/png',
             },
           };
         } else {
           // Clipboard content didn't change, user likely cancelled
           return {
             success: false,
-            error: "Screenshot was cancelled",
+            error: 'Screenshot was cancelled',
             hasImage: false,
           };
         }
       } else {
         return {
           success: false,
-          error: "Screenshot was cancelled or failed",
+          error: 'Screenshot was cancelled or failed',
           hasImage: false,
         };
       }
     } catch (error) {
-      console.error("Error taking screenshot:", error);
+      console.error('Error taking screenshot:', error);
 
       // Ensure main window is restored even if error occurs
-      const mainWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      const mainWindow =
+        BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
       if (mainWindow) mainWindow.show();
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   });
 
   // IPC handler for finishing screenshot process with optional cropping
-  ipcMain.handle("screenshot:finish", async (event, selection) => {
+  ipcMain.handle('screenshot:finish', async (event, selection) => {
     try {
       // Retrieve screenshot data from global storage
       const screenshotData = global.screenshotData;
       if (!screenshotData) {
-        return { success: false, error: "No screenshot data found" };
+        return { success: false, error: 'No screenshot data found' };
       }
 
-      const { buffer, width, height, mainWindow, selectionWindow } = screenshotData;
+      const { buffer, width, height, mainWindow, selectionWindow } =
+        screenshotData;
 
       // Clean up windows - close selection overlay and restore main window
       selectionWindow.close();
@@ -122,7 +128,7 @@ export function setupScreenshotHandlers() {
 
       // If user made a selection (crop area), crop the image
       if (selection.width > 0 && selection.height > 0) {
-        const sharp = await import("sharp"); // Dynamic import for image processing
+        const sharp = await import('sharp'); // Dynamic import for image processing
 
         // Calculate scaling factors between screen coordinates and image coordinates
         const scaleX = width / selection.screenWidth;
@@ -142,7 +148,7 @@ export function setupScreenshotHandlers() {
       }
 
       // Save the final image to clipboard
-      const nativeImage = require("electron").nativeImage;
+      const nativeImage = require('electron').nativeImage;
       const image = nativeImage.createFromBuffer(finalBuffer);
       clipboard.writeImage(image);
 
@@ -151,36 +157,39 @@ export function setupScreenshotHandlers() {
 
       return {
         success: true,
-        message: "Screenshot saved to clipboard successfully",
+        message: 'Screenshot saved to clipboard successfully',
       };
     } catch (error) {
-      console.error("Error finishing screenshot:", error);
+      console.error('Error finishing screenshot:', error);
 
       // Clean up on error - close windows and clear data
       const screenshotData = global.screenshotData;
       if (screenshotData) {
-        if (screenshotData.selectionWindow) screenshotData.selectionWindow.close();
+        if (screenshotData.selectionWindow)
+          screenshotData.selectionWindow.close();
         if (screenshotData.mainWindow) screenshotData.mainWindow.show();
         delete global.screenshotData;
       }
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   });
 
   // IPC handler for canceling screenshot process
-  ipcMain.handle("screenshot:cancel", async (event) => {
+  ipcMain.handle('screenshot:cancel', async event => {
     const screenshotData = global.screenshotData;
     if (screenshotData) {
       // Close selection window and restore main window
-      if (screenshotData.selectionWindow) screenshotData.selectionWindow.close();
+      if (screenshotData.selectionWindow)
+        screenshotData.selectionWindow.close();
       if (screenshotData.mainWindow) screenshotData.mainWindow.show();
       // Clean up stored data
       delete global.screenshotData;
     }
-    return { success: true, message: "Screenshot cancelled" };
+    return { success: true, message: 'Screenshot cancelled' };
   });
 }
