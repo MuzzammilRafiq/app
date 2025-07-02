@@ -43,7 +43,9 @@ interface Window {
      * @param {any[]} messages - Array of message objects with role and content
      * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
      */
-    sendMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
+    sendMessageWithHistory: (
+      messages: any[]
+    ) => Promise<{ text: string; error?: string }>;
 
     /**
      * Streams messages with conversation history to the Gemini AI service
@@ -51,14 +53,22 @@ interface Window {
      * @param {any[]} messages - Array of message objects with role and content
      * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
      */
-    streamMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
+    streamMessageWithHistory: (
+      messages: any[]
+    ) => Promise<{ text: string; error?: string }>;
 
     /**
      * Sets up a listener for streaming chunks from Gemini AI
      *
      * @param {Function} callback - Callback function to handle stream chunks
      */
-    onStreamChunk: (callback: (data: { chunk: string; isComplete: boolean; fullText?: string }) => void) => void;
+    onStreamChunk: (
+      callback: (data: {
+        chunk: string;
+        isComplete: boolean;
+        fullText?: string;
+      }) => void
+    ) => void;
 
     /**
      * Removes all stream chunk listeners

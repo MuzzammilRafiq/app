@@ -1,7 +1,7 @@
 export interface ChatMessage {
   id: string;
   content: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   timestamp: Date;
   isError?: boolean;
   images?: ImageData[];
@@ -26,15 +26,20 @@ export interface StreamChunk {
 
 export type StreamCallback = (chunk: StreamChunk) => void;
 
-function waitForElectronAPI(timeout = 5000): Promise<typeof window.electronAPI> {
+function waitForElectronAPI(
+  timeout = 5000
+): Promise<typeof window.electronAPI> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
 
     const checkAPI = () => {
-      if (window.electronAPI && typeof window.electronAPI.sendMessageWithHistory === "function") {
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.sendMessageWithHistory === 'function'
+      ) {
         resolve(window.electronAPI);
       } else if (Date.now() - startTime > timeout) {
-        reject(new Error("electronAPI not available after timeout"));
+        reject(new Error('electronAPI not available after timeout'));
       } else {
         setTimeout(checkAPI, 100);
       }
@@ -51,25 +56,27 @@ export async function sendMessage(message: string): Promise<ChatResponse> {
     const response = await api.sendMessage(message);
     return response;
   } catch (error) {
-    console.error("Error calling Gemini API through Electron:", error);
+    console.error('Error calling Gemini API through Electron:', error);
     return {
-      text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      text: '',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }
 
-export async function sendMessageWithHistory(messages: ChatMessage[]): Promise<ChatResponse> {
+export async function sendMessageWithHistory(
+  messages: ChatMessage[]
+): Promise<ChatResponse> {
   try {
     const api = await waitForElectronAPI();
 
     const response = await api.sendMessageWithHistory(messages);
     return response;
   } catch (error) {
-    console.error("Error calling Gemini API through Electron:", error);
+    console.error('Error calling Gemini API through Electron:', error);
     return {
-      text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      text: '',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }
@@ -93,10 +100,10 @@ export async function streamMessageWithHistory(
       api.removeStreamChunkListener();
     }
   } catch (error) {
-    console.error("Error calling Gemini API through Electron:", error);
+    console.error('Error calling Gemini API through Electron:', error);
     return {
-      text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      text: '',
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }
@@ -106,11 +113,11 @@ export function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const base64 = result.split(",")[1];
+      const base64 = result.split(',')[1];
       if (base64) {
         resolve(base64);
       } else {
-        reject(new Error("Failed to convert file to base64"));
+        reject(new Error('Failed to convert file to base64'));
       }
     };
     reader.onerror = reject;
@@ -118,16 +125,28 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function validateImageFile(file: File): { isValid: boolean; error?: string } {
+export function validateImageFile(file: File): {
+  isValid: boolean;
+  error?: string;
+} {
   const maxSize = 20 * 1024 * 1024;
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  ];
 
   if (file.size > maxSize) {
-    return { isValid: false, error: "Image file size must be less than 20MB" };
+    return { isValid: false, error: 'Image file size must be less than 20MB' };
   }
 
   if (!allowedTypes.includes(file.type)) {
-    return { isValid: false, error: "Only JPEG, PNG, WebP, and GIF images are supported" };
+    return {
+      isValid: false,
+      error: 'Only JPEG, PNG, WebP, and GIF images are supported',
+    };
   }
 
   return { isValid: true };
