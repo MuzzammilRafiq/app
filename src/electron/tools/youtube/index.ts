@@ -1,0 +1,82 @@
+import { google ,youtube_v3} from 'googleapis';
+import { SearchParams, VideoParams } from './types.js';
+import chalk from 'chalk';
+
+class VideoService {
+  private static instance: VideoService;
+  private  youtube: youtube_v3.Youtube;
+  private constructor() {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      throw new Error('YOUTUBE_API_KEY environment variable is not set.');
+    }
+    this.youtube = google.youtube({
+      version: 'v3',
+      auth: process.env.YOUTUBE_API_KEY
+    });
+  }
+  //just for calling the constructor only once
+  public static getInstance() {
+    if (!VideoService.instance) {
+      VideoService.instance = new VideoService();
+    }
+    return VideoService.instance;
+  }
+  public getYoutube(): youtube_v3.Youtube {
+    return this.youtube;
+  }
+  
+  async getVideoById({ 
+    videoId, 
+    parts = ['snippet', 'contentDetails', 'statistics'] 
+  }: VideoParams): Promise<any> {
+    try {
+      const response = await this.youtube.videos.list({
+        part: parts,
+        id: [videoId]
+      });
+      
+      return response.data.items?.[0] || null;
+    } catch (error) {
+      throw new Error(`Failed to get video: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async getVideosBySearch({ 
+    query, 
+    maxResults = 10 
+  }: SearchParams): Promise<any[]> {
+    try {
+      const response = await this.youtube.search.list({
+        part: ['snippet'],
+        q: query,
+        maxResults,
+        type: ['video']
+      });
+      
+      return response.data.items || [];
+    } catch (error) {
+      throw new Error(`Failed to search videos: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async getVideoStatsById({ 
+    videoId 
+  }: { videoId: string }): Promise<any> {
+    try {
+      const response = await this.youtube.videos.list({
+        part: ['statistics'],
+        id: [videoId]
+      });
+      
+      return response.data.items?.[0]?.statistics || null;
+    } catch (error) {
+      throw new Error(`Failed to get video stats: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+export const videoService = VideoService.getInstance();
+
+if(require.main === module) {
+  console.log(chalk.green(JSON.stringify(await videoService.getVideoStatsById({ videoId: 'izTre_7g1XU' }),null,2)))
+}
