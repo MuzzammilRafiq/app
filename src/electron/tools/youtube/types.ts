@@ -16,17 +16,6 @@ export interface RelatedVideosParams {
   maxResults?: number;
 }
 
-export interface TranscriptParams {
-  videoId: string;
-  language?: string;
-}
-
-export interface SearchTranscriptParams {
-  videoId: string;
-  query: string;
-  language?: string;
-}
-
 export interface ChannelParams {
   channelId: string;
 }
