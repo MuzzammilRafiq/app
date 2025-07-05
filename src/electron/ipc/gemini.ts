@@ -9,6 +9,9 @@ const ai = aiService.getAI();
 // Initialize tool handler
 const toolHandler = ToolHandler.getInstance();
 
+// Global AbortController for cancelling streaming requests
+let currentStreamAbortController: AbortController | null = null;
+
 // IPC handler for sending single messages to Gemini AI
 export function setupGeminiHandlers() {
   ipcMain.handle('gemini:send-message', async (event, message: string) => {
@@ -167,6 +170,16 @@ export function setupGeminiHandlers() {
         };
       }
 
+      // Cancel any existing streaming request
+      if (currentStreamAbortController) {
+        currentStreamAbortController.abort();
+        currentStreamAbortController = null;
+      }
+
+      // Create new AbortController for this request
+      currentStreamAbortController = new AbortController();
+      const abortController = currentStreamAbortController;
+
       try {
         // Process the last user message through tool handler
         const lastUserMessage = messages
@@ -245,6 +258,22 @@ export function setupGeminiHandlers() {
 
         // Stream the response chunks
         for await (const chunk of result) {
+          // Check if request was aborted
+          if (abortController.signal.aborted) {
+            console.log(chalk.yellow('[Gemini Stream] Request was aborted'));
+            // Send abort signal to renderer
+            event.sender.send('gemini:stream-chunk', {
+              chunk: '',
+              isComplete: true,
+              fullText,
+              aborted: true,
+            });
+            return {
+              text: fullText,
+              aborted: true,
+            };
+          }
+
           const chunkText = chunk.text;
           if (chunkText) {
             fullText += chunkText;
@@ -263,11 +292,31 @@ export function setupGeminiHandlers() {
           fullText,
         });
 
+        // Clear the abort controller since we completed successfully
+        if (currentStreamAbortController === abortController) {
+          currentStreamAbortController = null;
+        }
+
         return {
           text: fullText,
         };
       } catch (error) {
         console.error('Error calling Gemini API with streaming:', error);
+
+        // Clear the abort controller on error
+        if (currentStreamAbortController === abortController) {
+          currentStreamAbortController = null;
+        }
+
+        // Check if this was due to an abort
+        if (error && (error as any).name === 'AbortError') {
+          console.log(chalk.yellow('[Gemini Stream] Request was aborted'));
+          return {
+            text: '',
+            aborted: true,
+          };
+        }
+
         return {
           text: '',
           error:
@@ -276,4 +325,26 @@ export function setupGeminiHandlers() {
       }
     }
   );
+
+  // IPC handler for stopping AI response
+  ipcMain.handle('gemini:stop-response', async event => {
+    try {
+      if (currentStreamAbortController) {
+        console.log(chalk.yellow('[Gemini] Stopping AI response...'));
+        currentStreamAbortController.abort();
+        currentStreamAbortController = null;
+        return { success: true };
+      } else {
+        console.log(chalk.gray('[Gemini] No active streaming request to stop'));
+        return { success: false, message: 'No active streaming request' };
+      }
+    } catch (error) {
+      console.error('Error stopping AI response:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  });
 }

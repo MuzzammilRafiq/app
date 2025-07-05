@@ -67,6 +67,7 @@ interface Window {
         chunk: string;
         isComplete: boolean;
         fullText?: string;
+        aborted?: boolean;
       }) => void
     ) => void;
 
@@ -74,6 +75,17 @@ interface Window {
      * Removes all stream chunk listeners
      */
     removeStreamChunkListener: () => void;
+
+    /**
+     * Stops the current AI response streaming
+     *
+     * @returns {Promise<{success: boolean, message?: string, error?: string}>} Stop result
+     */
+    stopAIResponse: () => Promise<{
+      success: boolean;
+      message?: string;
+      error?: string;
+    }>;
 
     /**
      * Captures a screenshot using the system's native screenshot tool and saves to clipboard
