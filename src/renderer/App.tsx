@@ -73,17 +73,21 @@ export default function App() {
 
     setMessages(prev => [...prev, assistantMessage]);
 
-    // Set loading to false and streaming to true so the stop button shows
-    setIsLoading(false);
-    setIsStreaming(true);
-
     let streamingCompleted = false;
+    let streamingStarted = false;
 
     try {
       // Use streaming API
       const response = await streamMessageWithHistory(
         [...messages, userMessage],
         chunk => {
+          // Set streaming to true on first chunk received
+          if (!streamingStarted) {
+            streamingStarted = true;
+            setIsLoading(false);
+            setIsStreaming(true);
+          }
+
           if (chunk.isComplete) {
             // Update the final message with complete text
             setMessages(prev =>
