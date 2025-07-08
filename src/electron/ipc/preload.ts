@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       chunk: string;
       isComplete: boolean;
       fullText?: string;
+      aborted?: boolean;
     }) => void
   ) => {
     ipcRenderer.on('gemini:stream-chunk', (event, data) => callback(data));
@@ -23,6 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeStreamChunkListener: () => {
     ipcRenderer.removeAllListeners('gemini:stream-chunk');
   },
+
+  stopAIResponse: () => ipcRenderer.invoke('gemini:stop-response'),
 
   captureScreenshot: () => ipcRenderer.invoke('screenshot:capture'),
 
