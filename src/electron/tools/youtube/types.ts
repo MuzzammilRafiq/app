@@ -33,3 +33,17 @@ export interface PlaylistItemsParams {
   playlistId: string;
   maxResults?: number;
 }
+
+export interface VideoDetails {
+  title: string;
+  description: string;
+  publishedAt: string;
+  channelTitle: string;
+  channelId: string;
+  videoId: string;
+  thumbnail: string;
+  duration: string;
+  viewCount: string;
+  likeCount: string;
+  commentCount: string;
+}

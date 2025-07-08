@@ -38,7 +38,8 @@ const extractTextFromSubtitlesFile = async () => {
 
   return cleanLines.join(" ");
 };
-export const getSubtitles = async (videoId: string) => {
+
+export const getSubtitlesByVideoId = async (videoId: string) => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
@@ -81,6 +82,6 @@ export const getSubtitles = async (videoId: string) => {
 
 if (require.main === module) {
   (async () => {
-    console.log("----", chalk.green(await getSubtitles("3UOACG9vs5Q")), "----");
+    console.log("----", chalk.green(await getSubtitlesByVideoId("3UOACG9vs5Q")), "----");
   })();
 }
