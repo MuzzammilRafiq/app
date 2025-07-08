@@ -1,6 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
-import tools from './index.js';
-import dotenv from 'dotenv';
+import { GoogleGenAI } from "@google/genai";
+import tools from "./index.js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -25,9 +25,7 @@ export class ToolHandler {
     if (apiKey) {
       this.ai = new GoogleGenAI({ apiKey });
     } else {
-      console.warn(
-        '[ToolHandler] GEMINI_API_KEY not found - tool analysis will be disabled'
-      );
+      console.warn("[ToolHandler] GEMINI_API_KEY not found - tool analysis will be disabled");
     }
   }
 
@@ -45,7 +43,7 @@ export class ToolHandler {
     const declarations: any[] = [];
 
     for (const [toolName, toolData] of Object.entries(tools)) {
-      if (toolName === 'default') continue;
+      if (toolName === "default") continue;
 
       if (Array.isArray(toolData) && toolData.length >= 2) {
         const [, declaration] = toolData;
@@ -61,27 +59,24 @@ export class ToolHandler {
   /**
    * Executes a specific tool by name with given parameters
    */
-  private async executeTool(
-    toolName: string,
-    parameters: any = {}
-  ): Promise<ToolResult> {
+  private async executeTool(toolName: string, parameters: any = {}): Promise<ToolResult> {
     try {
       const tool = (tools as any)[toolName];
 
       if (!tool || !Array.isArray(tool) || tool.length < 2) {
         return {
           toolName,
-          result: '',
+          result: "",
           error: `Tool '${toolName}' not found or not properly configured`,
         };
       }
 
       const [toolFunction] = tool;
 
-      if (typeof toolFunction !== 'function') {
+      if (typeof toolFunction !== "function") {
         return {
           toolName,
-          result: '',
+          result: "",
           error: `Tool '${toolName}' function is not callable`,
         };
       }
@@ -90,7 +85,7 @@ export class ToolHandler {
       let result;
 
       // Handle different parameter patterns
-      if (toolName === 'calculate' && parameters.expression) {
+      if (toolName === "calculate" && parameters.expression) {
         result = await toolFunction(parameters.expression);
       } else if (Object.keys(parameters).length === 0) {
         // No parameters needed
@@ -102,14 +97,13 @@ export class ToolHandler {
 
       return {
         toolName,
-        result: typeof result === 'string' ? result : JSON.stringify(result),
+        result: typeof result === "string" ? result : JSON.stringify(result),
       };
     } catch (error) {
       return {
         toolName,
-        result: '',
-        error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+        result: "",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
       };
     }
   }
@@ -117,16 +111,12 @@ export class ToolHandler {
   /**
    * Processes a message using Gemini's function calling to determine which tools to run
    */
-  public async processMessage(
-    originalMessage: string
-  ): Promise<ToolHandlerResponse> {
+  public async processMessage(originalMessage: string): Promise<ToolHandlerResponse> {
     console.log(`[ToolHandler] Processing message: "${originalMessage}"`);
 
     // If AI is not available, return original message
     if (!this.ai) {
-      console.log(
-        '[ToolHandler] AI not available - returning original message'
-      );
+      console.log("[ToolHandler] AI not available - returning original message");
       return {
         enhancedMessage: originalMessage,
         toolResults: [],
@@ -138,20 +128,18 @@ export class ToolHandler {
       const functionDeclarations = this.getFunctionDeclarations();
 
       if (functionDeclarations.length === 0) {
-        console.log('[ToolHandler] No function declarations available');
+        console.log("[ToolHandler] No function declarations available");
         return {
           enhancedMessage: originalMessage,
           toolResults: [],
         };
       }
 
-      console.log(
-        `[ToolHandler] Available functions: ${functionDeclarations.map(f => f.name).join(', ')}`
-      );
+      console.log(`[ToolHandler] Available functions: ${functionDeclarations.map((f) => f.name).join(", ")}`);
 
       // Send message to Gemini with function declarations
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: "gemini-2.5-flash",
         contents: originalMessage,
         config: {
           tools: [
@@ -169,29 +157,21 @@ export class ToolHandler {
 
       // Check if Gemini wants to call any functions
       if (response.functionCalls && response.functionCalls.length > 0) {
-        console.log(
-          `[ToolHandler] Gemini requested ${response.functionCalls.length} function calls`
-        );
+        console.log(`[ToolHandler] Gemini requested ${response.functionCalls.length} function calls`);
 
         // Execute all requested function calls
         for (const functionCall of response.functionCalls) {
           if (functionCall.name) {
-            console.log(
-              `[ToolHandler] Executing function: ${functionCall.name} with args:`,
-              functionCall.args
-            );
+            console.log(`[ToolHandler] Executing function: ${functionCall.name} with args:`, functionCall.args);
 
-            const result = await this.executeTool(
-              functionCall.name,
-              functionCall.args || {}
-            );
+            const result = await this.executeTool(functionCall.name, functionCall.args || {});
             toolResults.push(result);
           } else {
-            console.warn('[ToolHandler] Function call without name detected');
+            console.warn("[ToolHandler] Function call without name detected");
           }
         }
       } else {
-        console.log('[ToolHandler] No function calls requested by Gemini');
+        console.log("[ToolHandler] No function calls requested by Gemini");
         return {
           enhancedMessage: originalMessage,
           toolResults: [],
@@ -203,7 +183,7 @@ export class ToolHandler {
       let enhancedMessage = originalMessage;
 
       if (toolResults.length > 0) {
-        enhancedMessage += '\n\n[Tool Results]:\n';
+        enhancedMessage += "\n\n[Tool Results]:\n";
 
         for (const result of toolResults) {
           if (result.error) {
@@ -213,13 +193,10 @@ export class ToolHandler {
           }
         }
 
-        enhancedMessage +=
-          '\nPlease use the above tool results to provide a comprehensive response.';
+        enhancedMessage += "\nPlease use the above tool results to provide a comprehensive response.";
       }
 
-      console.log(
-        `[ToolHandler] Enhanced message created with ${toolResults.length} tool results`
-      );
+      console.log(`[ToolHandler] Enhanced message created with ${toolResults.length} tool results`);
 
       return {
         enhancedMessage,
@@ -227,7 +204,7 @@ export class ToolHandler {
         originalResponse: response.text,
       };
     } catch (error) {
-      console.error('[ToolHandler] Error processing message:', error);
+      console.error("[ToolHandler] Error processing message:", error);
       return {
         enhancedMessage: originalMessage,
         toolResults: [],
@@ -247,6 +224,6 @@ export class ToolHandler {
    * Gets available tools
    */
   public getAvailableTools(): string[] {
-    return Object.keys(tools).filter(key => key !== 'default');
+    return Object.keys(tools).filter((key) => key !== "default");
   }
 }
