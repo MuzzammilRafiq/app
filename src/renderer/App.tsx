@@ -99,11 +99,6 @@ export default function App() {
             );
             streamingCompleted = true;
             setIsStreaming(false);
-
-            // Handle aborted response
-            if (chunk.aborted) {
-              toast.success('Response stopped');
-            }
           } else {
             // Update the message with the new chunk
             setMessages(prev =>
