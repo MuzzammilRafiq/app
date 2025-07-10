@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Global GoogleGenAI instance - singleton pattern
@@ -9,7 +9,9 @@ class AIService {
   private ai: GoogleGenAI;
 
   private constructor() {
-    this.ai = new GoogleGenAI({});
+    this.ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
   }
   public static getInstance(): AIService {
     if (!AIService.instance) {
