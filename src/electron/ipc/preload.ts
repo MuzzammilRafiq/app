@@ -1,10 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  sendMessage: (message: string) => ipcRenderer.invoke("gemini:send-message", message),
-
-  sendMessageWithHistory: (messages: any[]) => ipcRenderer.invoke("gemini:send-message-with-history", messages),
-
   streamMessageWithHistory: (messages: any[]) => ipcRenderer.invoke("stream-message-with-history", messages),
 
   onStreamChunk: (callback: (data: { chunk: string; isComplete: boolean; fullText?: string }) => void) => {

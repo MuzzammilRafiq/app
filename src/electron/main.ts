@@ -3,7 +3,6 @@ import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { setupGeminiHandlers } from "./ipc/gemini.js";
 import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 import { setupStreamHandlers } from "./ipc/stream.js";
 
@@ -57,7 +56,6 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  setupGeminiHandlers();
   setupScreenshotHandlers();
   setupStreamHandlers();
 
