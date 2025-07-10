@@ -44,7 +44,7 @@ class VideoService {
         return {
           title: x.snippet?.title || "",
           description: x.snippet?.description?.replace(/\n/g, " ") || "",
-          publishedAt: new Date(x.snippet?.publishedAt!).toLocaleDateString() || "",
+          publishedAt: x.snippet?.publishedAt ? new Date(x.snippet.publishedAt).toLocaleDateString() : "",
           channelTitle: x.snippet?.channelTitle || "",
           channelId: x.snippet?.channelId || "",
           videoId: x.id || "",
