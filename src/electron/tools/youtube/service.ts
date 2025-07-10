@@ -3,7 +3,7 @@ import { SearchParams, VideoDetails, VideoParams } from "./types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
 import chalk from "chalk";
 import dotenv from "dotenv";
-import { aiService } from "../../services/gemini.js";
+import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 class VideoService {
   private static instance: VideoService;
@@ -153,7 +153,9 @@ class VideoService {
       const tokenCount = Math.ceil((1.33 * transcript.length) / 5.7);
       if (tokenCount <= 10_000) return transcript;
 
-      const ai = aiService.getAI();
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+      });
       console.log(chalk.green("summarizing transcript..."));
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
