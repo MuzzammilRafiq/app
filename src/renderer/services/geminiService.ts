@@ -44,35 +44,35 @@ function waitForElectronAPI(timeout = 5000): Promise<typeof window.electronAPI> 
   });
 }
 
-export async function sendMessage(message: string): Promise<ChatResponse> {
-  try {
-    const api = await waitForElectronAPI();
+// export async function sendMessage(message: string): Promise<ChatResponse> {
+//   try {
+//     const api = await waitForElectronAPI();
 
-    const response = await api.sendMessage(message);
-    return response;
-  } catch (error) {
-    console.error("Error calling Gemini API through Electron:", error);
-    return {
-      text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
-  }
-}
+//     const response = await api.sendMessage(message);
+//     return response;
+//   } catch (error) {
+//     console.error("Error calling Gemini API through Electron:", error);
+//     return {
+//       text: "",
+//       error: error instanceof Error ? error.message : "Unknown error occurred",
+//     };
+//   }
+// }
 
-export async function sendMessageWithHistory(messages: ChatMessage[]): Promise<ChatResponse> {
-  try {
-    const api = await waitForElectronAPI();
+// export async function sendMessageWithHistory(messages: ChatMessage[]): Promise<ChatResponse> {
+//   try {
+//     const api = await waitForElectronAPI();
 
-    const response = await api.sendMessageWithHistory(messages);
-    return response;
-  } catch (error) {
-    console.error("Error calling Gemini API through Electron:", error);
-    return {
-      text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
-  }
-}
+//     const response = await api.sendMessageWithHistory(messages);
+//     return response;
+//   } catch (error) {
+//     console.error("Error calling Gemini API through Electron:", error);
+//     return {
+//       text: "",
+//       error: error instanceof Error ? error.message : "Unknown error occurred",
+//     };
+//   }
+// }
 
 export async function streamMessageWithHistory(
   messages: ChatMessage[],
@@ -82,10 +82,10 @@ export async function streamMessageWithHistory(
     const api = await waitForElectronAPI();
 
     api.onStreamChunk(onChunk);
-
     try {
       // Start streaming
       const response = await api.streamMessageWithHistory(messages);
+      console.log("ppp2");
       return response;
     } finally {
       // Clean up listener - this will always execute, even if an error occurs
