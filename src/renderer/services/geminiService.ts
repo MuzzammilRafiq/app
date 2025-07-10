@@ -22,7 +22,6 @@ export interface StreamChunk {
   chunk: string;
   isComplete: boolean;
   fullText?: string;
-  aborted?: boolean;
 }
 
 export type StreamCallback = (chunk: StreamChunk) => void;
@@ -97,24 +96,6 @@ export async function streamMessageWithHistory(
     return {
       text: "",
       error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
-  }
-}
-
-export async function stopAIResponse(): Promise<{
-  success: boolean;
-  message?: string;
-  error?: string;
-}> {
-  try {
-    const api = await waitForElectronAPI();
-    const response = await api.stopAIResponse();
-    return response;
-  } catch (error) {
-    console.error('Error stopping AI response:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }

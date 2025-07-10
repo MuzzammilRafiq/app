@@ -8,7 +8,6 @@ interface ChatInputProps {
   isStreaming?: boolean;
   disabled?: boolean;
   onScreenshot?: () => void;
-  onStopResponse?: () => void;
 }
 
 export interface ChatInputHandle {

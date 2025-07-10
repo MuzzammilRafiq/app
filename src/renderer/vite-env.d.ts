@@ -66,17 +66,6 @@ interface Window {
     removeStreamChunkListener: () => void;
 
     /**
-     * Stops the current AI response streaming
-     *
-     * @returns {Promise<{success: boolean, message?: string, error?: string}>} Stop result
-     */
-    stopAIResponse: () => Promise<{
-      success: boolean;
-      message?: string;
-      error?: string;
-    }>;
-
-    /**
      * Captures a screenshot using the system's native screenshot tool and saves to clipboard
      *
      * @returns {Promise<{success: boolean, hasImage?: boolean, message?: string, error?: string, imageData?: {data: string, mimeType: string}}>} Screenshot result
