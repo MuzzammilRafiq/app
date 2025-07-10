@@ -79,9 +79,7 @@ export class ToolHandler {
       let result;
 
       // Handle different parameter patterns
-      if (toolName === "calculate" && parameters.expression) {
-        result = await toolFunction(parameters.expression);
-      } else if (Object.keys(parameters).length === 0) {
+      if (Object.keys(parameters).length === 0) {
         // No parameters needed
         result = await toolFunction();
       } else {
