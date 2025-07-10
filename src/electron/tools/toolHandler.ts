@@ -1,8 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
+import chalk from "chalk";
 import tools from "./index.js";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { GoogleGenAI } from "@google/genai";
 
 interface ToolResult {
   toolName: string;
@@ -18,15 +16,12 @@ interface ToolHandlerResponse {
 
 export class ToolHandler {
   private static instance: ToolHandler;
-  private ai: GoogleGenAI | null = null;
+  private ai: GoogleGenAI;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      this.ai = new GoogleGenAI({ apiKey });
-    } else {
-      console.warn("[ToolHandler] GEMINI_API_KEY not found - tool analysis will be disabled");
-    }
+    this.ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
   }
 
   public static getInstance(): ToolHandler {
@@ -36,9 +31,6 @@ export class ToolHandler {
     return ToolHandler.instance;
   }
 
-  /**
-   * Gets all available function declarations for Gemini
-   */
   private getFunctionDeclarations(): any[] {
     const declarations: any[] = [];
 
@@ -62,7 +54,9 @@ export class ToolHandler {
   private async executeTool(toolName: string, parameters: any = {}): Promise<ToolResult> {
     try {
       const tool = (tools as any)[toolName];
-
+      console.log(chalk.bgGreen(`[ToolHandler] Executing tool: ${toolName}`));
+      console.log(chalk.bgYellow(`[ToolHandler] Tool: ${JSON.stringify(tool, null, 2)}`));
+      console.log(chalk.bgRed(`[ToolHandler] Parameters: ${JSON.stringify(parameters, null, 2)}`));
       if (!tool || !Array.isArray(tool) || tool.length < 2) {
         return {
           toolName,
@@ -115,7 +109,7 @@ export class ToolHandler {
     console.log(`[ToolHandler] Processing message: "${originalMessage}"`);
 
     // If AI is not available, return original message
-    if (!this.ai) {
+    if (!process.env.GEMINI_API_KEY) {
       console.log("[ToolHandler] AI not available - returning original message");
       return {
         enhancedMessage: originalMessage,
@@ -135,12 +129,14 @@ export class ToolHandler {
         };
       }
 
-      console.log(`[ToolHandler] Available functions: ${functionDeclarations.map((f) => f.name).join(", ")}`);
+      console.log(
+        chalk.green(`[ToolHandler] Available functions: ${functionDeclarations.map((f) => f.name).join(", ")}`)
+      );
 
       // Send message to Gemini with function declarations
       const response = await this.ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: originalMessage,
+        contents: `query: "${originalMessage}"`,
         config: {
           tools: [
             {
@@ -162,16 +158,19 @@ export class ToolHandler {
         // Execute all requested function calls
         for (const functionCall of response.functionCalls) {
           if (functionCall.name) {
-            console.log(`[ToolHandler] Executing function: ${functionCall.name} with args:`, functionCall.args);
+            console.log(
+              chalk.green(`[ToolHandler] Executing function: ${functionCall.name} with args:`),
+              functionCall.args
+            );
 
             const result = await this.executeTool(functionCall.name, functionCall.args || {});
             toolResults.push(result);
           } else {
-            console.warn("[ToolHandler] Function call without name detected");
+            console.warn(chalk.red("[ToolHandler] Function call without name detected"));
           }
         }
       } else {
-        console.log("[ToolHandler] No function calls requested by Gemini");
+        console.log(chalk.yellow("[ToolHandler] No function calls requested by Gemini"));
         return {
           enhancedMessage: originalMessage,
           toolResults: [],
@@ -197,7 +196,6 @@ export class ToolHandler {
       }
 
       console.log(`[ToolHandler] Enhanced message created with ${toolResults.length} tool results`);
-
       return {
         enhancedMessage,
         toolResults,

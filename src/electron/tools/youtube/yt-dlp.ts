@@ -39,17 +39,18 @@ const extractTextFromSubtitlesFile = async () => {
   return cleanLines.join(" ");
 };
 
-export const getSubtitlesByVideoId = async (videoId: string) => {
+export const getSubtitlesByVideoId = async (videoId: string): Promise<string> => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
   const outputPath = join(__dirname, "sub");
-
+  console.log(chalk.green("getting subtitles using ytdlp ..."));
   return new Promise((resolve, reject) => {
     const command = spawn("yt-dlp", [
       "--write-subs",
       "--write-auto-subs",
       "--skip-download",
+      "--quiet",
       "--sub-format",
       "vtt",
       "-o",
@@ -80,8 +81,8 @@ export const getSubtitlesByVideoId = async (videoId: string) => {
   });
 };
 
-if (require.main === module) {
-  (async () => {
-    console.log("----", chalk.green(await getSubtitlesByVideoId("3UOACG9vs5Q")), "----");
-  })();
-}
+// if (require.main === module) {
+//   (async () => {
+//     console.log(chalk.green(await getSubtitlesByVideoId("Nfg36QM6txM")));
+//   })();
+// }

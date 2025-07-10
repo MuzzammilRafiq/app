@@ -1,12 +1,14 @@
+import { getCurrentDateTime, getCurrentDateTimeFunctionDeclaration } from "./time/index.js";
 import {
-  getCurrentDateTime,
-  getCurrentDateTimeFunctionDeclaration,
-} from './time/index.js';
+  getYoutubeVideoDetailsByVideoInfo,
+  getYoutubeVideoDetailsByVideoInfoFunctionDeclaration,
+} from "./youtube/index.js";
 
 export default {
-  default: () => 'No function found',
-  get_current_date_time: [
-    getCurrentDateTime,
-    getCurrentDateTimeFunctionDeclaration,
+  default: () => "No function found",
+  getCurrentDateTime: [getCurrentDateTime, getCurrentDateTimeFunctionDeclaration],
+  getYoutubeVideoDetailsByVideoInfo: [
+    getYoutubeVideoDetailsByVideoInfo,
+    getYoutubeVideoDetailsByVideoInfoFunctionDeclaration,
   ],
 };

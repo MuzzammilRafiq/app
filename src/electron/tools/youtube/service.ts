@@ -3,6 +3,7 @@ import { SearchParams, VideoDetails, VideoParams } from "./types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
 import chalk from "chalk";
 import dotenv from "dotenv";
+import { aiService } from "../../services/gemini.js";
 dotenv.config();
 class VideoService {
   private static instance: VideoService;
@@ -32,6 +33,7 @@ class VideoService {
     videoId,
     parts = ["snippet", "contentDetails", "statistics"],
   }: VideoParams): Promise<VideoDetails | null> {
+    console.log(chalk.bgMagenta(`[VideoService] Getting video by id: ${videoId}`));
     try {
       const response = await this.youtube.videos.list({
         part: parts,
@@ -108,29 +110,77 @@ class VideoService {
       const encodedQuery = encodeURIComponent(query);
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${maxResults}&q=${encodedQuery}&key=${apiKey}`;
 
+      console.log(chalk.blue(`[VideoService] Searching with query: ${query}`));
+      console.log(chalk.blue(`[VideoService] URL: ${url}`));
+
       const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
-      const videoId = data.items[0].id.videoId;
+      console.log(chalk.yellow(`[VideoService] Search response:`, JSON.stringify(data, null, 2)));
+
+      // Validate the response structure
+      if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+        console.log(chalk.red(`[VideoService] No items found in search results`));
+        return null;
+      }
+
+      const firstItem = data.items[0];
+      if (!firstItem.id || !firstItem.id.videoId) {
+        console.log(chalk.red(`[VideoService] Invalid item structure:`, JSON.stringify(firstItem, null, 2)));
+        return null;
+      }
+
+      const videoId = firstItem.id.videoId;
+      console.log(chalk.green(`[VideoService] Found videoId: ${videoId}`));
+
       const videoDetails = await this.getVideoById({ videoId });
       if (!videoDetails) {
         return null;
       }
       return videoDetails;
     } catch (error) {
+      console.log(chalk.red(`[VideoService] curlSearch error:`, error));
       throw new Error(`Failed to fetch from YouTube API: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async summarizeTranscript(transcript: string): Promise<string> {
+    try {
+      const tokenCount = Math.ceil((1.33 * transcript.length) / 5.7);
+      if (tokenCount <= 10_000) return transcript;
+
+      const ai = aiService.getAI();
+      console.log(chalk.green("summarizing transcript..."));
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `summarise below transcript in 5000 words or less and give me only summary <transcript>${transcript} </transcript>`,
+        config: {
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      });
+
+      return response.text || "Failed to generate summary";
+    } catch (error) {
+      throw new Error(`Failed to summarize transcript: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
 
 export const videoService = VideoService.getInstance();
-if (require.main === module) {
-  // const query = "Music for Deep Intense Focus of Work and Long Hours of Peak Performance channel:Uplifting Brainwaves";
+// if (require.main === module) {
+//   // const query = "Music for Deep Intense Focus of Work and Long Hours of Peak Performance channel:Uplifting Brainwaves";
 
-  // const curlResults = await videoService.curlSearch(query, 1);
-  console.log(
-    chalk.green(JSON.stringify(await videoService.getChannelByChannelId("UC6IxnFzHofFJ5X2PycSMsww"), null, 2))
-  );
-}
+//   // const curlResults = await videoService.curlSearch(query, 1);
+//   console.log(
+//     chalk.green(JSON.stringify(await videoService.getChannelByChannelId("UC6IxnFzHofFJ5X2PycSMsww"), null, 2))
+//   );
+// }
 
 /*
 curl "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=2&q=Music+for+Deep+Intense+Focus+of+Work+and+Long+Hours+of+Peak+Performance+channel%3AUplifting+Brainwaves&key=AIzaSyCqWdO51473-lihqoPwOTx0SWweqT6TYE"

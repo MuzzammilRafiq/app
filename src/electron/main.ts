@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { setupGeminiHandlers } from "./ipc/gemini.js";
 import { setupScreenshotHandlers } from "./ipc/screenshot.js";
+import { setupStreamHandlers } from "./ipc/stream.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +59,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   setupGeminiHandlers();
   setupScreenshotHandlers();
+  setupStreamHandlers();
 
   const ret = globalShortcut.register("Alt+Space", () => {
     if (mainWindow) {
