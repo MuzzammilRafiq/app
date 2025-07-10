@@ -108,7 +108,7 @@ class VideoService {
 
       // URL encode the query exactly like the curl command
       const encodedQuery = encodeURIComponent(query);
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${maxResults}&q=${encodedQuery}&key=${apiKey}`;
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${maxResults}&q=${encodedQuery}&type=video&key=${apiKey}`;
 
       console.log(chalk.blue(`[VideoService] Searching with query: ${query}`));
       console.log(chalk.blue(`[VideoService] URL: ${url}`));
