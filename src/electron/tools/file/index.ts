@@ -1,0 +1,327 @@
+import { Type, FunctionDeclaration } from "@google/genai";
+import * as fs from "fs";
+import * as path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
+
+// Helper function to ensure safe file operations
+const ensureSafePath = (filePath: string): string => {
+  if (path.isAbsolute(filePath)) {
+    return filePath;
+  }
+  return path.resolve(filePath);
+};
+
+export const readFile = async (params: { filePath: string; encoding?: string }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.filePath);
+    const encoding = (params.encoding as BufferEncoding) || "utf-8";
+    const content = await fs.promises.readFile(safePath, encoding);
+    return `File content of ${params.filePath}:\n${content}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to read file ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+};
+
+export const readFileFunctionDeclaration: FunctionDeclaration = {
+  name: "readFile",
+  description: "Read the contents of a file",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filePath: {
+        type: Type.STRING,
+        description: "Path to the file to read",
+      },
+      encoding: {
+        type: Type.STRING,
+        description: "File encoding (default: utf8)",
+      },
+    },
+    required: ["filePath"],
+  },
+};
+
+// Write file content
+export const writeFile = async (params: { filePath: string; content: string; encoding?: string }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.filePath);
+    const encoding = (params.encoding as BufferEncoding) || "utf8";
+    await fs.promises.writeFile(safePath, params.content, encoding);
+    return `Successfully wrote to file: ${params.filePath}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to write to file ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+};
+
+export const writeFileFunctionDeclaration: FunctionDeclaration = {
+  name: "writeFile",
+  description: "Write content to a file",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filePath: {
+        type: Type.STRING,
+        description: "Path to the file to write",
+      },
+      content: {
+        type: Type.STRING,
+        description: "Content to write to the file",
+      },
+      encoding: {
+        type: Type.STRING,
+        description: "File encoding (default: utf8)",
+      },
+    },
+    required: ["filePath", "content"],
+  },
+};
+
+// List directory contents
+export const listDirectory = async (params: { directoryPath: string; showHidden?: boolean }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.directoryPath);
+    const items = await fs.promises.readdir(safePath, { withFileTypes: true });
+
+    const filteredItems = params.showHidden ? items : items.filter((item) => !item.name.startsWith("."));
+
+    if (filteredItems.length === 0) {
+      return `Directory ${params.directoryPath} is empty`;
+    }
+
+    const result = filteredItems
+      .map((item) => {
+        const type = item.isDirectory() ? "DIR" : item.isFile() ? "FILE" : "OTHER";
+        return `${type}: ${item.name}`;
+      })
+      .join("\n");
+
+    return `Contents of ${params.directoryPath}:\n${result}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to list directory ${params.directoryPath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+};
+
+export const listDirectoryFunctionDeclaration: FunctionDeclaration = {
+  name: "listDirectory",
+  description: "List the contents of a directory",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      directoryPath: {
+        type: Type.STRING,
+        description: "Path to the directory to list",
+      },
+      showHidden: {
+        type: Type.BOOLEAN,
+        description: "Whether to show hidden files (default: false)",
+      },
+    },
+    required: ["directoryPath"],
+  },
+};
+
+// Create directory
+export const createDirectory = async (params: { directoryPath: string; recursive?: boolean }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.directoryPath);
+    await fs.promises.mkdir(safePath, { recursive: params.recursive !== false });
+    return `Successfully created directory: ${params.directoryPath}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to create directory ${params.directoryPath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+};
+
+export const createDirectoryFunctionDeclaration: FunctionDeclaration = {
+  name: "createDirectory",
+  description: "Create a new directory",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      directoryPath: {
+        type: Type.STRING,
+        description: "Path to the directory to create",
+      },
+      recursive: {
+        type: Type.BOOLEAN,
+        description: "Whether to create parent directories if they don't exist (default: true)",
+      },
+    },
+    required: ["directoryPath"],
+  },
+};
+
+// Delete file or directory
+export const deleteFileOrDirectory = async (params: { path: string; recursive?: boolean }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.path);
+    const stats = await fs.promises.stat(safePath);
+
+    if (stats.isDirectory()) {
+      await fs.promises.rmdir(safePath, { recursive: params.recursive !== false });
+      return `Successfully deleted directory: ${params.path}`;
+    } else {
+      await fs.promises.unlink(safePath);
+      return `Successfully deleted file: ${params.path}`;
+    }
+  } catch (error) {
+    throw new Error(`Failed to delete ${params.path}: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
+};
+
+export const deleteFileOrDirectoryFunctionDeclaration: FunctionDeclaration = {
+  name: "deleteFileOrDirectory",
+  description: "Delete a file or directory",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      path: {
+        type: Type.STRING,
+        description: "Path to the file or directory to delete",
+      },
+      recursive: {
+        type: Type.BOOLEAN,
+        description: "Whether to delete directories recursively (default: true)",
+      },
+    },
+    required: ["path"],
+  },
+};
+
+// Get file information
+export const getFileInfo = async (params: { filePath: string }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.filePath);
+    const stats = await fs.promises.stat(safePath);
+
+    const info = {
+      path: params.filePath,
+      size: stats.size,
+      type: stats.isDirectory() ? "directory" : stats.isFile() ? "file" : "other",
+      created: stats.birthtime.toLocaleString(),
+      modified: stats.mtime.toLocaleString(),
+      accessed: stats.atime.toLocaleString(),
+      permissions: stats.mode.toString(8),
+    };
+
+    return `File information for ${params.filePath}:\n${JSON.stringify(info, null, 2)}`;
+  } catch (error) {
+    throw new Error(
+      `Failed to get file info for ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+};
+
+export const getFileInfoFunctionDeclaration: FunctionDeclaration = {
+  name: "getFileInfo",
+  description: "Get detailed information about a file or directory",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filePath: {
+        type: Type.STRING,
+        description: "Path to the file or directory",
+      },
+    },
+    required: ["filePath"],
+  },
+};
+
+// Check if file or directory exists
+export const checkExists = async (params: { path: string }): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.path);
+    const stats = await fs.promises.stat(safePath);
+    const type = stats.isDirectory() ? "directory" : stats.isFile() ? "file" : "other";
+    return `${params.path} exists as a ${type}`;
+  } catch (error) {
+    return `${params.path} does not exist`;
+  }
+};
+
+export const checkExistsFunctionDeclaration: FunctionDeclaration = {
+  name: "checkExists",
+  description: "Check if a file or directory exists",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      path: {
+        type: Type.STRING,
+        description: "Path to check",
+      },
+    },
+    required: ["path"],
+  },
+};
+
+// Search for files using macOS find command
+export const searchFiles = async (params: {
+  searchPath: string;
+  pattern: string;
+  fileType?: string;
+}): Promise<string> => {
+  try {
+    const safePath = ensureSafePath(params.searchPath);
+    let command = `find "${safePath}" -name "${params.pattern}"`;
+
+    if (params.fileType) {
+      if (params.fileType === "file") {
+        command += " -type f";
+      } else if (params.fileType === "directory") {
+        command += " -type d";
+      }
+    }
+
+    const { stdout, stderr } = await execAsync(command);
+
+    if (stderr) {
+      throw new Error(stderr);
+    }
+
+    const results = stdout.trim();
+    if (!results) {
+      return `No files found matching pattern "${params.pattern}" in ${params.searchPath}`;
+    }
+
+    return `Files found matching pattern "${params.pattern}" in ${params.searchPath}:\n${results}`;
+  } catch (error) {
+    throw new Error(`Failed to search for files: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
+};
+
+export const searchFilesFunctionDeclaration: FunctionDeclaration = {
+  name: "searchFiles",
+  description: "Search for files and directories by name pattern",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      searchPath: {
+        type: Type.STRING,
+        description: "Path to search in",
+      },
+      pattern: {
+        type: Type.STRING,
+        description: "Name pattern to search for (supports wildcards like *.txt)",
+      },
+      fileType: {
+        type: Type.STRING,
+        description: "Type of items to search for: 'file' or 'directory' (default: both)",
+      },
+    },
+    required: ["searchPath", "pattern"],
+  },
+};
+
+if (require.main === module) {
+  console.log(await listDirectory({ directoryPath: "." }));
+}
