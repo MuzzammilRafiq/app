@@ -1,327 +1,152 @@
-import { Type, FunctionDeclaration } from "@google/genai";
-import * as fs from "fs";
-import * as path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { ToolContext, MasterRouterParams, MasterRouterResult, SummaryParams } from "./types.js";
+import { AIService } from "./ai.js";
+import { getAvailableTools, executeTool } from "./registry.js";
+import { SUMMARY_GENERATION_PROMPT } from "./prompt.js";
 
-const execAsync = promisify(exec);
+const createContext = (taskDescription?: string): ToolContext => ({
+  operations: [],
+  taskDescription,
+});
 
-// Helper function to ensure safe file operations
-const ensureSafePath = (filePath: string): string => {
-  if (path.isAbsolute(filePath)) {
-    return filePath;
-  }
-  return path.resolve(filePath);
-};
+const aiService = AIService.getInstance();
 
-export const readFile = async (params: { filePath: string; encoding?: string }): Promise<string> => {
+export const masterToolRouter = async (params: MasterRouterParams): Promise<MasterRouterResult> => {
+  let context = params.context || createContext(params.taskDescription);
+  const maxOps = params.maxOperations || 5;
+  let operationsPerformed = 0;
+  let currentPrompt = params.prompt;
+  // let taskDescription = params.taskDescription;
+  let finalResult = "";
+
   try {
-    const safePath = ensureSafePath(params.filePath);
-    const encoding = (params.encoding as BufferEncoding) || "utf-8";
-    const content = await fs.promises.readFile(safePath, encoding);
-    return `File content of ${params.filePath}:\n${content}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to read file ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-};
+    while (operationsPerformed < maxOps) {
+      try {
+        const availableTools = getAvailableTools();
+        const functionDeclarations = Object.values(availableTools);
+        const toolSelection = await aiService.selectTool(currentPrompt, context, functionDeclarations);
 
-export const readFileFunctionDeclaration: FunctionDeclaration = {
-  name: "readFile",
-  description: "Read the contents of a file",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      filePath: {
-        type: Type.STRING,
-        description: "Path to the file to read",
-      },
-      encoding: {
-        type: Type.STRING,
-        description: "File encoding (default: utf8)",
-      },
-    },
-    required: ["filePath"],
-  },
-};
+        const result = await executeTool(toolSelection.toolName, toolSelection.parameters);
 
-// Write file content
-export const writeFile = async (params: { filePath: string; content: string; encoding?: string }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.filePath);
-    const encoding = (params.encoding as BufferEncoding) || "utf8";
-    await fs.promises.writeFile(safePath, params.content, encoding);
-    return `Successfully wrote to file: ${params.filePath}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to write to file ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-};
+        context.operations.push({
+          operation: toolSelection.toolName,
+          input: {
+            prompt: currentPrompt,
+            params: toolSelection.parameters,
+            reasoning: toolSelection.reasoning,
+          },
+          output: result,
+          success: true,
+        });
 
-export const writeFileFunctionDeclaration: FunctionDeclaration = {
-  name: "writeFile",
-  description: "Write content to a file",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      filePath: {
-        type: Type.STRING,
-        description: "Path to the file to write",
-      },
-      content: {
-        type: Type.STRING,
-        description: "Content to write to the file",
-      },
-      encoding: {
-        type: Type.STRING,
-        description: "File encoding (default: utf8)",
-      },
-    },
-    required: ["filePath", "content"],
-  },
-};
+        operationsPerformed++;
+        finalResult = result;
 
-// List directory contents
-export const listDirectory = async (params: { directoryPath: string; showHidden?: boolean }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.directoryPath);
-    const items = await fs.promises.readdir(safePath, { withFileTypes: true });
+        if (operationsPerformed < maxOps) {
+          const workflowDecision = await aiService.coordinateWorkflow(params.prompt, context.operations, result);
 
-    const filteredItems = params.showHidden ? items : items.filter((item) => !item.name.startsWith("."));
+          if (workflowDecision.shouldContinue && workflowDecision.nextPrompt) {
+            currentPrompt = workflowDecision.nextPrompt;
+            continue;
+          } else {
+            // Task is complete
+            break;
+          }
+        }
+      } catch (error) {
+        throw error;
+        // Record failed operation
+        // const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        // context.operations.push({
+        //   operation: "unknown",
+        //   input: { prompt: currentPrompt },
+        //   success: false,
+        //   error: errorMessage,
+        // });
 
-    if (filteredItems.length === 0) {
-      return `Directory ${params.directoryPath} is empty`;
-    }
-
-    const result = filteredItems
-      .map((item) => {
-        const type = item.isDirectory() ? "DIR" : item.isFile() ? "FILE" : "OTHER";
-        return `${type}: ${item.name}`;
-      })
-      .join("\n");
-
-    return `Contents of ${params.directoryPath}:\n${result}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to list directory ${params.directoryPath}: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-};
-
-export const listDirectoryFunctionDeclaration: FunctionDeclaration = {
-  name: "listDirectory",
-  description: "List the contents of a directory",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      directoryPath: {
-        type: Type.STRING,
-        description: "Path to the directory to list",
-      },
-      showHidden: {
-        type: Type.BOOLEAN,
-        description: "Whether to show hidden files (default: false)",
-      },
-    },
-    required: ["directoryPath"],
-  },
-};
-
-// Create directory
-export const createDirectory = async (params: { directoryPath: string; recursive?: boolean }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.directoryPath);
-    await fs.promises.mkdir(safePath, { recursive: params.recursive !== false });
-    return `Successfully created directory: ${params.directoryPath}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to create directory ${params.directoryPath}: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-};
-
-export const createDirectoryFunctionDeclaration: FunctionDeclaration = {
-  name: "createDirectory",
-  description: "Create a new directory",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      directoryPath: {
-        type: Type.STRING,
-        description: "Path to the directory to create",
-      },
-      recursive: {
-        type: Type.BOOLEAN,
-        description: "Whether to create parent directories if they don't exist (default: true)",
-      },
-    },
-    required: ["directoryPath"],
-  },
-};
-
-// Delete file or directory
-export const deleteFileOrDirectory = async (params: { path: string; recursive?: boolean }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.path);
-    const stats = await fs.promises.stat(safePath);
-
-    if (stats.isDirectory()) {
-      await fs.promises.rmdir(safePath, { recursive: params.recursive !== false });
-      return `Successfully deleted directory: ${params.path}`;
-    } else {
-      await fs.promises.unlink(safePath);
-      return `Successfully deleted file: ${params.path}`;
-    }
-  } catch (error) {
-    throw new Error(`Failed to delete ${params.path}: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }
-};
-
-export const deleteFileOrDirectoryFunctionDeclaration: FunctionDeclaration = {
-  name: "deleteFileOrDirectory",
-  description: "Delete a file or directory",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      path: {
-        type: Type.STRING,
-        description: "Path to the file or directory to delete",
-      },
-      recursive: {
-        type: Type.BOOLEAN,
-        description: "Whether to delete directories recursively (default: true)",
-      },
-    },
-    required: ["path"],
-  },
-};
-
-// Get file information
-export const getFileInfo = async (params: { filePath: string }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.filePath);
-    const stats = await fs.promises.stat(safePath);
-
-    const info = {
-      path: params.filePath,
-      size: stats.size,
-      type: stats.isDirectory() ? "directory" : stats.isFile() ? "file" : "other",
-      created: stats.birthtime.toLocaleString(),
-      modified: stats.mtime.toLocaleString(),
-      accessed: stats.atime.toLocaleString(),
-      permissions: stats.mode.toString(8),
-    };
-
-    return `File information for ${params.filePath}:\n${JSON.stringify(info, null, 2)}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to get file info for ${params.filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-};
-
-export const getFileInfoFunctionDeclaration: FunctionDeclaration = {
-  name: "getFileInfo",
-  description: "Get detailed information about a file or directory",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      filePath: {
-        type: Type.STRING,
-        description: "Path to the file or directory",
-      },
-    },
-    required: ["filePath"],
-  },
-};
-
-// Check if file or directory exists
-export const checkExists = async (params: { path: string }): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.path);
-    const stats = await fs.promises.stat(safePath);
-    const type = stats.isDirectory() ? "directory" : stats.isFile() ? "file" : "other";
-    return `${params.path} exists as a ${type}`;
-  } catch (error) {
-    return `${params.path} does not exist`;
-  }
-};
-
-export const checkExistsFunctionDeclaration: FunctionDeclaration = {
-  name: "checkExists",
-  description: "Check if a file or directory exists",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      path: {
-        type: Type.STRING,
-        description: "Path to check",
-      },
-    },
-    required: ["path"],
-  },
-};
-
-// Search for files using macOS find command
-export const searchFiles = async (params: {
-  searchPath: string;
-  pattern: string;
-  fileType?: string;
-}): Promise<string> => {
-  try {
-    const safePath = ensureSafePath(params.searchPath);
-    let command = `find "${safePath}" -name "${params.pattern}"`;
-
-    if (params.fileType) {
-      if (params.fileType === "file") {
-        command += " -type f";
-      } else if (params.fileType === "directory") {
-        command += " -type d";
+        // Stop on error
+        // throw new Error(`Operation failed: ${errorMessage}`);
       }
     }
 
-    const { stdout, stderr } = await execAsync(command);
-
-    if (stderr) {
-      throw new Error(stderr);
+    if (operationsPerformed >= maxOps) {
+      finalResult += "\n\nNote: Maximum operations limit reached. Task may be incomplete.";
     }
 
-    const results = stdout.trim();
-    if (!results) {
-      return `No files found matching pattern "${params.pattern}" in ${params.searchPath}`;
-    }
-
-    return `Files found matching pattern "${params.pattern}" in ${params.searchPath}:\n${results}`;
+    return { result: finalResult, context, operationsPerformed };
   } catch (error) {
-    throw new Error(`Failed to search for files: ${error instanceof Error ? error.message : "Unknown error"}`);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Master tool router failed: ${errorMessage}`);
   }
 };
 
-export const searchFilesFunctionDeclaration: FunctionDeclaration = {
-  name: "searchFiles",
-  description: "Search for files and directories by name pattern",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      searchPath: {
-        type: Type.STRING,
-        description: "Path to search in",
-      },
-      pattern: {
-        type: Type.STRING,
-        description: "Name pattern to search for (supports wildcards like *.txt)",
-      },
-      fileType: {
-        type: Type.STRING,
-        description: "Type of items to search for: 'file' or 'directory' (default: both)",
-      },
-    },
-    required: ["searchPath", "pattern"],
-  },
+export const generateSummary = async (params: SummaryParams): Promise<string> => {
+  const { context } = params;
+  return SUMMARY_GENERATION_PROMPT(context);
 };
 
+export { masterToolRouterFunctionDeclaration, generateSummaryFunctionDeclaration } from "./declarations.js";
+export type { ToolContext, MasterRouterParams, MasterRouterResult, SummaryParams } from "./types.js";
+
 if (require.main === module) {
-  console.log(await listDirectory({ directoryPath: "." }));
+  const result = await masterToolRouter({
+    prompt: `You are running on macOS and have full access to the file system. You can read files from any location including the user's home directory.
+Task Overview
+Convert a Python file located in /Documents/python-code/ folder to JavaScript and create a new JavaScript file.
+Step-by-Step Plan
+Phase 1: Discovery and Analysis
+
+Locate the Python file
+
+Use listDirectory to explore the /Documents/python-code/ folder
+Identify the specific Python file(s) that need conversion
+Use getFileInfo to get details about the file(s)
+
+Analyze the Python code
+
+Phase 2: Conversion Strategy
+
+Plan the JavaScript equivalent
+
+Map Python data types to JavaScript equivalents:
+Convert Python syntax to JavaScript:
+
+Phase 3: Implementation
+
+Create the JavaScript file
+
+Determine appropriate filename (e.g., if Python file is script.py, create script.js)
+Use writeFile to create the new JavaScript file
+Implement the conversion following JavaScript best practices:
+
+Phase 4: Validation and Documentation
+
+Verify the conversion
+
+Use readFile to review the created JavaScript file
+Check for syntax correctness
+Ensure all functionality is preserved
+Test any specific edge cases
+
+
+
+Tools Required
+
+listDirectory - to explore the Python code folder
+readFile - to read the Python source code
+writeFile - to create the JavaScript file
+getFileInfo - to get file details
+checkExists - to verify file locations
+
+Expected Deliverables
+
+Converted JavaScript file - A functional JavaScript version of the Python code
+Conversion report - Documentation of changes made and any notes
+Dependency list - Any JavaScript libraries needed to replace Python functionality
+`,
+    maxOperations: 10,
+  });
+
+  console.log("Translation Result:");
+  console.log(result.result);
+  console.log("\nOperations performed:", result.operationsPerformed);
 }
