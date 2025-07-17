@@ -18,7 +18,6 @@ import {
   searchFilesFunctionDeclaration,
 } from "./tools.js";
 
-// Tool registry interface
 export interface ToolRegistry {
   [key: string]: {
     function: Function;
@@ -26,7 +25,6 @@ export interface ToolRegistry {
   };
 }
 
-// Get all available file tool declarations
 export const getAvailableTools = (): Record<string, FunctionDeclaration> => {
   return {
     readFile: readFileFunctionDeclaration,
@@ -40,7 +38,6 @@ export const getAvailableTools = (): Record<string, FunctionDeclaration> => {
   };
 };
 
-// Get tool registry with both functions and declarations
 export const getToolRegistry = (): ToolRegistry => {
   return {
     readFile: {
@@ -78,7 +75,6 @@ export const getToolRegistry = (): ToolRegistry => {
   };
 };
 
-// Execute a tool by name
 export const executeTool = async (toolName: string, parameters: any = {}): Promise<string> => {
   const registry = getToolRegistry();
   const tool = registry[toolName];
@@ -89,3 +85,33 @@ export const executeTool = async (toolName: string, parameters: any = {}): Promi
 
   return await tool.function(parameters);
 };
+
+const convertType = (type: string) => {
+  const map: Record<string, string> = {
+    STRING: "string",
+    BOOLEAN: "boolean",
+    OBJECT: "object",
+  };
+  return map[type.toUpperCase()] || type.toLowerCase();
+};
+
+export const tools = Object.values(getAvailableTools()).map((tool) => ({
+  type: "function",
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: {
+      type: convertType(tool.parameters?.type ?? "object"),
+      properties: Object.fromEntries(
+        Object.entries(tool.parameters?.properties ?? {}).map(([key, val]: any) => [
+          key,
+          {
+            type: convertType(val.type),
+            description: val.description,
+          },
+        ])
+      ),
+      required: tool.parameters?.required ?? [],
+    },
+  },
+}));
