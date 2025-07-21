@@ -1,17 +1,48 @@
 import { useState, useEffect, useRef } from "react";
 import { streamMessageWithHistory, type ChatMessage, type ImageData } from "./services/geminiService";
+import {
+  loadChatSessions,
+  saveChatSessions,
+  createNewSession,
+  deleteSession,
+  type ChatSession,
+} from "./services/chatStorage";
 import ChatContainer from "./components/ChatContainer";
 import ChatInput, { type ChatInputHandle } from "./components/ChatInput";
-import FloatingMenu from "./components/FloatingMenu";
+import Sidebar from "./components/Sidebar";
 import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Ref to ChatInput to programmatically add images
   const chatInputRef = useRef<ChatInputHandle>(null);
+
+  // Get current session
+  const currentSession = sessions.find((session) => session.id === currentSessionId);
+  const messages = currentSession?.messages || [];
+
+  // Load sessions on component mount
+  useEffect(() => {
+    const loadedSessions = loadChatSessions();
+    setSessions(loadedSessions);
+
+    // If no current session and we have sessions, select the first one
+    if (!currentSessionId && loadedSessions.length > 0) {
+      setCurrentSessionId(loadedSessions[0]?.id || null);
+    }
+  }, []);
+
+  // Save sessions whenever they change
+  useEffect(() => {
+    if (sessions.length > 0) {
+      saveChatSessions(sessions);
+    }
+  }, [sessions]);
 
   // Listen for global screenshot trigger
   useEffect(() => {
@@ -32,6 +63,7 @@ export default function App() {
           }
         }
       } catch (error) {
+        console.log(error);
         toast.error("Failed to take screenshot");
       }
     };
@@ -46,6 +78,16 @@ export default function App() {
   }, []);
 
   const handleSendMessage = async (content: string, images?: ImageData[]) => {
+    let sessionId = currentSessionId;
+
+    // Create new session if none exists
+    if (!sessionId) {
+      const newSession = createNewSession();
+      sessionId = newSession.id;
+      setSessions((prev) => [newSession, ...prev]);
+      setCurrentSessionId(sessionId);
+    }
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       content,
@@ -54,7 +96,25 @@ export default function App() {
       images: images,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Add user message and update session title
+    setSessions((prev) =>
+      prev.map((session) => {
+        if (session.id === sessionId) {
+          const updatedSession = { ...session, messages: [...session.messages, userMessage] };
+          const firstUserMessage = updatedSession.messages.find((msg) => msg.role === "user" && msg.content.trim());
+          if (firstUserMessage) {
+            const title =
+              firstUserMessage.content.length > 50
+                ? firstUserMessage.content.substring(0, 47) + "..."
+                : firstUserMessage.content;
+            return { ...updatedSession, title: title || "New Chat", updatedAt: new Date() };
+          }
+          return { ...updatedSession, updatedAt: new Date() };
+        }
+        return session;
+      })
+    );
+
     setIsLoading(true);
 
     // Create a placeholder assistant message for streaming
@@ -66,7 +126,19 @@ export default function App() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, assistantMessage]);
+    // Add assistant message using direct state update
+    setSessions((prev) =>
+      prev.map((session) => {
+        if (session.id === sessionId) {
+          return {
+            ...session,
+            messages: [...session.messages, assistantMessage],
+            updatedAt: new Date(),
+          };
+        }
+        return session;
+      })
+    );
 
     let streamingCompleted = false;
     let streamingStarted = false;
@@ -83,17 +155,37 @@ export default function App() {
 
         if (chunk.isComplete) {
           // Update the final message with complete text
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, content: chunk.fullText || msg.content } : msg
-            )
+          setSessions((prev) =>
+            prev.map((session) => {
+              if (session.id === sessionId) {
+                return {
+                  ...session,
+                  messages: session.messages.map((msg) =>
+                    msg.id === assistantMessageId ? { ...msg, content: chunk.fullText || msg.content } : msg
+                  ),
+                  updatedAt: new Date(),
+                };
+              }
+              return session;
+            })
           );
           streamingCompleted = true;
           setIsStreaming(false);
         } else {
           // Update the message with the new chunk
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, content: msg.content + chunk.chunk } : msg))
+          setSessions((prev) =>
+            prev.map((session) => {
+              if (session.id === sessionId) {
+                return {
+                  ...session,
+                  messages: session.messages.map((msg) =>
+                    msg.id === assistantMessageId ? { ...msg, content: msg.content + chunk.chunk } : msg
+                  ),
+                  updatedAt: new Date(),
+                };
+              }
+              return session;
+            })
           );
         }
       });
@@ -112,38 +204,57 @@ export default function App() {
         }
 
         // Update the assistant message with error, preserving any partial content
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === assistantMessageId) {
-              const currentContent = msg.content;
-              const errorSuffix = currentContent ? `\n\nError: ${errorContent}` : errorContent;
+        setSessions((prev) =>
+          prev.map((session) => {
+            if (session.id === sessionId) {
               return {
-                ...msg,
-                content: currentContent + errorSuffix,
-                isError: true,
+                ...session,
+                messages: session.messages.map((msg) => {
+                  if (msg.id === assistantMessageId) {
+                    const currentContent = msg.content;
+                    const errorSuffix = currentContent ? `\n\nError: ${errorContent}` : errorContent;
+                    return {
+                      ...msg,
+                      content: currentContent + errorSuffix,
+                      isError: true,
+                    };
+                  }
+                  return msg;
+                }),
+                updatedAt: new Date(),
               };
             }
-            return msg;
+            return session;
           })
         );
       }
     } catch (err) {
+      console.log(err);
       // Only update with error if streaming didn't complete successfully
       if (!streamingCompleted) {
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === assistantMessageId) {
-              const currentContent = msg.content;
-              const errorSuffix = currentContent
-                ? `\n\nError: Failed to send message. Please try again.`
-                : "Failed to send message. Please try again.";
+        setSessions((prev) =>
+          prev.map((session) => {
+            if (session.id === sessionId) {
               return {
-                ...msg,
-                content: currentContent + errorSuffix,
-                isError: true,
+                ...session,
+                messages: session.messages.map((msg) => {
+                  if (msg.id === assistantMessageId) {
+                    const currentContent = msg.content;
+                    const errorSuffix = currentContent
+                      ? `\n\nError: Failed to send message. Please try again.`
+                      : "Failed to send message. Please try again.";
+                    return {
+                      ...msg,
+                      content: currentContent + errorSuffix,
+                      isError: true,
+                    };
+                  }
+                  return msg;
+                }),
+                updatedAt: new Date(),
               };
             }
-            return msg;
+            return session;
           })
         );
       }
@@ -156,8 +267,28 @@ export default function App() {
     }
   };
 
-  const handleClearChat = () => {
-    setMessages([]);
+  const handleNewSession = () => {
+    const newSession = createNewSession();
+    setSessions((prev) => [newSession, ...prev]);
+    setCurrentSessionId(newSession.id);
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+  };
+
+  const handleDeleteSession = (sessionId: string) => {
+    setSessions((prev) => deleteSession(prev, sessionId));
+
+    // If we're deleting the current session, select the first available one
+    if (currentSessionId === sessionId) {
+      const remainingSessions = deleteSession(sessions, sessionId);
+      setCurrentSessionId(remainingSessions.length > 0 ? remainingSessions[0]?.id || null : null);
+    }
+  };
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   const handleScreenshot = async () => {
@@ -177,35 +308,49 @@ export default function App() {
         }
       }
     } catch (error) {
+      console.log(error);
       toast.error("Failed to take screenshot");
     }
   };
 
-  const hasMessages = messages.length > 0;
-
   return (
     <div>
       <Toaster position="top-center" toastOptions={{ duration: 1500 }} />
-      <div className="h-screen bg-white">
-        {hasMessages ? (
-          // Normal chat layout when messages exist
-          <div className="h-full flex flex-col">
-            <ChatContainer messages={messages} />
-            <ChatInput
-              ref={chatInputRef}
-              onSendMessage={handleSendMessage}
-              isLoading={isLoading}
-              isStreaming={isStreaming}
-              onScreenshot={handleScreenshot}
-            />
-          </div>
-        ) : (
-          // Centered layout when no messages
-          <div className="h-full flex flex-col items-center justify-center px-8">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-normal text-gray-700 mb-8">Ready when you are.</h1>
+      <div className="h-screen bg-white flex">
+        {/* Sidebar */}
+        <Sidebar
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col h-full">
+          {/* Chat Area */}
+          {messages.length > 0 ? (
+            <div className="flex-1 flex flex-col h-full">
+              <div className="flex-1 overflow-hidden">
+                <ChatContainer messages={messages} />
+              </div>
+              <div className="flex-shrink-0 px-4 pb-4">
+                <ChatInput
+                  ref={chatInputRef}
+                  onSendMessage={handleSendMessage}
+                  isLoading={isLoading}
+                  isStreaming={isStreaming}
+                  onScreenshot={handleScreenshot}
+                />
+              </div>
             </div>
-            <div className="w-full max-w-2xl">
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center px-8">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
+              </div>
               <ChatInput
                 ref={chatInputRef}
                 onSendMessage={handleSendMessage}
@@ -214,10 +359,10 @@ export default function App() {
                 onScreenshot={handleScreenshot}
               />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <FloatingMenu onClearChat={handleClearChat} />
+        <div className="w-14 h-full"></div>
       </div>
     </div>
   );
