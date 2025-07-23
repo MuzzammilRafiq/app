@@ -1,12 +1,20 @@
 import { Type, FunctionDeclaration } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
 const ensureSafePath = (filePath: string): string => {
+  // Handle tilde expansion
+  if (filePath.startsWith("~/")) {
+    return path.join(os.homedir(), filePath.slice(2));
+  }
+  if (filePath === "~") {
+    return os.homedir();
+  }
   if (path.isAbsolute(filePath)) {
     return filePath;
   }
@@ -26,7 +34,7 @@ export const readFile = async (params: { filePath: string; encoding?: string }):
   }
 };
 
-export const readFileFunctionDeclaration: FunctionDeclaration = {
+export const readFileFD: FunctionDeclaration = {
   name: "readFile",
   description: "Read the contents of a file",
   parameters: {
@@ -45,7 +53,6 @@ export const readFileFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Write file content
 export const writeFile = async (params: { filePath: string; content: string; encoding?: string }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.filePath);
@@ -59,7 +66,7 @@ export const writeFile = async (params: { filePath: string; content: string; enc
   }
 };
 
-export const writeFileFunctionDeclaration: FunctionDeclaration = {
+export const writeFileFD: FunctionDeclaration = {
   name: "writeFile",
   description: "Write content to a file",
   parameters: {
@@ -82,11 +89,7 @@ export const writeFileFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// List directory contents
-export const listContentsOfDirectory = async (params: {
-  directoryPath: string;
-  showHidden?: boolean;
-}): Promise<string> => {
+export const listDirectory = async (params: { directoryPath: string; showHidden?: boolean }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.directoryPath);
 
@@ -116,7 +119,7 @@ export const listContentsOfDirectory = async (params: {
   }
 };
 
-export const listContentsOfDirectoryFunctionDeclaration: FunctionDeclaration = {
+export const listDirectoryFD: FunctionDeclaration = {
   name: "listDirectory",
   description: "List the contents of a directory",
   parameters: {
@@ -135,7 +138,6 @@ export const listContentsOfDirectoryFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Create directory
 export const createDirectory = async (params: { directoryPath: string; recursive?: boolean }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.directoryPath);
@@ -148,7 +150,7 @@ export const createDirectory = async (params: { directoryPath: string; recursive
   }
 };
 
-export const createDirectoryFunctionDeclaration: FunctionDeclaration = {
+export const createDirectoryFD: FunctionDeclaration = {
   name: "createDirectory",
   description: "Create a new directory",
   parameters: {
@@ -167,7 +169,6 @@ export const createDirectoryFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Delete file or directory
 export const deleteFileOrDirectory = async (params: { path: string; recursive?: boolean }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.path);
@@ -185,7 +186,7 @@ export const deleteFileOrDirectory = async (params: { path: string; recursive?: 
   }
 };
 
-export const deleteFileOrDirectoryFunctionDeclaration: FunctionDeclaration = {
+export const deleteFileOrDirectoryFD: FunctionDeclaration = {
   name: "deleteFileOrDirectory",
   description: "Delete a file or directory",
   parameters: {
@@ -204,7 +205,6 @@ export const deleteFileOrDirectoryFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Get file information
 export const getFileInfo = async (params: { filePath: string }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.filePath);
@@ -228,7 +228,7 @@ export const getFileInfo = async (params: { filePath: string }): Promise<string>
   }
 };
 
-export const getFileInfoFunctionDeclaration: FunctionDeclaration = {
+export const getFileInfoFD: FunctionDeclaration = {
   name: "getFileInfo",
   description: "Get detailed information about a file or directory",
   parameters: {
@@ -243,19 +243,18 @@ export const getFileInfoFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Check if file or directory exists
 export const checkExists = async (params: { path: string }): Promise<string> => {
   try {
     const safePath = ensureSafePath(params.path);
     const stats = await fs.promises.stat(safePath);
     const type = stats.isDirectory() ? "directory" : stats.isFile() ? "file" : "other";
     return `${params.path} exists as a ${type}`;
-  } catch (error) {
+  } catch {
     return `${params.path} does not exist`;
   }
 };
 
-export const checkExistsFunctionDeclaration: FunctionDeclaration = {
+export const checkExistsFD: FunctionDeclaration = {
   name: "checkExists",
   description: "Check if a file or directory exists",
   parameters: {
@@ -270,7 +269,6 @@ export const checkExistsFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
-// Search for files using macOS find command
 export const searchFiles = async (params: {
   searchPath: string;
   pattern: string;
@@ -305,7 +303,7 @@ export const searchFiles = async (params: {
   }
 };
 
-export const searchFilesFunctionDeclaration: FunctionDeclaration = {
+export const searchFilesFD: FunctionDeclaration = {
   name: "searchFiles",
   description: "Search for files and directories by name pattern",
   parameters: {

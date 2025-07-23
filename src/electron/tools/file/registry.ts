@@ -1,40 +1,40 @@
 import { FunctionDeclaration } from "@google/genai";
 import {
   readFile,
-  readFileFunctionDeclaration,
+  readFileFD,
   writeFile,
-  writeFileFunctionDeclaration,
-  listContentsOfDirectory,
-  listContentsOfDirectoryFunctionDeclaration,
+  writeFileFD,
+  listDirectory,
+  listDirectoryFD,
   createDirectory,
-  createDirectoryFunctionDeclaration,
+  createDirectoryFD,
   deleteFileOrDirectory,
-  deleteFileOrDirectoryFunctionDeclaration,
+  deleteFileOrDirectoryFD,
   getFileInfo,
-  getFileInfoFunctionDeclaration,
+  getFileInfoFD,
   checkExists,
-  checkExistsFunctionDeclaration,
+  checkExistsFD,
   searchFiles,
-  searchFilesFunctionDeclaration,
+  searchFilesFD,
 } from "./tools.js";
 
 export interface ToolRegistry {
   [key: string]: {
-    function: Function;
+    function: (params: any) => Promise<string>;
     declaration: FunctionDeclaration;
   };
 }
 
 export const getAvailableTools = (): Record<string, FunctionDeclaration> => {
   return {
-    readFile: readFileFunctionDeclaration,
-    writeFile: writeFileFunctionDeclaration,
-    listDirectory: listContentsOfDirectoryFunctionDeclaration,
-    createDirectory: createDirectoryFunctionDeclaration,
-    deleteFileOrDirectory: deleteFileOrDirectoryFunctionDeclaration,
-    getFileInfo: getFileInfoFunctionDeclaration,
-    checkExists: checkExistsFunctionDeclaration,
-    searchFiles: searchFilesFunctionDeclaration,
+    readFile: readFileFD,
+    writeFile: writeFileFD,
+    listDirectory: listDirectoryFD,
+    createDirectory: createDirectoryFD,
+    deleteFileOrDirectory: deleteFileOrDirectoryFD,
+    getFileInfo: getFileInfoFD,
+    checkExists: checkExistsFD,
+    searchFiles: searchFilesFD,
   };
 };
 
@@ -42,40 +42,43 @@ export const getToolRegistry = (): ToolRegistry => {
   return {
     readFile: {
       function: readFile,
-      declaration: readFileFunctionDeclaration,
+      declaration: readFileFD,
     },
     writeFile: {
       function: writeFile,
-      declaration: writeFileFunctionDeclaration,
+      declaration: writeFileFD,
     },
     listDirectory: {
-      function: listContentsOfDirectory,
-      declaration: listContentsOfDirectoryFunctionDeclaration,
+      function: listDirectory,
+      declaration: listDirectoryFD,
     },
     createDirectory: {
       function: createDirectory,
-      declaration: createDirectoryFunctionDeclaration,
+      declaration: createDirectoryFD,
     },
     deleteFileOrDirectory: {
       function: deleteFileOrDirectory,
-      declaration: deleteFileOrDirectoryFunctionDeclaration,
+      declaration: deleteFileOrDirectoryFD,
     },
     getFileInfo: {
       function: getFileInfo,
-      declaration: getFileInfoFunctionDeclaration,
+      declaration: getFileInfoFD,
     },
     checkExists: {
       function: checkExists,
-      declaration: checkExistsFunctionDeclaration,
+      declaration: checkExistsFD,
     },
     searchFiles: {
       function: searchFiles,
-      declaration: searchFilesFunctionDeclaration,
+      declaration: searchFilesFD,
     },
   };
 };
 
-export const executeTool = async (toolName: string, parameters: any = {}): Promise<string> => {
+export const executeTool = async (
+  toolName: string,
+  parameters: unknown = {},
+): Promise<string> => {
   const registry = getToolRegistry();
   const tool = registry[toolName];
 
@@ -103,13 +106,15 @@ export const tools = Object.values(getAvailableTools()).map((tool) => ({
     parameters: {
       type: convertType(tool.parameters?.type ?? "object"),
       properties: Object.fromEntries(
-        Object.entries(tool.parameters?.properties ?? {}).map(([key, val]: any) => [
-          key,
-          {
-            type: convertType(val.type),
-            description: val.description,
-          },
-        ])
+        Object.entries(tool.parameters?.properties ?? {}).map(
+          ([key, val]: [string, any]) => [
+            key,
+            {
+              type: convertType(val.type),
+              description: val.description,
+            },
+          ],
+        ),
       ),
       required: tool.parameters?.required ?? [],
     },
