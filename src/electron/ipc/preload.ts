@@ -20,4 +20,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   removeGlobalScreenshotListener: () => {
     ipcRenderer.removeAllListeners("global-screenshot-trigger");
   },
+
+  addImageFolder: (folderPath: string) => ipcRenderer.invoke("image-embeddings:add-folder", folderPath),
+  
+  searchImagesByText: (query: string, limit: number = 10) =>
+    ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
+  deleteAllImageEmbeddings: () => ipcRenderer.invoke("image-embeddings:delete-all"),
 });

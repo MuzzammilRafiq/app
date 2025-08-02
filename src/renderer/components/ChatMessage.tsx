@@ -1,59 +1,56 @@
-import type { ChatMessage as ChatMessageType } from '../services/geminiService';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import type { ChatMessage as ChatMessageType } from "../services/geminiService";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import clsx from "clsx";
 
 export default function ChatMessage(message: ChatMessageType) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === "user";
   const isError = message.isError;
-  const isStreaming = !isUser && !isError && message.content === '';
+  const isStreaming = !isUser && !isError && message.content === "";
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
+    <div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
       <div
-        className={`max-w-[75%] px-5 py-4 rounded-2xl shadow-sm ${
+        className={clsx(
+          "",
           isUser
-            ? 'bg-gradient-to-br from-slate-400 to-slate-600 text-white rounded-br-md'
+            ? "bg-blue-100 rounded-xl px-2 py-2 max-w-[75%]"
             : isError
-              ? 'bg-gradient-to-br from-red-50 to-red-100 text-red-800 border border-red-200 rounded-bl-md shadow-md'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 border border-slate-200 rounded-bl-md shadow-md hover:shadow-lg transition-shadow duration-200'
-        }`}
+              ? "bg-gradient-to-br from-red-50 to-red-100 text-red-800 border-red-200 px-4 py-2.5"
+              : "text-slate-800 px-4 py-2.5"
+        )}
       >
         {isStreaming ? (
-          <div className='flex items-center space-x-3'>
-            <div className='flex space-x-1'>
-              <div className='w-2 h-2 bg-slate-400 rounded-full animate-bounce'></div>
+          <div className="flex items-center space-x-3">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
               <div
-                className='w-2 h-2 bg-slate-400 rounded-full animate-bounce'
-                style={{ animationDelay: '0.1s' }}
+                className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0.1s" }}
               ></div>
               <div
-                className='w-2 h-2 bg-slate-400 rounded-full animate-bounce'
-                style={{ animationDelay: '0.2s' }}
+                className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0.2s" }}
               ></div>
             </div>
-            <span className='text-slate-600 text-sm font-medium'>
-              AI is thinking...
-            </span>
           </div>
         ) : (
-          <div className='space-y-3'>
+          <div className="space-y-3">
             {/* Display images if present */}
             {message.images && message.images.length > 0 && (
-              <div className='flex flex-wrap gap-3'>
+              <div className="flex flex-wrap gap-3">
                 {message.images.map((image, index) => (
-                  <div key={index} className='relative'>
+                  <div key={index} className="relative">
                     <img
                       src={`data:${image.mimeType};base64,${image.data}`}
                       alt={image.name || `Image ${index + 1}`}
-                      className='max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm'
-                      style={{ maxWidth: '200px' }}
+                      className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                      style={{ maxWidth: "200px" }}
                     />
                     {image.name && (
-                      <div
-                        className={`text-xs mt-2 opacity-75 ${isUser ? 'text-slate-100' : 'text-slate-500'}`}
-                      >
+                      <div className={clsx("text-xs mt-2 opacity-75", isUser ? "text-gray-500" : "text-slate-500")}>
                         {image.name}
                       </div>
                     )}
@@ -65,55 +62,74 @@ export default function ChatMessage(message: ChatMessageType) {
             {/* Display markdown content */}
             {message.content && (
               <div
-                className={`prose ${isUser ? 'prose-invert' : 'prose-slate'} max-w-none`}
+                className={clsx(
+                  "max-w-none leading-relaxed [&>p:last-child]:mb-0",
+                  isUser ? "text-blue-700" : "text-slate-700"
+                )}
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
                     // Custom styling for different markdown elements
                     h1: ({ children }) => (
-                      <h1 className='text-xl font-bold mb-3 text-current'>
+                      <h1 className={clsx("text-xl font-bold mb-3 mt-6", isUser ? "text-blue-700" : "text-slate-800")}>
                         {children}
                       </h1>
                     ),
                     h2: ({ children }) => (
-                      <h2 className='text-lg font-bold mb-2 text-current'>
+                      <h2 className={clsx("text-lg font-bold mb-2 mt-5", isUser ? "text-blue-700" : "text-slate-800")}>
                         {children}
                       </h2>
                     ),
                     h3: ({ children }) => (
-                      <h3 className='text-base font-bold mb-2 text-current'>
+                      <h3
+                        className={clsx("text-base font-bold mb-2 mt-4", isUser ? "text-blue-700" : "text-slate-800")}
+                      >
                         {children}
                       </h3>
                     ),
                     p: ({ children }) => (
-                      <p className='mb-3 leading-relaxed text-current'>
+                      <p className={clsx("mb-2 leading-relaxed", isUser ? "text-blue-700" : "text-slate-700")}>
                         {children}
                       </p>
                     ),
                     ul: ({ children }) => (
-                      <ul className='list-disc list-inside mb-3 space-y-1 text-current'>
+                      <ul
+                        className={clsx(
+                          "list-disc list-inside mb-3 space-y-1 pl-6",
+                          isUser ? "text-blue-700" : "text-slate-700"
+                        )}
+                      >
                         {children}
                       </ul>
                     ),
                     ol: ({ children }) => (
-                      <ol className='list-decimal list-inside mb-3 space-y-1 text-current'>
+                      <ol
+                        className={clsx(
+                          "list-decimal list-inside mb-3 space-y-1 pl-6",
+                          isUser ? "text-blue-700" : "text-slate-700"
+                        )}
+                      >
                         {children}
                       </ol>
                     ),
                     li: ({ children }) => (
-                      <li className='text-current'>{children}</li>
+                      <li className={clsx(isUser ? "text-blue-700" : "text-slate-700")}>{children}</li>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className={clsx("font-semibold", isUser ? "text-blue-700" : "text-slate-800")}>
+                        {children}
+                      </strong>
                     ),
                     code: ({ children, className }) => {
                       const isInline = !className;
                       if (isInline) {
                         return (
                           <code
-                            className={`text-sm font-mono px-1.5 py-0.5 rounded-md ${
-                              isUser
-                                ? 'bg-slate-500/20 text-slate-100'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}
+                            className={clsx(
+                              "text-sm font-mono px-1.5 py-0.5 rounded-md",
+                              isUser ? "bg-gray-200 text-blue-700" : "bg-slate-200 text-slate-700"
+                            )}
                           >
                             {children}
                           </code>
@@ -121,40 +137,45 @@ export default function ChatMessage(message: ChatMessageType) {
                       }
 
                       // Extract language from className (format: language-{lang})
-                      const language =
-                        className?.replace('language-', '') || 'text';
+                      const language = className?.replace("language-", "") || "text";
 
                       return (
-                        <div className='mb-3'>
+                        <div className="mb-3">
                           <SyntaxHighlighter
                             language={language}
                             style={oneLight}
                             customStyle={{
                               margin: 0,
-                              borderRadius: '0.75rem',
-                              fontSize: '0.875rem',
-                              lineHeight: '1.5',
-                              border: isUser ? 'none' : '1px solid #e2e8f0',
-                              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                              borderRadius: "0.75rem",
+                              fontSize: "0.875rem",
+                              lineHeight: "1.5",
+                              border: isUser ? "none" : "1px solid #e2e8f0",
+                              boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
                             }}
-                            showLineNumbers={
-                              language !== 'text' && language !== 'plaintext'
-                            }
+                            showLineNumbers={language !== "text" && language !== "plaintext"}
                             wrapLines={true}
                           >
-                            {String(children).replace(/\n$/, '')}
+                            {String(children).replace(/\n$/, "")}
                           </SyntaxHighlighter>
                         </div>
                       );
                     },
                     pre: ({ children }) => (
-                      <pre className='rounded-xl overflow-x-auto mb-3'>
+                      <pre
+                        className={clsx(
+                          "rounded-xl overflow-x-auto mb-3 p-4",
+                          isUser ? "bg-gray-200 border border-gray-300" : "bg-slate-50 border border-slate-200"
+                        )}
+                      >
                         {children}
                       </pre>
                     ),
                     blockquote: ({ children }) => (
                       <blockquote
-                        className={`border-l-4 pl-4 italic mb-3 ${isUser ? 'border-blue-300' : 'border-slate-300'}`}
+                        className={clsx(
+                          "border-l-4 pl-4 italic mb-3",
+                          isUser ? "border-gray-400 text-blue-700" : "border-slate-300 text-slate-600"
+                        )}
                       >
                         {children}
                       </blockquote>
@@ -162,38 +183,46 @@ export default function ChatMessage(message: ChatMessageType) {
                     a: ({ children, href }) => (
                       <a
                         href={href}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className={`underline underline-offset-2 font-medium ${
-                          isUser
-                            ? 'text-blue-200 hover:text-blue-100'
-                            : 'text-blue-600 hover:text-blue-700'
-                        } transition-colors duration-200`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={clsx(
+                          "underline underline-offset-2 font-medium transition-colors duration-200",
+                          isUser ? "text-blue-700 hover:text-blue-800" : "text-blue-600 hover:text-blue-700"
+                        )}
                       >
                         {children}
                       </a>
                     ),
                     table: ({ children }) => (
-                      <div className='overflow-x-auto mb-3'>
-                        <table className='min-w-full border border-slate-200 rounded-lg overflow-hidden shadow-sm'>
+                      <div className="overflow-x-auto mb-3">
+                        <table
+                          className={clsx(
+                            "min-w-full border rounded-lg overflow-hidden shadow-sm",
+                            isUser ? "border-blue-500/30" : "border-slate-200"
+                          )}
+                        >
                           {children}
                         </table>
                       </div>
                     ),
                     th: ({ children }) => (
                       <th
-                        className={`border border-slate-200 px-4 py-3 font-semibold ${
+                        className={clsx(
+                          "border px-4 py-3 font-semibold",
                           isUser
-                            ? 'bg-blue-500/20 text-blue-100'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
+                            ? "border-gray-300 bg-gray-200 text-blue-700"
+                            : "border-slate-200 bg-slate-100 text-slate-700"
+                        )}
                       >
                         {children}
                       </th>
                     ),
                     td: ({ children }) => (
                       <td
-                        className={`border border-slate-200 px-4 py-3 ${isUser ? 'text-blue-100' : 'text-slate-700'}`}
+                        className={clsx(
+                          "border px-4 py-3",
+                          isUser ? "border-gray-300 text-blue-700" : "border-slate-200 text-slate-700"
+                        )}
                       >
                         {children}
                       </td>
@@ -206,21 +235,6 @@ export default function ChatMessage(message: ChatMessageType) {
             )}
           </div>
         )}
-
-        <div
-          className={`text-xs mt-3 opacity-70 font-medium ${
-            isUser
-              ? 'text-blue-100'
-              : isError
-                ? 'text-red-600'
-                : 'text-slate-500'
-          }`}
-        >
-          {message.timestamp.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </div>
       </div>
     </div>
   );

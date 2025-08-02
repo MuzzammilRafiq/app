@@ -30,22 +30,6 @@
 interface Window {
   electronAPI: {
     /**
-     * Sends a single message to the Gemini AI service
-     *
-     * @param {string} message - The message to send to Gemini AI
-     * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
-     */
-    sendMessage: (message: string) => Promise<{ text: string; error?: string }>;
-
-    /**
-     * Sends messages with conversation history to the Gemini AI service
-     *
-     * @param {any[]} messages - Array of message objects with role and content
-     * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
-     */
-    sendMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
-
-    /**
      * Streams messages with conversation history to the Gemini AI service
      *
      * @param {any[]} messages - Array of message objects with role and content
