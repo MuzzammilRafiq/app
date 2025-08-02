@@ -1,22 +1,82 @@
-import { connect } from "@lancedb/lancedb";
+import * as lancedb from "@lancedb/lancedb";
+import * as arrow from "apache-arrow";
+import { createHash } from "crypto";
+import assert from "assert";
+import { console } from "inspector/promises";
+import chalk from "chalk";
 
 interface ImageEmbedding {
-  id: number;
-  filename: string;
-  description: string;
-  vector: Float32Array;
+  id: string;
+  filepath: string;
+  vector: number[];
 }
 
 export class LanceDBManager {
   private static instance: LanceDBManager;
-  private db: any;
-  private table: any;
+  private db: lancedb.Connection | undefined = undefined;
+  private dbdir: string = "./lancedb";
   private tableName: string = "image_embeddings";
+  private table: lancedb.Table | undefined = undefined;
   private isInitialized: boolean = false;
-  private embeddingServiceUrl: string = "http://localhost:8000/url";
+  private initializationPromise: Promise<void> | null = null;
+  private embeddingServiceUrl: string = process.env.EMBEDDING_SERVICE_URL!;
+
+  private schema = new arrow.Schema([
+    new arrow.Field("id", new arrow.Utf8()),
+    new arrow.Field("filepath", new arrow.Utf8()),
+    new arrow.Field("vector", new arrow.FixedSizeList(512, new arrow.Field("item", new arrow.Float32()))),
+  ]);
 
   private constructor() {
-    this.initialize();
+    // Don't call initialize here - it will be called when needed
+  }
+
+  private async initialize() {
+    if (this.isInitialized) {
+      return;
+    }
+
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+      return;
+    }
+
+    this.initializationPromise = this._initialize();
+    await this.initializationPromise;
+  }
+
+  private async _initialize() {
+    try {
+      this.db = await lancedb.connect(this.dbdir);
+      await this.ensureTableExists();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error(chalk.red("Error initializing LanceDB:", error));
+      throw error;
+    }
+  }
+
+  private async ensureTableExists() {
+    if (!this.db) {
+      throw new Error("Database not initialized");
+    }
+
+    const exisTables = await this.db.tableNames();
+    if (exisTables.includes(this.tableName)) {
+      // Check if we need to recreate the table due to schema mismatch
+      try {
+        this.table = await this.db.openTable(this.tableName);
+        console.log(chalk.blue("Opened existing table:", this.tableName));
+      } catch (error) {
+        console.log(chalk.yellow("Schema mismatch detected, recreating table:", this.tableName));
+        await this.db.dropTable(this.tableName);
+        this.table = await this.db.createEmptyTable(this.tableName, this.schema);
+        console.log(chalk.green("Recreated table:", this.tableName, "with schema for 512-dimensional vectors"));
+      }
+    } else {
+      this.table = await this.db.createEmptyTable(this.tableName, this.schema);
+      console.log(chalk.green("Created new table:", this.tableName, "with schema for 512-dimensional vectors"));
+    }
   }
 
   public static getInstance(): LanceDBManager {
@@ -26,145 +86,237 @@ export class LanceDBManager {
     return LanceDBManager.instance;
   }
 
-  private async initialize() {
-    this.db = await connect("./lancedb");
-    await this.ensureTableExists();
-    this.isInitialized = true;
-  }
-
-  private async ensureTableExists() {
+  async generateEmbedding(
+    filepaths: string[]
+  ): Promise<{ success: boolean; error: Error | null; data: { filepath: string; stored: boolean }[] | null }> {
     try {
-      this.table = await this.db.openTable(this.tableName);
+      if (!this.embeddingServiceUrl) {
+        throw new Error("EMBEDDING_SERVICE_URL environment variable is not set");
+      }
+      const fileUrls = filepaths.map((filepath) => (filepath.startsWith("file://") ? filepath : `file://${filepath}`));
+
+      const responses = await Promise.all(
+        fileUrls.map(async (fileUrl) => {
+          try {
+            const response = await fetch(`${this.embeddingServiceUrl}/filepath`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                url: fileUrl,
+              }),
+            });
+            if (!response.ok) {
+              throw new Error(`Embedding service error: ${response.status}`);
+            }
+            const data = await response.json();
+            return { [fileUrl]: new Float32Array(JSON.parse(data)) };
+          } catch (error) {
+            console.error(chalk.red(`Error generating embedding for ${fileUrl}:`, error));
+            return { [fileUrl]: null };
+          }
+        })
+      );
+
+      const embeddingData = Object.fromEntries(responses.map((response) => Object.entries(response)[0]));
+
+      // Save successful embeddings to database
+      const successfulEmbeddings = Object.entries(embeddingData)
+        .filter(([_, embedding]) => embedding !== null)
+        .map(([fileUrl, embedding]) => ({
+          filepath: fileUrl,
+          vector: embedding as Float32Array,
+        }));
+
+      let storedSuccessfully = false;
+      if (successfulEmbeddings.length > 0) {
+        const saveResult = await this.create(successfulEmbeddings);
+        if (!saveResult.success) {
+          console.warn(chalk.yellow("Failed to save some embeddings to database:", saveResult.error));
+          storedSuccessfully = false;
+        } else {
+          console.log(chalk.green(`Successfully saved ${successfulEmbeddings.length} embeddings to database`));
+          storedSuccessfully = true;
+        }
+      }
+
+      // Create result array with filepath and stored status
+      const resultData = filepaths.map((filepath) => {
+        const fileUrl = filepath.startsWith("file://") ? filepath : `file://${filepath}`;
+        const embedding = embeddingData[fileUrl];
+        const wasGenerated = embedding !== null;
+        const wasStored = wasGenerated && storedSuccessfully;
+
+        return {
+          filepath: filepath,
+          stored: wasStored,
+        };
+      });
+
+      return {
+        success: true,
+        error: null,
+        data: resultData,
+      };
     } catch (error) {
-      const sampleData: ImageEmbedding[] = [
-        {
-          id: 0,
-          filename: "sample.jpg",
-          description: "sample description",
-          vector: new Float32Array(Array(512).fill(0.1)),
-        },
-      ];
-
-      this.table = await this.db.createTable(this.tableName, sampleData);
-      await this.table.delete("id = 0");
+      console.error(chalk.red(`Error generating embedding: ${String(error)}`));
+      return { success: false, error: error as Error, data: null };
     }
   }
 
-  private async ensureInitialized() {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-  }
-
-  private async generateEmbedding(imageUrl: string): Promise<Float32Array> {
+  // now do crud
+  async create(data: { filepath: string; vector: Float32Array }[]): Promise<{ success: boolean; error: Error | null }> {
     try {
-      const response = await fetch(this.embeddingServiceUrl, {
+      await this.initialize();
+      assert(
+        data.length === data.length,
+        `Filepath ${data.length} and embedding ${data.length} must have the same length`
+      );
+
+      const embeddings = [];
+      const existingIds = new Set<string>();
+
+      // First, get all existing IDs to check for duplicates
+      try {
+        const existingRecords = await this.table!.query().toArray();
+        existingRecords.forEach((record: any) => existingIds.add(record.id));
+      } catch (error) {
+        console.warn("Could not fetch existing records, proceeding with insert:", error);
+      }
+
+      let updatedCount = 0;
+      let insertedCount = 0;
+
+      for (let i = 0; i < data.length; i++) {
+        const id = createHash("sha256").update(data[i].filepath).digest("hex");
+        const embedding = {
+          id: id,
+          filepath: data[i].filepath,
+          vector: Array.from(data[i].vector),
+        };
+
+        if (existingIds.has(id)) {
+          // Update existing record
+          await this.table!.update({
+            where: `id = '${id}'`,
+            values: {
+              vector: embedding.vector,
+              filepath: embedding.filepath, // Update filepath too in case it changed
+            },
+          });
+          updatedCount++;
+          console.log(chalk.yellow(`Updated existing embedding for: ${data[i].filepath}`));
+        } else {
+          // Add to batch for new insertions
+          embeddings.push(embedding);
+          insertedCount++;
+        }
+      }
+
+      // Insert new embeddings if any
+      if (embeddings.length > 0) {
+        await this.table!.add(embeddings);
+        console.log(chalk.green(`Inserted ${embeddings.length} new embeddings`));
+      }
+
+      if (updatedCount > 0) {
+        console.log(chalk.blue(`Updated ${updatedCount} existing embeddings`));
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error("Error adding/updating image embedding:", error);
+      return { success: false, error: error as Error };
+    }
+  }
+
+  async search(
+    vector: Float32Array,
+    limit: number = 3
+  ): Promise<{ success: boolean; error: Error | null; data: ImageEmbedding[] | null }> {
+    try {
+      await this.initialize();
+      const res = await this.table!.search(Array.from(vector), "vector").limit(limit).toArray();
+      console.log(chalk.green(`Search completed, found ${res.length} results`));
+      return { success: true, error: null, data: res };
+    } catch (error) {
+      console.error("Error searching image embedding:", error);
+      return { success: false, error: error as Error, data: null };
+    }
+  }
+
+  async getAll(): Promise<{ success: boolean; error: Error | null; data: ImageEmbedding[] | null }> {
+    try {
+      await this.initialize();
+      const res = await this.table!.query().toArray();
+      return { success: true, error: null, data: res };
+    } catch (error) {
+      console.error("Error getting all image embeddings:", error);
+      return { success: false, error: error as Error, data: null };
+    }
+  }
+
+  async searchByText(query: string, limit: number = 10): Promise<string[]> {
+    try {
+      if (!this.embeddingServiceUrl) {
+        throw new Error("EMBEDDING_SERVICE_URL environment variable is not set");
+      }
+
+      // Generate embedding for the text query
+      const response = await fetch(`${this.embeddingServiceUrl}/text`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          url: imageUrl,
+          text: query,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Embedding service error: ${response.status}`);
+        throw new Error(`Text embedding service error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const embeddingData = await response.json();
+      const queryEmbedding = new Float32Array(JSON.parse(embeddingData));
+      // Search for similar embeddings
+      const searchResult = await this.search(queryEmbedding, limit);
 
-      // Convert the array to Float32Array
-      return new Float32Array(data);
+      if (!searchResult.success || !searchResult.data) {
+        console.warn("Text search returned no results or failed:", searchResult.error);
+        return [];
+      }
+
+      // Extract only filepaths and remove "file://" prefix if present
+      const filepaths = searchResult.data.map((result: ImageEmbedding) => {
+        let filepath = result.filepath;
+        if (filepath.startsWith("file://")) {
+          filepath = filepath.substring(7); // Remove "file://" prefix
+        }
+        return filepath;
+      });
+
+      console.log(chalk.green(`Text search for "${query}" found ${filepaths.length} results`));
+      return filepaths;
     } catch (error) {
-      throw new Error(`Failed to generate embedding: ${error}`);
+      console.error(chalk.red(`Error in searchByText for query "${query}":`, error));
+      throw error;
     }
   }
+}
 
-  async addImageWithEmbedding(id: number, filename: string, imageUrl: string, description: string = ""): Promise<void> {
-    await this.ensureInitialized();
+if (require.main === module) {
+  const db = LanceDBManager.getInstance();
 
-    const vector = await this.generateEmbedding(imageUrl);
-    const record: ImageEmbedding = {
-      id,
-      filename,
-      description,
-      vector,
-    };
+  // Test generating embeddings
+  const filepaths = [
+    "/Users/malikmuzzammilrafiq/Pictures/i/image-96.jpg",
+    "/Users/malikmuzzammilrafiq/Pictures/i/image-97.jpg",
+    "/Users/malikmuzzammilrafiq/Pictures/i/image-98.jpg",
+  ];
 
-    await this.table.add([record]);
-  }
-
-  async addEmbedding(id: number, filename: string, description: string, vector: Float32Array): Promise<void> {
-    await this.ensureInitialized();
-    const record: ImageEmbedding = {
-      id,
-      filename,
-      description,
-      vector,
-    };
-    await this.table.add([record]);
-  }
-
-  async searchSimilar(queryVector: Float32Array, limit: number = 3): Promise<any[]> {
-    await this.ensureInitialized();
-    const results = await this.table.vectorSearch(queryVector).limit(limit).toArray();
-    return results;
-  }
-
-  async searchSimilarByImage(imageUrl: string, limit: number = 3): Promise<any[]> {
-    await this.ensureInitialized();
-    const queryVector = await this.generateEmbedding(imageUrl);
-    const results = await this.table.vectorSearch(queryVector).limit(limit).toArray();
-    return results;
-  }
-
-  async getEmbeddingById(id: number): Promise<ImageEmbedding | null> {
-    await this.ensureInitialized();
-    const results = await this.table.search().where(`id = ${id}`).toArray();
-    return results.length > 0 ? results[0] : null;
-  }
-
-  async getAllEmbeddings(): Promise<ImageEmbedding[]> {
-    await this.ensureInitialized();
-    return await this.table.toArray();
-  }
-
-  async getNextId(): Promise<number> {
-    await this.ensureInitialized();
-    const allEmbeddings = await this.getAllEmbeddings();
-    if (allEmbeddings.length === 0) {
-      return 1;
-    }
-    const maxId = Math.max(...allEmbeddings.map((e) => e.id));
-    return maxId + 1;
-  }
-
-  async updateEmbedding(id: number, updates: Partial<Omit<ImageEmbedding, "id">>): Promise<void> {
-    await this.ensureInitialized();
-
-    const existing = await this.getEmbeddingById(id);
-    if (!existing) {
-      throw new Error(`Embedding with ID ${id} not found`);
-    }
-
-    const updatedRecord: ImageEmbedding = {
-      ...existing,
-      ...updates,
-      id,
-    };
-
-    await this.deleteEmbedding(id);
-    await this.table.add([updatedRecord]);
-  }
-
-  async deleteEmbedding(id: number): Promise<void> {
-    await this.ensureInitialized();
-    await this.table.delete(`id = ${id}`);
-  }
-
-  async deleteEmbeddings(ids: number[]): Promise<void> {
-    await this.ensureInitialized();
-    await this.table.delete(`id IN (${ids.join(", ")})`);
-  }
+  await db.generateEmbedding(filepaths);
+  const searchResults = await db.searchByText("white and black butterfly", 1);
+  console.log(chalk.green(JSON.stringify(searchResults, null, 2)));
 }
