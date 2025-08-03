@@ -29,4 +29,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   selectFolder: () => ipcRenderer.invoke("image-embeddings:select-folder"),
   scanFolder: (folder: string) => ipcRenderer.invoke("image-embeddings:scan-folder", folder),
+
+  readFileAsBuffer: (filePath: string) => ipcRenderer.invoke("read-file-as-buffer", filePath),
+  getConvertedHeicPath: (heicPath: string) => ipcRenderer.invoke("get-converted-heic-path", heicPath),
+  getHeicCacheStats: () => ipcRenderer.invoke("get-heic-cache-stats"),
+  cleanupHeicCache: () => ipcRenderer.invoke("cleanup-heic-cache"),
 });

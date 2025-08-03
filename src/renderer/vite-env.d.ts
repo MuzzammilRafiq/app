@@ -84,5 +84,62 @@ interface Window {
      */
     selectFolder: () => Promise<string | null>;
     scanFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+
+    /**
+     * Adds an image folder to be indexed for search
+     *
+     * @param {string} folderPath - The path to the folder to add
+     * @returns {Promise<any>} Result of the folder addition
+     */
+    addImageFolder: (folderPath: string) => Promise<any>;
+
+    /**
+     * Deletes all image embeddings from the index
+     *
+     * @returns {Promise<any>} Result of the deletion operation
+     */
+    deleteAllImageEmbeddings: () => Promise<any>;
+
+    /**
+     * Searches indexed images by text description
+     *
+     * @param {string} query - The search query text
+     * @param {number} limit - Maximum number of results to return
+     * @returns {Promise<{success: boolean, error: string | null, results: any[]}>} Search results
+     */
+    searchImagesByText: (
+      query: string,
+      limit?: number
+    ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
+
+    /**
+     * Reads a file from the file system as a buffer
+     *
+     * @param {string} filePath - The path to the file to read
+     * @returns {Promise<Buffer>} The file content as a buffer
+     */
+    readFileAsBuffer: (filePath: string) => Promise<Buffer>;
+
+    /**
+     * Gets the converted JPEG path for a HEIC file (fast native conversion)
+     *
+     * @param {string} heicPath - The path to the HEIC file
+     * @returns {Promise<string | null>} The path to the converted JPEG file or null if conversion failed
+     */
+    getConvertedHeicPath: (heicPath: string) => Promise<string | null>;
+
+    /**
+     * Gets HEIC cache statistics
+     *
+     * @returns {Promise<{fileCount: number, totalSizeMB: number}>} Cache statistics
+     */
+    getHeicCacheStats: () => Promise<{ fileCount: number; totalSizeMB: number }>;
+
+    /**
+     * Cleans up old HEIC cache files
+     *
+     * @returns {Promise<{success: boolean, error?: string}>} Cleanup result
+     */
+    cleanupHeicCache: () => Promise<{ success: boolean; error?: string }>;
   };
 }
