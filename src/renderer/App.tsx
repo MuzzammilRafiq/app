@@ -10,6 +10,7 @@ import {
 import ChatContainer from "./components/ChatContainer";
 import ChatInput, { type ChatInputHandle } from "./components/ChatInput";
 import Sidebar from "./components/Sidebar";
+import Settings from "./components/Settings";
 import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentView, setCurrentView] = useState<"chat" | "settings">("chat");
 
   // Ref to ChatInput to programmatically add images
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -291,6 +293,14 @@ export default function App() {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
+  const handleOpenSettings = () => {
+    setCurrentView("settings");
+  };
+
+  const handleCloseSettings = () => {
+    setCurrentView("chat");
+  };
+
   const handleScreenshot = async () => {
     try {
       const result = await window.electronAPI.captureScreenshot();
@@ -326,39 +336,47 @@ export default function App() {
           onDeleteSession={handleDeleteSession}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleSidebar}
+          onOpenSettings={handleOpenSettings}
         />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full">
-          {/* Chat Area */}
-          {messages.length > 0 ? (
-            <div className="flex-1 flex flex-col h-full">
-              <div className="flex-1 overflow-hidden">
-                <ChatContainer messages={messages} />
-              </div>
-              <div className="flex-shrink-0 px-4 pb-4">
-                <ChatInput
-                  ref={chatInputRef}
-                  onSendMessage={handleSendMessage}
-                  isLoading={isLoading}
-                  isStreaming={isStreaming}
-                  onScreenshot={handleScreenshot}
-                />
-              </div>
-            </div>
+          {currentView === "chat" ? (
+            <>
+              {/* Chat Area */}
+              {messages.length > 0 ? (
+                <div className="flex-1 flex flex-col h-full">
+                  <div className="flex-1 overflow-hidden">
+                    <ChatContainer messages={messages} />
+                  </div>
+                  <div className="flex-shrink-0 px-4 pb-4">
+                    <ChatInput
+                      ref={chatInputRef}
+                      onSendMessage={handleSendMessage}
+                      isLoading={isLoading}
+                      isStreaming={isStreaming}
+                      onScreenshot={handleScreenshot}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center px-8">
+                  <div className="text-center mb-8">
+                    <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
+                  </div>
+                  <ChatInput
+                    ref={chatInputRef}
+                    onSendMessage={handleSendMessage}
+                    isLoading={isLoading}
+                    isStreaming={isStreaming}
+                    onScreenshot={handleScreenshot}
+                  />
+                </div>
+              )}
+            </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center px-8">
-              <div className="text-center mb-8">
-                <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
-              </div>
-              <ChatInput
-                ref={chatInputRef}
-                onSendMessage={handleSendMessage}
-                isLoading={isLoading}
-                isStreaming={isStreaming}
-                onScreenshot={handleScreenshot}
-              />
-            </div>
+            /* Settings Page */
+            <Settings onClose={handleCloseSettings} />
           )}
         </div>
 

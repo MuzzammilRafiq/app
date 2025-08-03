@@ -1,14 +1,31 @@
-import { ipcMain } from "electron";
+import { dialog, ipcMain } from "electron";
 
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 
 export function setupImageEmbeddingHandlers() {
-  ipcMain.handle("image-embeddings:add-folder", async (event, folder_path: string) => {
+  ipcMain.handle("image-embeddings:select-folder", async (): Promise<string | null> => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ["openDirectory"],
+        title: "Select Folder to Scan",
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+
+      return result.filePaths[0];
+    } catch (error) {
+      console.error("Error selecting folder:", error);
+      return null;
+    }
+  });
+  ipcMain.handle("image-embeddings:scan-folder", async (event, folder_path: string) => {
     try {
       if (!folder_path) {
         throw new Error("No folder path provided");
       }
-      const response = await fetch(`${URL}/images/add-folder`, {
+      const response = await fetch(`${URL}/images/scan-folder`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -21,6 +38,12 @@ export function setupImageEmbeddingHandlers() {
         throw new Error(errorData.detail || `Server error: ${response.status}`);
       }
       const results = await response.json();
+      // result = {
+      //   total_found: total_images,
+      //   total_added: added_count,
+      //   batches_processed: batches_processed,
+      //   errors: errors,
+      // };
       return {
         success: true,
         error: null,
@@ -28,7 +51,7 @@ export function setupImageEmbeddingHandlers() {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Error in image-embeddings:add-folder:", errorMessage);
+      console.error("Error in image-embeddings:scan-folder:", errorMessage);
 
       return {
         success: false,

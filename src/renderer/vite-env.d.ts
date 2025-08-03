@@ -76,5 +76,13 @@ interface Window {
      * Removes all global screenshot trigger listeners
      */
     removeGlobalScreenshotListener: () => void;
+
+    /**
+     * Opens a dialog to select a folder
+     *
+     * @returns {Promise<string | null>} The selected folder path
+     */
+    selectFolder: () => Promise<string | null>;
+    scanFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
   };
 }
