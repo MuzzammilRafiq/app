@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { fileToBase64, validateImageFile, type ImageData } from "../services/geminiService";
 import toast from "react-hot-toast";
-import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, ScreenshotSVG, SendSVG } from "./icons";
+import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, ScreenshotSVG, SearchSVG, SendSVG } from "./icons";
+import SearchModal from "./SearchModal";
 
 interface ChatInputProps {
   onSendMessage: (message: string, images?: ImageData[]) => void;
@@ -22,6 +23,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +140,53 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     }
   }, [message]);
 
+  const handleImageSelect = async (imagePath: string) => {
+    setIsProcessingImage(true);
+    try {
+      // Read the image file and convert to base64
+      const response = await fetch(`file://${imagePath}`);
+      const blob = await response.blob();
+
+      // Create a File object from the blob
+      const fileName = imagePath.split("/").pop() || "selected-image";
+
+      // Determine MIME type for HEIC files if not detected
+      let mimeType = blob.type;
+      if (!mimeType && (fileName.toLowerCase().endsWith(".heic") || fileName.toLowerCase().endsWith(".heif"))) {
+        mimeType = "image/heic";
+      }
+
+      const file = new File([blob], fileName, { type: mimeType });
+
+      const validation = validateImageFile(file);
+      if (!validation.isValid) {
+        toast.error(validation.error || "Invalid image file");
+        return;
+      }
+
+      const base64Data = await fileToBase64(file);
+
+      // For HEIC files, the processed file will be JPEG, so update the mime type
+      const finalMimeType =
+        fileName.toLowerCase().endsWith(".heic") || fileName.toLowerCase().endsWith(".heif") ? "image/jpeg" : mimeType;
+
+      const newImage: ImageData = {
+        data: base64Data,
+        mimeType: finalMimeType,
+        name: fileName,
+      };
+
+      const hadPreviousImage = selectedImage !== null;
+      setSelectedImage(newImage);
+      toast.success(hadPreviousImage ? "Image replaced successfully" : "Image selected from search");
+    } catch (error) {
+      console.error("Error loading selected image:", error);
+      toast.error("Failed to load selected image");
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     addImage: (image: ImageData) => {
       const hadPreviousImage = selectedImage !== null;
@@ -211,6 +260,15 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
                 {ScreenshotSVG}
               </button>
             )}
+            <button
+              onClick={() => setIsSearchModalOpen(true)}
+              disabled={isLoading || disabled}
+              className={iconClass + " shadow-sm bg-white border border-gray-200"}
+              title="Search Images"
+              type="button"
+            >
+              {SearchSVG}
+            </button>
           </div>
           {/* Right group: send button */}
           <div className="flex items-center ml-auto">
@@ -225,6 +283,12 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           </div>
         </div>
       </div>
+
+      <SearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelectImage={handleImageSelect}
+      />
     </div>
   );
 });

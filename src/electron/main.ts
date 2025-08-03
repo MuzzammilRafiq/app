@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 import { setupStreamHandlers } from "./ipc/stream.js";
 import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
+import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
       preload: preloadPath, // Preload script to expose safe APIs to renderer
+      webSecurity: false, // Allow loading local files for image display
     },
   });
 
@@ -60,6 +62,7 @@ app.whenReady().then(() => {
   setupScreenshotHandlers();
   setupStreamHandlers();
   setupImageEmbeddingHandlers();
+  setupFileOperationHandlers();
 
   const ret = globalShortcut.register("Alt+Space", () => {
     if (mainWindow) {

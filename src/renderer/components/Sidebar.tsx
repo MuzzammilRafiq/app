@@ -1,4 +1,4 @@
-import { PlusSVG, TrashSVG, MenuSVG } from "./icons";
+import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
 import type { ChatSession } from "../services/chatStorage";
 
 interface SidebarProps {
@@ -9,6 +9,7 @@ interface SidebarProps {
   onDeleteSession: (sessionId: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onOpenSettings: () => void;
 }
 
 export default function Sidebar({
@@ -19,6 +20,7 @@ export default function Sidebar({
   onDeleteSession,
   isCollapsed,
   onToggleCollapse,
+  onOpenSettings,
 }: SidebarProps) {
   const iconClass =
     "p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
@@ -40,6 +42,11 @@ export default function Sidebar({
             className={`${iconClass} shadow-sm  flex-1 p-2 w-ful mb-1 w-10`}
           >
             {PlusSVG}
+          </button>
+        </div>
+        <div className="p-2">
+          <button onClick={onOpenSettings} className={`${iconClass} p-2 w-10`} title="Settings">
+            {GearSVG}
           </button>
         </div>
       </div>
@@ -104,6 +111,14 @@ export default function Sidebar({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Settings button at bottom */}
+      <div className="p-2 border-t border-gray-200">
+        <button onClick={onOpenSettings} className={`${iconClass} p-2 w-full justify-start`} title="Settings">
+          {GearSVG}
+          <span className="ml-2 text-sm font-medium">Settings</span>
+        </button>
       </div>
     </div>
   );
