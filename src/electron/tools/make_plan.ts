@@ -1,26 +1,32 @@
-import Groq from "groq-sdk";
+import { groq } from "../services/groq.js";
+import { masterFileTool } from "./file/index.js";
+import { getCurrentDateTime } from "./time/index.js";
+import { getYoutubeVideoDetailsByVideoInfo } from "./youtube/index.js";
 
-export const agents = {
+export const agents: Record<string, { name: string; desc: string; function: (context: string) => Promise<string> }> = {
   fileAgent: {
     name: "file_agent",
     desc: "this agent can readFile,writeFile,listDirectory,createDirectory,deleteFileOrDirectory,getFileInfo,checkExists, searchFiles this agent is called multiple times of iteration itself",
+    function: masterFileTool,
   },
   timeAgent: {
     name: "time_agent",
     desc: "this agent return current date time eg:Tuesday, August 12, 2025 at 08:51:57 PM India Standard Time",
+    function: getCurrentDateTime,
   },
   youtubeAgent: {
     name: "youtube_agent",
     desc: "this agent can get the details of a youtube video by providing the video info extracted from screenshot of youtube video",
+    function: getYoutubeVideoDetailsByVideoInfo,
   },
   notoolAgent: {
     name: "notool_agent",
     desc: "this agent is called when no tool is needed to be called",
+    function: (context: string) => Promise.resolve("no tool is needed to be called"),
   },
 };
 
-
-export const doorPrompt = (userPrompt: string) => `
+const PROMPT_MAKE_PLAN = (userPrompt: string) => `
 # Task Planning Assistant (Modular Agent Approach)
 
 ## User Request
@@ -29,7 +35,9 @@ ${userPrompt}
 ## Available Agents
 You can orchestrate the following autonomous agents:
 
-${Object.values(agents).map((agent) => `${agent.name}: ${agent.desc}`).join("\n\n")}
+${Object.values(agents)
+  .map((agent) => `${agent.name}: ${agent.desc}`)
+  .join("\n\n")}
 
 ## Planning Directives
 - Use agent-level steps only. Do NOT prescribe internal actions.
@@ -42,13 +50,13 @@ ${Object.values(agents).map((agent) => `${agent.name}: ${agent.desc}`).join("\n\
 
 Example 1: Save time to file
 Steps:
-1. time_agent: retrieve current local timestamp
-2. file_agent: write the retrieved time in the desktop folder
+1. time_agent: retrieve current local timestamp (todo)
+2. file_agent: write the retrieved time in the desktop folder (todo)
 
 Example 2: YouTube analysis to file
 Steps:
-1. youtube_agent: provided video screenshot info; produce video details and summary
-2. file_agent: save the video details in Documents folder
+1. youtube_agent: provided video screenshot info; produce video details and summary (todo)
+2. file_agent: save the video details in Documents folder (todo)
 
 Example 3: How many moons saturn have
 Steps:
@@ -57,32 +65,20 @@ Steps:
 
 `;
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-export interface DoorPlanStep {
+export interface MakePlanResponse {
   stepNumber: number;
   agentName: string;
   description: string;
+  status: "todo" | "done";
 }
 
-export interface DoorPlan {
-  steps: DoorPlanStep[];
-}
-
-// JSON Schema for structured output
-
-function parseDoorPlan(planData: DoorPlan): DoorPlanStep[] {
-  return planData.steps || [];
-}
-
-async function getDoorResponse(userInput: string): Promise<DoorPlanStep[]> {
+export const getDoorResponse = async (userInput: string): Promise<{ steps: MakePlanResponse[]; context: string }> => {
   try {
     if (!userInput) {
       throw new Error("User input is required");
     }
-    const prompt = doorPrompt(userInput);
-    const response = await groq.chat.completions.create({
-      model: "moonshotai/kimi-k2-instruct",
+    const prompt = PROMPT_MAKE_PLAN(userInput);
+    const options = {
       temperature: 0.6,
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
@@ -111,8 +107,13 @@ async function getDoorResponse(userInput: string): Promise<DoorPlanStep[]> {
                       type: "string",
                       description: "Clear description of what this step should accomplish",
                     },
+                    status: {
+                      type: "string",
+                      enum: ["todo", "done"],
+                      description: "The status of the step",
+                    },
                   },
-                  required: ["stepNumber", "agentName", "description"],
+                  required: ["stepNumber", "agentName", "description", "status"],
                   additionalProperties: false,
                 },
               },
@@ -122,22 +123,24 @@ async function getDoorResponse(userInput: string): Promise<DoorPlanStep[]> {
           },
         },
       },
-    });
-
-    const content = response.choices?.[0]?.message?.content;
+      stream: false,
+    };
+    const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
     if (!content) {
       throw new Error("No response content received from Groq");
     }
-    const planData: DoorPlan = JSON.parse(content);
-    return planData.steps;
+    const planData: {
+      steps: MakePlanResponse[];
+    } = JSON.parse(content);
+    return { steps: planData.steps, context: userInput };
   } catch (error) {
     console.log(error);
-    return [];
+    return { steps: [], context: userInput };
   }
-}
+};
 
-if (require.main === module) {
-  getDoorResponse("save current time in a txt file on my desktop").then((response) => {
-    console.log(response);
-  });
-}
+// if (require.main === module) {
+//   getDoorResponse("save current time in a txt file on my desktop").then((response) => {
+//     console.log(response.steps);
+//   });
+// }
