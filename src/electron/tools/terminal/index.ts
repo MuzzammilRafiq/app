@@ -94,7 +94,7 @@ const checkCommandSecurity = (command: string): { needConformation: boolean; rea
   };
 };
 
-const executeCommand = async (
+export const executeCommand = async (
   command: string,
   confirmed = false
 ): Promise<{ output: string; needConformation: boolean; reason: string; success: boolean }> => {
@@ -141,12 +141,12 @@ const executeCommand = async (
 };
 
 // Function declaration for Groq tool use
-export const executeCommandTool = {
+export const executeCommandFD = {
   type: "function" as const,
   function: {
     name: "executeCommand",
     description:
-      "Execute a terminal command safely with security checks. Use this to run system commands, file operations, or any terminal-based tasks.",
+      "Execute a terminal command safely with security checks. Use this to run system commands, file operations, get date time or any terminal-based tasks",
     parameters: {
       type: "object",
       properties: {
@@ -165,6 +165,3 @@ export const executeCommandTool = {
     },
   },
 };
-
-// Export the executeCommand function for use with the tool
-export { executeCommand };
