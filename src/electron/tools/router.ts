@@ -1,5 +1,5 @@
 import { groq } from "../services/groq.js";
-import { agents, type MakePlanResponse } from "./make_plan.js";
+import { tools, type MakePlanResponse } from "./plan.js";
 
 const MAX_ITERATIONS = 10;
 const DONE = "DONE";
@@ -29,63 +29,6 @@ Example:
 {
   "relevant_context": "User wants to save current time to desktop. Time has been retrieved as '2024-01-15 14:30:00'. Now create a txt file on desktop containing this timestamp."
 }
-`;
-const PROMPT_FINAN_RESPONSE = (plan: string, context: string) => `
-You are tasked with creating a final response for the user based on the completed plan and their original request.
-
-## Completed Plan
-${plan}
-
-## Original User Request
-${context}
-
-## Instructions
-Create a well-formatted markdown response that:
-
-1. **If the user asked to DO something** (save file, create something, etc.):
-   - Provide clear confirmation that the task was completed
-   - Mention what was accomplished
-   - Include any relevant details (file location, etc.)
-
-2. **If the user asked for INFORMATION** (get time, analyze video, etc.):
-   - Provide the requested information clearly
-   - Present it in a readable format
-
-3. **Always include a plan summary** in this format:
-   <plan>
-   Step 1: [Brief 1-2 sentence description of what was done]
-   Step 2: [Brief 1-2 sentence description of what was done]
-   ...
-   </plan>
-
-## Response Format
-- Use markdown formatting for readability
-- Keep it concise but informative
-- Be conversational and helpful
-- Don't over-format with excessive markdown
-
-## Example Response for "save current time to desktop":
-✅ **Task Completed Successfully**
-
-I've saved the current time to your desktop as requested.
-
-**Details:**
-- Current time: Tuesday, January 15, 2024 at 2:30:45 PM
-- File saved: /Users/username/Desktop/current_time.txt
-
-<plan>
-Step 1: Retrieved the current local timestamp
-Step 2: Created a text file on the desktop containing the timestamp
-</plan>
-
-## Example Response for "how many moons does Saturn have":
-**Saturn's Moons**
-
-Saturn has **146 confirmed moons**. This includes its largest moon Titan, which is larger than Mercury, and Enceladus, known for its subsurface ocean.
-
-<plan>
-Step 1: Provided information about Saturn's moon count based on current astronomical data
-</plan>
 `;
 
 const getRelevantContext = async (plan: string, context: any): Promise<string> => {
@@ -127,27 +70,12 @@ const getRelevantContext = async (plan: string, context: any): Promise<string> =
 const planToXML = (plan: MakePlanResponse[]): string => {
   let xml = "<plan>\n";
   for (const step of plan) {
-    const s = `No. ${step.stepNumber} agent: ${step.agentName} description: ${step.description} status: ${step.status}`;
+    const s = `No. ${step.step_number} tool: ${step.tool_name} description: ${step.description} status: ${step.status}`;
     xml += `<step>${s}</step>`;
   }
   xml += "\n</plan>";
   return xml;
 };
-
-const getFinanResponse = async (plan: MakePlanResponse[], context: string): Promise<string> => {
-  const prompt = PROMPT_FINAN_RESPONSE(planToXML(plan), context);
-  const options = {
-    temperature: 0.6,
-    max_completion_tokens: 8192,
-    messages: [{ role: "user", content: prompt }],
-  };
-  const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
-  if (!content) {
-    throw new Error("No response content received from summariser");
-  }
-  return content;
-};
-
 export const router = async (plan: MakePlanResponse[], context: any) => {
   try {
     if (!plan || !context) {
@@ -164,23 +92,17 @@ export const router = async (plan: MakePlanResponse[], context: any) => {
       const relevant_context = await getRelevantContext(planToXML(plan), context);
 
       // Resolve the agent function by matching the declared agent name
-      const agentEntry = Object.values(agents).find((agent) => agent.name === nextStep.agentName);
+      const agentEntry = Object.values(tools).find((tool) => tool.name === nextStep.tool_name);
       if (!agentEntry) {
-        throw new Error(`Unknown agent: ${nextStep.agentName}`);
+        throw new Error(`Unknown agent: ${nextStep.tool_name}`);
       }
 
       const result = await agentEntry.function(relevant_context);
 
       // Update the current step status and description with the result
       nextStep.status = "done";
-      nextStep.description = result;
-
-      if (result === DONE) {
-        break;
-      }
+      nextStep.description = result.output;
     }
-    const finanResponse = await getFinanResponse(plan, context);
-    return finanResponse;
   } catch (error) {
     console.error(error);
     return null;

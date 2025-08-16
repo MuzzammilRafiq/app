@@ -62,11 +62,13 @@ Example 3: How many moons saturn have
 Steps:
 1. general_tool: question about number of moons of Saturn (todo)
 
+
+at the last step always call the general_tool to give the final response to the user
 `;
 
 export interface MakePlanResponse {
-  stepNumber: number;
-  agentName: string;
+  step_number: number;
+  tool_name: string;
   description: string;
   status: "todo" | "done";
 }
@@ -93,11 +95,11 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
                 items: {
                   type: "object",
                   properties: {
-                    stepNumber: {
+                    step_number: {
                       type: "number",
                       description: "Sequential step number starting from 1",
                     },
-                    agentName: {
+                    tool_name: {
                       type: "string",
                       enum: Object.values(tools).map((tool) => tool.name),
                       description: "The agent responsible for this step",
@@ -112,7 +114,7 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
                       description: "The status of the step",
                     },
                   },
-                  required: ["stepNumber", "agentName", "description", "status"],
+                  required: ["step_number", "tool_name", "description", "status"],
                   additionalProperties: false,
                 },
               },
@@ -140,7 +142,7 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
 
 if (require.main === module) {
   getDoorResponse(
-    "convert the python fizzbuzz file in Documents folder to javascript and then save the file to each folder present in Desktop folder override if present"
+    "convert all python files in Documents folder to javascript and save the files in Desktop folder override if present"
   ).then((response) => {
     console.log(response.steps);
   });
