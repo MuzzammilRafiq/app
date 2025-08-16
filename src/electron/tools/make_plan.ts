@@ -1,28 +1,29 @@
 import { groq } from "../services/groq.js";
-import { masterFileTool } from "./file/index.js";
-import { getCurrentDateTime } from "./time/index.js";
-import { getYoutubeVideoDetailsByVideoInfo } from "./youtube/index.js";
+import { generalTool } from "./general/index.js";
+import { makePlanTool } from "./plan/index.js";
+import { terminalTool } from "./terminal/index.js";
+import { youtubeTool } from "./youtube/index.js";
 
-export const agents: Record<string, { name: string; desc: string; function: (context: string) => Promise<string> }> = {
+export const tools = {
   fileAgent: {
-    name: "file_agent",
-    desc: "this agent can readFile,writeFile,listDirectory,createDirectory,deleteFileOrDirectory,getFileInfo,checkExists, searchFiles this agent is called multiple times of iteration itself",
-    function: masterFileTool,
-  },
-  timeAgent: {
-    name: "time_agent",
-    desc: "this agent return current date time eg:Tuesday, August 12, 2025 at 08:51:57 PM India Standard Time",
-    function: getCurrentDateTime,
+    name: "terminal_tool",
+    desc: "this agent can execute terminal commands",
+    function: terminalTool,
   },
   youtubeAgent: {
-    name: "youtube_agent",
+    name: "youtube_tool",
     desc: "this agent can get the details of a youtube video by providing the video info extracted from screenshot of youtube video",
-    function: getYoutubeVideoDetailsByVideoInfo,
+    function: youtubeTool,
   },
-  notoolAgent: {
-    name: "notool_agent",
-    desc: "this agent is called when no tool is needed to be called",
-    function: (context: string) => Promise.resolve("no tool is needed to be called"),
+  plan_tool: {
+    name: "plan_tool",
+    desc: "this tool is used when the original a step of the original plan is complex and u need to break it down into smaller steps and execute them one by one and get the final result to the original plan and return it to the original plan eg convert all py file to js in a folder",
+    function: makePlanTool,
+  },
+  general_tool: {
+    name: "general_tool",
+    desc: "this is a general tool this is used when u need to do something and not require tool or need to do simple llm query",
+    function: generalTool,
   },
 };
 
@@ -35,22 +36,21 @@ ${userPrompt}
 ## Available Agents
 You can orchestrate the following autonomous agents:
 
-${Object.values(agents)
+${Object.values(tools)
   .map((agent) => `${agent.name}: ${agent.desc}`)
   .join("\n\n")}
 
 ## Planning Directives
-- Use agent-level steps only. Do NOT prescribe internal actions.
-- Provide ONLY a short step description (what to do). Do not include the literal text "context:".
-- Do NOT specify the same agent consecutively; consolidate responsibilities.
-- Keep the plan minimal and outcome-oriented. Use inter-agent handoffs only when necessary.
-- Agents internally handle sequencing, retries on failures, and verification.
+- Use tool-level steps only. 
+- Provide ONLY a short step description (what to do).
+- Keep the plan minimal and outcome-oriented. 
+- Do not give entire description of what to do each step the plan is passed through router and the router handles all the little things.
 
 ## Examples
 
-Example 1: Save time to file
+Example 1: Save time to file in desktop folder
 Steps:
-1. time_agent: retrieve current local timestamp (todo)
+1. terminal_agent: retrieve current local timestamp  (todo)
 2. file_agent: write the retrieved time in the desktop folder (todo)
 
 Example 2: YouTube analysis to file
@@ -60,8 +60,7 @@ Steps:
 
 Example 3: How many moons saturn have
 Steps:
-1. notool_agent: question about number of moons of Saturn
-
+1. general_tool: question about number of moons of Saturn (todo)
 
 `;
 
@@ -100,7 +99,7 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
                     },
                     agentName: {
                       type: "string",
-                      enum: Object.values(agents).map((agent) => agent.name),
+                      enum: Object.values(tools).map((tool) => tool.name),
                       description: "The agent responsible for this step",
                     },
                     description: {
@@ -139,8 +138,10 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
   }
 };
 
-// if (require.main === module) {
-//   getDoorResponse("save current time in a txt file on my desktop").then((response) => {
-//     console.log(response.steps);
-//   });
-// }
+if (require.main === module) {
+  getDoorResponse(
+    "convert the python fizzbuzz file in Documents folder to javascript and then save the file to each folder present in Desktop folder override if present"
+  ).then((response) => {
+    console.log(response.steps);
+  });
+}
