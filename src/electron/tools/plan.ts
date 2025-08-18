@@ -1,31 +1,25 @@
 import { groq } from "../services/groq.js";
 import { generalTool } from "./general/index.js";
-import { makePlanTool } from "./plan/index.js";
-import { terminalTool } from "./terminal/index.js";
+import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
 
 export const tools = {
-  fileAgent: {
+  terminal_tool: {
     name: "terminal_tool",
-    desc: "this agent can execute terminal commands",
-    function: terminalTool,
+    desc: "this is an intelligent terminal agent that can execute complex multi-step terminal operations autonomously. It breaks down complex goals into sequential commands, handles failures gracefully with adaptive retry logic, and maintains execution context across multiple iterations. Features security checks, command validation, and can achieve goals like file conversions, system operations, data processing, and file management. Defaults to ~/Documents folder if no path specified. perform calculations,give date time",
+    function: terminalAgent,
   },
-  youtubeAgent: {
+  youtube_tool: {
     name: "youtube_tool",
     desc: "this agent can get the details of a youtube video by providing the video info extracted from screenshot of youtube video",
     function: youtubeTool,
-  },
-  plan_tool: {
-    name: "plan_tool",
-    desc: "this tool is used when the original a step of the original plan is complex and u need to break it down into smaller steps and execute them one by one and get the final result to the original plan and return it to the original plan eg convert all py file to js in a folder",
-    function: makePlanTool,
   },
   general_tool: {
     name: "general_tool",
     desc: "this is a general tool this is used when u need to do something and not require tool or need to do simple llm query",
     function: generalTool,
   },
-};
+} as const;
 
 const PROMPT_MAKE_PLAN = (userPrompt: string) => `
 # Task Planning Assistant (Modular Agent Approach)
@@ -44,23 +38,30 @@ ${Object.values(tools)
 - Use tool-level steps only. 
 - Provide ONLY a short step description (what to do).
 - Keep the plan minimal and outcome-oriented. 
+- The terminal_tool is now an intelligent agent that can handle complex multi-step operations autonomously, so you can assign it broad goals rather than individual commands.
 - Do not give entire description of what to do each step the plan is passed through router and the router handles all the little things.
 
 ## Examples
 
 Example 1: Save time to file in desktop folder
 Steps:
-1. terminal_agent: retrieve current local timestamp  (todo)
-2. file_agent: write the retrieved time in the desktop folder (todo)
+1. terminal_tool: get current timestamp and save it to a file in desktop folder (todo)
+2. general_tool: provide final response about task completion (todo)
 
-Example 2: YouTube analysis to file
+Example 2: Convert all Python files to JavaScript
 Steps:
-1. youtube_agent: provided video screenshot info; produce video details and summary (todo)
-2. file_agent: save the video details in Documents folder (todo)
+1. terminal_tool: find all Python files in Documents folder and convert them to JavaScript format (todo)
+2. general_tool: provide final response about conversion results (todo)
 
-Example 3: How many moons saturn have
+Example 3: YouTube analysis to file
 Steps:
-1. general_tool: question about number of moons of Saturn (todo)
+1. youtube_tool: analyze provided video screenshot and extract video details and summary (todo)
+2. terminal_tool: save the video analysis results to a file in Documents folder (todo)
+3. general_tool: provide final response about task completion (todo)
+
+Example 4: How many moons does Saturn have
+Steps:
+1. general_tool: answer question about number of moons of Saturn (todo)
 
 
 at the last step always call the general_tool to give the final response to the user
@@ -78,11 +79,15 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
     if (!userInput) {
       throw new Error("User input is required");
     }
-    const prompt = PROMPT_MAKE_PLAN(userInput);
     const options = {
       temperature: 0.6,
       max_completion_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "user",
+          content: PROMPT_MAKE_PLAN(userInput),
+        },
+      ],
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -140,10 +145,8 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
   }
 };
 
-if (require.main === module) {
-  getDoorResponse(
-    "convert all python files in Documents folder to javascript and save the files in Desktop folder override if present"
-  ).then((response) => {
-    console.log(response.steps);
-  });
-}
+// if (require.main === module) {
+//   getDoorResponse("what is 39721392*82873827 + 8312873658172538 ").then((response) => {
+//     console.log(response);
+//   });
+// }
