@@ -1,22 +1,19 @@
 import { contextBridge, ipcRenderer } from "electron";
-
+export interface StreamChunk {
+  chunk: string;
+  type: "stream" | "log" | "plan";
+}
 contextBridge.exposeInMainWorld("electronAPI", {
   streamMessageWithHistory: (messages: any[]) => ipcRenderer.invoke("stream-message-with-history", messages),
-  onExecutionUpdate: (callback: (data: { data: string; type: string }) => void) => {
-    ipcRenderer.on("stream:execution-trace", (event, data) => callback(data));
-  },
-  removeExecutionUpdateListener: () => {
-    ipcRenderer.removeAllListeners("stream:execution-trace");
-  },
-
-  onStreamChunk: (callback: (data: { chunk: string; isComplete: boolean; fullText?: string }) => void) => {
-    ipcRenderer.on("gemini:stream-chunk", (event, data) => callback(data));
+  onStreamChunk: (callback: (data: StreamChunk) => void) => {
+    ipcRenderer.on("stream-chunk", (event, data) => callback(data));
   },
 
   removeStreamChunkListener: () => {
-    ipcRenderer.removeAllListeners("gemini:stream-chunk");
+    ipcRenderer.removeAllListeners("stream-chunk");
   },
 
+  //image related stuff
   captureScreenshot: () => ipcRenderer.invoke("screenshot:capture"),
 
   onGlobalScreenshotTrigger: (callback: () => void) => {
