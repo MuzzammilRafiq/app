@@ -24,8 +24,21 @@
  *
  * @interface Window
  * @property {Object} electronAPI - The Electron API object exposed by the preload script
- * @property {Function} electronAPI.sendMessage - Sends a single message to Gemini AI
- * @property {Function} electronAPI.sendMessageWithHistory - Sends messages with conversation history to Gemini AI
+ * @property {Function} electronAPI.streamMessageWithHistory - Streams messages with conversation history to Gemini AI
+ * @property {Function} electronAPI.onStreamChunk - Sets up a listener for streaming chunks from Gemini AI
+ * @property {Function} electronAPI.removeStreamChunkListener - Removes all stream chunk listeners
+ * @property {Function} electronAPI.captureScreenshot - Captures a screenshot using the system's native screenshot tool
+ * @property {Function} electronAPI.onGlobalScreenshotTrigger - Sets up a listener for global screenshot trigger
+ * @property {Function} electronAPI.removeGlobalScreenshotListener - Removes all global screenshot trigger listeners
+ * @property {Function} electronAPI.selectFolder - Opens a dialog to select a folder
+ * @property {Function} electronAPI.scanFolder - Scans a folder for images
+ * @property {Function} electronAPI.addImageFolder - Adds an image folder to be indexed for search
+ * @property {Function} electronAPI.deleteAllImageEmbeddings - Deletes all image embeddings from the index
+ * @property {Function} electronAPI.searchImagesByText - Searches indexed images by text description
+ * @property {Function} electronAPI.readFileAsBuffer - Reads a file from the file system as a buffer
+ * @property {Function} electronAPI.getConvertedHeicPath - Gets the converted JPEG path for a HEIC file
+ * @property {Function} electronAPI.getHeicCacheStats - Gets HEIC cache statistics
+ * @property {Function} electronAPI.cleanupHeicCache - Cleans up old HEIC cache files
  */
 interface Window {
   electronAPI: {
@@ -42,7 +55,7 @@ interface Window {
      *
      * @param {Function} callback - Callback function to handle stream chunks
      */
-    onStreamChunk: (callback: (data: { chunk: string; isComplete: boolean; fullText?: string }) => void) => void;
+    onStreamChunk: (callback: (data: { chunk: string; type: "stream" | "log" | "plan" }) => void) => void;
 
     /**
      * Removes all stream chunk listeners
@@ -83,6 +96,13 @@ interface Window {
      * @returns {Promise<string | null>} The selected folder path
      */
     selectFolder: () => Promise<string | null>;
+
+    /**
+     * Scans a folder for images
+     *
+     * @param {string} folder - The path to the folder to scan
+     * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
+     */
     scanFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
