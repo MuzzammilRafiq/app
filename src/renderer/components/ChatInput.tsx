@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import { fileToBase64, validateImageFile, type ImageData } from "../services/geminiService";
+import { fileToBase64, validateImageFile, type ImageData } from "../services/imageUtils";
 import toast from "react-hot-toast";
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, ScreenshotSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
