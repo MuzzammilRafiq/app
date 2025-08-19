@@ -1,4 +1,4 @@
-import type { ChatMessage as ChatMessageType } from "../services/geminiService";
+import type { ChatMessage as ChatMessageType } from "../services/llm";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";

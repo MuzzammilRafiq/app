@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { ChatMessage } from "../services/geminiService";
+import type { ChatMessage } from "../services/llm";
 import ChatMessageComponent from "./ChatMessage";
 
 interface ChatContainerProps {
