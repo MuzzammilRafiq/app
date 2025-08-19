@@ -1,48 +1,40 @@
-import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
+import { GoogleGenAI } from "@google/genai";
 
-export const generalTool = async (context: string): Promise<{ output: string }> => {
+export const generalTool = async (context: string, event: any): Promise<{ output: string }> => {
   try {
-    log.BLUE(`[generalTool] Processing context: ${context}`);
+    log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
+    const prompt = `You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a concise and nicely formatted markdown response: Context: ${context}`;
 
-    const prompt = `You are a helpful AI assistant that provides clear, well-formatted markdown responses. 
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
 
-Based on the following context/request, provide a comprehensive and nicely formatted markdown response:
-
-Context: ${context}
-
-Requirements:
-- Use proper markdown formatting with headers, lists, code blocks, etc.
-- Be informative and helpful
-- Structure your response clearly
-- Use appropriate emphasis (bold, italic) where needed
-- Include relevant details and explanations
-- If the context contains results from other tools or operations, summarize them clearly
-- Make the response user-friendly and easy to read
-
-Provide your response in markdown format:`;
-
-    const options = {
-      temperature: 0.7,
-      max_completion_tokens: 8192,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
+    const result = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        thinkingConfig: {
+          thinkingBudget: 0,
         },
-      ],
-      stream: false,
-    };
+      },
+    });
 
-    const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
-
-    if (!response) {
-      throw new Error("No response received from AI service");
+    let fullText = "";
+    for await (const chunk of result) {
+      const chunkText = chunk.text;
+      if (chunkText) {
+        event.sender.send("stream-chunk", {
+          chunk: chunkText,
+          type: "stream",
+        });
+        fullText += chunkText;
+      }
     }
 
-    log.BLUE(`[generalTool] Generated response length: ${response.length}`);
+    // Streaming complete - no need to send final chunk
 
-    return { output: response };
+    return { output: fullText };
   } catch (error) {
     log.RED(`[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     return {
