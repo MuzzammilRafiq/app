@@ -2,6 +2,7 @@ import { groq } from "../services/groq.js";
 import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
+import { MakePlanResponse } from "../../common/types.js";
 
 export const tools = {
   terminal_tool: {
@@ -16,7 +17,7 @@ export const tools = {
   },
   general_tool: {
     name: "general_tool",
-    desc: "this is a general tool this is used when u need to do something and not require tool or need to do simple llm query",
+    desc: "this is used when u need to do simple llm query it does not have any tool to call its usally used to give final formatted markdown response  to the user based on the plan and the results of the tools",
     function: generalTool,
   },
 } as const;
@@ -67,14 +68,7 @@ Steps:
 at the last step always call the general_tool to give the final response to the user
 `;
 
-export interface MakePlanResponse {
-  step_number: number;
-  tool_name: string;
-  description: string;
-  status: "todo" | "done";
-}
-
-export const getDoorResponse = async (userInput: string): Promise<{ steps: MakePlanResponse[]; context: string }> => {
+export const getPlan = async (userInput: string): Promise<{ steps: MakePlanResponse[] }> => {
   try {
     if (!userInput) {
       throw new Error("User input is required");
@@ -138,15 +132,9 @@ export const getDoorResponse = async (userInput: string): Promise<{ steps: MakeP
     const planData: {
       steps: MakePlanResponse[];
     } = JSON.parse(content);
-    return { steps: planData.steps, context: userInput };
+    return { steps: planData.steps };
   } catch (error) {
     console.log(error);
-    return { steps: [], context: userInput };
+    return { steps: [] };
   }
 };
-
-// if (require.main === module) {
-//   getDoorResponse("what is 39721392*82873827 + 8312873658172538 ").then((response) => {
-//     console.log(response);
-//   });
-// }

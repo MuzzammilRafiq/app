@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
 import { extractVideoInfoFromText } from "./videoInfoExtractor.js";
 
-export const getYoutubeVideoDetailsByVideoInfo = async (videoInfo: string) => {
+export const youtubeTool = async (videoInfo: string): Promise<{output:string}> => {
   try {
     console.log(chalk.green("Processing video info..."));
 
@@ -19,9 +19,7 @@ export const getYoutubeVideoDetailsByVideoInfo = async (videoInfo: string) => {
 
     console.log(chalk.green("searching for video...."));
     const curlResults = await videoService.curlSearch(searchQuery, 1);
-    console.log(
-      chalk.bgMagenta(`[getYoutubeVideoDetailsByVideoInfo] Curl results: ${JSON.stringify(curlResults, null, 2)}`)
-    );
+    console.log(chalk.bgMagenta(`[youtubeTool] Curl results: ${JSON.stringify(curlResults, null, 2)}`));
 
     if (!curlResults) {
       throw new Error("Video not found");
@@ -30,19 +28,15 @@ export const getYoutubeVideoDetailsByVideoInfo = async (videoInfo: string) => {
     console.log(chalk.green("getting transcript..."));
     const transcript = await getSubtitlesByVideoId(curlResults.videoId);
 
-    return `<videoInfo>
-      ${JSON.stringify(curlResults, null, 2)}
-      </videoInfo>
-      <transcript>
-      ${await videoService.summarizeTranscript(transcript)}
-      </transcript>`;
+    const summary = await videoService.summarizeTranscript(transcript);
+    return {output:`<videoInfo>${JSON.stringify(curlResults, null, 2)}</videoInfo><transcript>${summary}</transcript>`};
   } catch (error) {
-    console.log(chalk.red(`[getYoutubeVideoDetailsByVideoInfo] Error: ${error}`));
-    return null;
+    console.log(chalk.red(`[youtubeTool] Error: ${error}`));
+    return {output:""};
   }
 };
-export const getYoutubeVideoDetailsByVideoInfoFunctionDeclaration = {
-  name: "getYoutubeVideoDetailsByVideoInfo",
+export const youtubeToolFunctionDeclaration = {
+  name: "youtubeTool",
   description: "Extract video details from a video info extracted from secreenshot of youtube video",
   parameters: {
     type: "object",
