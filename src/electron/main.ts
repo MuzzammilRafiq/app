@@ -1,4 +1,3 @@
-// Import necessary Electron modules and other dependencies
 import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -7,7 +6,6 @@ import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 import { setupStreamHandlers } from "./ipc/stream.js";
 import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -23,7 +21,7 @@ function createWindow(): BrowserWindow {
     return mainWindow;
   }
 
-  const preloadPath = path.join(__dirname, "preload.cjs");
+  const preloadPath = path.join(__dirname, "..", "preload.cjs");
 
   mainWindow = new BrowserWindow({
     width: 1500,
@@ -63,8 +61,7 @@ app.whenReady().then(() => {
   setupStreamHandlers();
   setupImageEmbeddingHandlers();
   setupFileOperationHandlers();
-
-  const ret = globalShortcut.register("Alt+Space", () => {
+  globalShortcut.register("Alt+Space", () => {
     if (mainWindow) {
       mainWindow.webContents.send("global-screenshot-trigger");
     }
