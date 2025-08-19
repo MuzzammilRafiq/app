@@ -1,10 +1,12 @@
 import Groq from "groq-sdk";
+import dotenv from "dotenv";
+dotenv.config();
 class GroqService {
   private static instance: GroqService;
   private ai: Groq;
 
   private constructor() {
-    this.ai = new Groq({});
+    this.ai = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
   }
   public static getInstance(): GroqService {
     if (!GroqService.instance) {
