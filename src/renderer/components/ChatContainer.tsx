@@ -17,7 +17,7 @@ export default function ChatContainer({ messages }: ChatContainerProps) {
   }, [messages]);
 
   return (
-    <div className="h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar">
+    <div className="h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar max-w-[80%] mx-auto">
       {messages.map((message) => (
         <ChatMessageComponent key={message.id} {...message} />
       ))}
