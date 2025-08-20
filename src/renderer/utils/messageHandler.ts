@@ -90,30 +90,41 @@ export async function handleSendMessage({
       }
       console.log(JSON.stringify(chunk, null, 2));
 
-      // Create or update message based on chunk type
-      const getMessageId = (type: string) => {
-        switch (type) {
-          case "plan":
-            return planMessageId;
-          case "log":
-            return logMessageId;
-          case "stream":
-            return streamMessageId;
-          default:
-            return streamMessageId;
+      // Create separate messages for each log entry, but group other types
+      let messageId: string;
+
+      if (chunk.type === "log") {
+        // Create a new unique message ID for each log entry
+        messageId = (Date.now() + Math.random()).toString();
+      } else {
+        // Use existing logic for plan and stream messages
+        const getMessageId = (type: string) => {
+          switch (type) {
+            case "plan":
+              return planMessageId;
+            case "stream":
+              return streamMessageId;
+            default:
+              return streamMessageId;
+          }
+        };
+        messageId = getMessageId(chunk.type);
+      }
+
+      // For log messages, always create a new message
+      // For other types, only create if it's the first time we see this type
+      const shouldCreateNewMessage = chunk.type === "log" || !messageTypes.has(chunk.type);
+
+      if (shouldCreateNewMessage) {
+        if (chunk.type !== "log") {
+          messageTypes.add(chunk.type);
         }
-      };
 
-      const messageId = getMessageId(chunk.type);
-
-      // Add message if it's the first time we see this type
-      if (!messageTypes.has(chunk.type)) {
-        messageTypes.add(chunk.type);
         const newMessage: ChatMessage = {
           id: messageId,
-          content: "",
+          content: chunk.chunk,
           role: "assistant",
-          timestamp: baseTimestamp,
+          timestamp: new Date(),
           type: chunk.type as "stream" | "log" | "plan",
         };
 
@@ -129,23 +140,23 @@ export async function handleSendMessage({
             return session;
           })
         );
+      } else {
+        // Update existing message for non-log types
+        setSessions((prev) =>
+          prev.map((session) => {
+            if (session.id === sessionId) {
+              return {
+                ...session,
+                messages: session.messages.map((msg: ChatMessage) =>
+                  msg.id === messageId ? { ...msg, content: msg.content + chunk.chunk } : msg
+                ),
+                updatedAt: new Date(),
+              };
+            }
+            return session;
+          })
+        );
       }
-
-      // Update the message with the new chunk for real-time display
-      setSessions((prev) =>
-        prev.map((session) => {
-          if (session.id === sessionId) {
-            return {
-              ...session,
-              messages: session.messages.map((msg: ChatMessage) =>
-                msg.id === messageId ? { ...msg, content: msg.content + chunk.chunk } : msg
-              ),
-              updatedAt: new Date(),
-            };
-          }
-          return session;
-        })
-      );
     });
 
     // Streaming completed when the promise resolves

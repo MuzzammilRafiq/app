@@ -314,7 +314,7 @@ export const terminalStep = async (
 
     log.MAGENTA(response.command, response.updated_context);
     event.sender.send("stream-chunk", {
-      chunk: `RAN COMMAND:"${response.command}"\n`,
+      chunk: `RAN COMMAND: "${response.command}"\n`,
       type: "log",
     });
 
@@ -338,7 +338,7 @@ export const terminalStep = async (
 export const terminalAgent = async (
   initialContext: string,
   event: any,
-  maxIterations: number = 20
+  maxIterations: number = 40
 ): Promise<{ output: string }> => {
   log.WHITE("terminal agent started");
   log.BG_BRIGHT_RED(JSON.stringify(initialContext, null, 2));
@@ -379,6 +379,12 @@ export const terminalAgent = async (
     log.BLUE("executing:" + agentResponse.command);
     const commandResult = await terminalTool(event, agentResponse.command);
 
+    // Send command output to UI
+    event.sender.send("stream-chunk", {
+      chunk: `${commandResult.output}\n`,
+      type: "log",
+    });
+
     executionLog.push({
       iteration,
       context: currentContext,
@@ -391,6 +397,11 @@ export const terminalAgent = async (
 
     if (!commandResult.success) {
       currentContext += `\nCommand failed with error: ${commandResult.reason}`;
+      // Send error information to UI
+      event.sender.send("stream-chunk", {
+        chunk: `ERROR: ${commandResult.reason}\n`,
+        type: "log",
+      });
     }
   }
 
