@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 export const generalTool = async (context: string, event: any): Promise<{ output: string }> => {
   try {
     log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
-    const prompt = `You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a concise and nicely formatted markdown response: Context: ${context}`;
+    const prompt = `You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a nicely formatted markdown response`;
 
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -12,7 +12,10 @@ export const generalTool = async (context: string, event: any): Promise<{ output
 
     const result = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [
+        { role: "user", parts: [{ text: prompt }] },
+        { role: "user", parts: [{ text: context }] },
+      ],
       config: {
         thinkingConfig: {
           thinkingBudget: 0,
