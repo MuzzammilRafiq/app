@@ -37,4 +37,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getConvertedHeicPath: (heicPath: string) => ipcRenderer.invoke("get-converted-heic-path", heicPath),
   getHeicCacheStats: () => ipcRenderer.invoke("get-heic-cache-stats"),
   cleanupHeicCache: () => ipcRenderer.invoke("cleanup-heic-cache"),
+
+  // database service APIs
+  dbCreateSession: (title: string, id?: string) => ipcRenderer.invoke("db:create-session", title, id),
+  dbGetSessions: () => ipcRenderer.invoke("db:get-sessions"),
+  dbGetSession: (id: string) => ipcRenderer.invoke("db:get-session", id),
+  dbUpdateSessionTitle: (id: string, title: string) => ipcRenderer.invoke("db:update-session-title", id, title),
+  dbTouchSession: (id: string) => ipcRenderer.invoke("db:touch-session", id),
+  dbDeleteSession: (id: string) => ipcRenderer.invoke("db:delete-session", id),
+
+  dbAddChatMessage: (message: any) => ipcRenderer.invoke("db:add-chat-message", message),
+  dbGetChatMessages: (sessionId: string) => ipcRenderer.invoke("db:get-chat-messages", sessionId),
+  dbDeleteChatMessage: (id: string) => ipcRenderer.invoke("db:delete-chat-message", id),
+  dbDeleteChatMessagesBySession: (sessionId: string) =>
+    ipcRenderer.invoke("db:delete-chat-messages-by-session", sessionId),
 });
