@@ -4,10 +4,11 @@ import { app } from "electron";
 import { randomUUID } from "crypto";
 import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType } from "../../common/types.js";
 
-class DatabaseService {
+export class DatabaseService {
+  private static instance: DatabaseService | null = null;
   private db: Database.Database;
 
-  constructor() {
+  private constructor() {
     // Choose a per-user application data path; keep a separate db file for dev.
     const isDev = process.env.NODE_ENV === "development";
     const dbPath = path.join(app.getPath("userData"), isDev ? "database.dev.db" : "database.db");
@@ -17,6 +18,13 @@ class DatabaseService {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
     this.initializeSchema();
+  }
+
+  static getInstance(): DatabaseService {
+    if (DatabaseService.instance === null) {
+      DatabaseService.instance = new DatabaseService();
+    }
+    return DatabaseService.instance;
   }
 
   /**
@@ -236,5 +244,5 @@ class DatabaseService {
 }
 
 // Export a shared singleton to reuse the same connection across the app.
-export const dbService = new DatabaseService();
+const dbService = DatabaseService.getInstance();
 export default dbService;
