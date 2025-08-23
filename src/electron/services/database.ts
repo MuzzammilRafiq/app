@@ -1,22 +1,24 @@
-import Database from "better-sqlite3";
-import path from "path";
-import { app } from "electron";
+import { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
 import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType } from "../../common/types.js";
 
 export class DatabaseService {
   private static instance: DatabaseService | null = null;
-  private db: Database.Database;
+  private db: Database;
 
   private constructor() {
+    //TODO handle path using electron.app.getPath()
     // Choose a per-user application data path; keep a separate db file for dev.
     const isDev = process.env.NODE_ENV === "development";
-    const dbPath = path.join(app.getPath("userData"), isDev ? "database.dev.db" : "database.db");
+    let dbPath = "./db/database.dev.db";
+    // if (!isDev) {
+    //   dbPath = path.join(app.getPath("userData"), "database.db");
+    // }
 
     this.db = new Database(dbPath);
     // Safer defaults for desktop apps
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("foreign_keys = ON");
+    this.db.run("PRAGMA journal_mode = WAL");
+    this.db.run("PRAGMA foreign_keys = ON");
     this.initializeSchema();
   }
 
@@ -76,11 +78,12 @@ export class DatabaseService {
    */
   createSession(title: string, id: string = randomUUID()): ChatSessionRecord {
     const now = Date.now();
-    const insert = this.db.prepare(
-      `INSERT INTO sessions (id, title, created_at, updated_at) VALUES (@id, @title, @createdAt, @updatedAt)`
-    );
+    // NOTE: Use positional parameters because named parameters in bun:sqlite require the prefix
+    // to be part of the object key (e.g. {"$id": id}). Previous code passed keys without prefixes
+    // causing all placeholders to bind as NULL and triggering NOT NULL constraint errors.
+    const insert = this.db.prepare(`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`);
     const record: ChatSessionRecord = { id, title, createdAt: now, updatedAt: now };
-    insert.run({ id: record.id, title: record.title, createdAt: record.createdAt, updatedAt: record.updatedAt });
+    insert.run(record.id, record.title, record.createdAt, record.updatedAt);
     return record;
   }
 
@@ -153,21 +156,11 @@ export class DatabaseService {
     const ts = message.timestamp instanceof Date ? message.timestamp.getTime() : (message.timestamp ?? Date.now());
     const imagesJson = message.images == null ? null : JSON.stringify(message.images);
     const isError = message.isError ? 1 : 0;
-
     const insert = this.db.prepare(
       `INSERT INTO chat_messages (id, session_id, content, role, timestamp, is_error, images, type)
-       VALUES (@id, @sessionId, @content, @role, @timestamp, @is_error, @images, @type)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    insert.run({
-      id,
-      sessionId: message.sessionId,
-      content: message.content,
-      role: message.role,
-      timestamp: ts,
-      is_error: isError,
-      images: imagesJson,
-      type: message.type,
-    });
+    insert.run(id, message.sessionId, message.content, message.role, ts, isError, imagesJson, message.type);
 
     // Update session timestamp to keep it sorted by recency
     this.touchSession(message.sessionId);
@@ -246,3 +239,8 @@ export class DatabaseService {
 // Export a shared singleton to reuse the same connection across the app.
 const dbService = DatabaseService.getInstance();
 export default dbService;
+
+if (require.main === module) {
+  // console.log(dbService.createSession("test"));
+  console.log(dbService.getSessions());
+}
