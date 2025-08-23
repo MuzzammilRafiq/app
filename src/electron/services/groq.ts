@@ -1,5 +1,7 @@
 import Groq from "groq-sdk";
+import { ChatCompletion } from "groq-sdk/resources/chat/completions.mjs";
 import dotenv from "dotenv";
+import { APIPromise } from "groq-sdk/core.mjs";
 dotenv.config();
 class GroqService {
   private static instance: GroqService;
@@ -20,6 +22,12 @@ class GroqService {
       ...options,
     });
     return res.choices?.[0]?.message?.content ?? null;
+  }
+  public async stream(model: string, options: any): Promise<any> {
+    return this.ai.chat.completions.create({
+      ...options,
+      model,
+    });
   }
 }
 
