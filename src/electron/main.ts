@@ -6,6 +6,7 @@ import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 import { setupStreamHandlers } from "./ipc/stream.js";
 import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
+import { setupDatabaseHandlers } from "./ipc/database.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -61,6 +62,7 @@ app.whenReady().then(() => {
   setupStreamHandlers();
   setupImageEmbeddingHandlers();
   setupFileOperationHandlers();
+  setupDatabaseHandlers();
   globalShortcut.register("Alt+Space", () => {
     if (mainWindow) {
       mainWindow.webContents.send("global-screenshot-trigger");

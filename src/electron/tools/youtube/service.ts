@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const extractVideoInfoFromText = async (context: string): Promise<VideoInfoResult> => {
+  log.BG_BLUE("___________extractVideoInfoFromText___________");
   const PROMPT = `Extract the video title, channel name, and determine if the user wants a summary from the following context.
 
 <context>
@@ -51,7 +52,9 @@ Return the values in JSON format with generate_summary as a boolean.`;
     },
     stream: false,
   };
+
   const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
+  log.CYAN(response);
   const { videotitle, channelname, generate_summary } = JSON.parse(response!);
   log.GREEN(
     `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`

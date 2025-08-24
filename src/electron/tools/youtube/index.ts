@@ -44,24 +44,24 @@ export const youtubeToolFunctionDeclaration = {
   },
 };
 
-if (require.main === module) {
-  youtubeTool(
-    `The image shows a YouTube video screen capture.
-___________
-The background is a dark space scene with many small white dots representing stars.
-In the upper central part of the thumbnail, there is a small, bright white circle with a black dot in its center, which is pointed to by a curved red arrow. This likely represents a black hole.
-In the lower right part of the thumbnail, there's a curved gray and white object, which appears to be the Earth or another celestial body seen from space.
-In the lower left, there's a circular red logo with "what if?" written in white text below a black silhouette of a dinosaur hanging upside down, suspended by ropes.
-Information below the thumbnail:
+// if (require.main === module) {
+//   youtubeTool(
+//     `The image shows a YouTube video screen capture.
+// ___________
+// The background is a dark space scene with many small white dots representing stars.
+// In the upper central part of the thumbnail, there is a small, bright white circle with a black dot in its center, which is pointed to by a curved red arrow. This likely represents a black hole.
+// In the lower right part of the thumbnail, there's a curved gray and white object, which appears to be the Earth or another celestial body seen from space.
+// In the lower left, there's a circular red logo with "what if?" written in white text below a black silhouette of a dinosaur hanging upside down, suspended by ropes.
+// Information below the thumbnail:
 
-Video Title: "What if the moon turned into a black hole?"
-Channel Name: "xkcd's What If?"
-Video Statistics: "72K views • 1 hour ago"
-Video Duration: "3:41" (visible in the bottom right corner of the thumbnail)
-There are also three vertical dots to the right of the title, indicating more options.
-The overall image suggests a video from the "xkcd's What If?" series, exploring a hypothetical scenario involving the moon transforming into a black hole.
-_________`
-  ).then((res) => {
-    log.GREEN(res.output);
-  });
-}
+// Video Title: "What if the moon turned into a black hole?"
+// Channel Name: "xkcd's What If?"
+// Video Statistics: "72K views • 1 hour ago"
+// Video Duration: "3:41" (visible in the bottom right corner of the thumbnail)
+// There are also three vertical dots to the right of the title, indicating more options.
+// The overall image suggests a video from the "xkcd's What If?" series, exploring a hypothetical scenario involving the moon transforming into a black hole.
+// _________`
+//   ).then((res) => {
+//     log.GREEN(res.output);
+//   });
+// }
