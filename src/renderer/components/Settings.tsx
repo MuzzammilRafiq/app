@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { getItem, setOrUpdateItem, type LastScanned } from "../utils/localstore";
 import { LoadingSVG, RescanSVG, TrashSVG } from "./icons";
+import { useCurrentViewStore } from "../utils/store";
 
-interface SettingsProps {
-  onClose: () => void;
-}
-
-export default function Settings({ onClose }: SettingsProps) {
+export default function Settings() {
+  const setCurrentView = useCurrentViewStore((state) => state.setCurrentView);
   const [selectedFolders, setSelectedFolders] = useState<Map<string, LastScanned>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
 
@@ -19,11 +17,11 @@ export default function Settings({ onClose }: SettingsProps) {
   }, []);
 
   const handleSave = () => {
-    onClose();
+    setCurrentView("chat");
   };
 
   const handleClose = () => {
-    onClose();
+    setCurrentView("chat");
   };
 
   const handleSelectFolder = async () => {

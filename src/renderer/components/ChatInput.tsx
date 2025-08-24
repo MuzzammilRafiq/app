@@ -3,13 +3,14 @@ import { fileToBase64, validateImageFile, type ImageData } from "../services/ima
 import toast from "react-hot-toast";
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, ScreenshotSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
+import { useChatSessionRecordsStore, useChatTitleStore, useCurrentSessionStore } from "../utils/store";
 
 export interface Status {
   isStreaming: boolean;
   isLoading: boolean;
 }
 interface ChatInputProps {
-  onSendMessage: (sessionId: string, content: string, imagePaths: string[] | null) => Promise<void>;
+  onSendMessage: (sessionId: string, content: string) => Promise<void>;
   status: Status;
   setStatus: React.Dispatch<React.SetStateAction<Status>>;
   sessionId: string;
@@ -22,7 +23,8 @@ export interface ChatInputHandle {
 }
 
 function ChatInput(props: ChatInputProps, ref: React.Ref<ChatInputHandle>) {
-  const { onSendMessage, status, sessionId, setStatus, onScreenshot, imagePaths, setImagePaths } = props;
+  const setChatTitle = useChatTitleStore((s) => s.setChatTitle);
+  const { onSendMessage, status, setStatus, onScreenshot, setImagePaths } = props;
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -31,16 +33,55 @@ function ChatInput(props: ChatInputProps, ref: React.Ref<ChatInputHandle>) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = () => {
+  const { chatSessionRecords, setChatSessionRecords } = useChatSessionRecordsStore();
+  const { currentSession, setCurrentSession } = useCurrentSessionStore();
+
+  const handleSend = async () => {
     const trimmedContent = content.trim();
     if ((trimmedContent || selectedImage) && !status.isLoading && !status.isStreaming) {
-      setStatus({ ...status, isLoading: true });
-      onSendMessage(sessionId, trimmedContent, imagePaths);
-      setStatus({ ...status, isLoading: false });
+      // Determine or create the session first and use a local variable to avoid relying on async state update
+      let sessionRef = currentSession;
+      let chatTitle = sessionRef?.title;
+
+      // Only generate a chat title & create a new session if one doesn't exist yet
+      if (!sessionRef) {
+        chatTitle = trimmedContent ? trimmedContent.slice(0, 30) + "..." : "New Chat";
+        try {
+          const newSession = await window.electronAPI.dbCreateSession(chatTitle);
+          const sessionWithMessages = { ...newSession, messages: [] };
+          setChatSessionRecords([...chatSessionRecords, newSession]);
+          // Update current session in store
+          setCurrentSession(sessionWithMessages);
+          sessionRef = sessionWithMessages;
+        } catch (e) {
+          console.error("Failed to create session", e);
+          toast.error("Failed to create session");
+          return; // Abort send
+        }
+      }
+
+      if (!sessionRef) {
+        // Safety guard (should not happen)
+        toast.error("No session available");
+        return;
+      }
+
+      setStatus((prev) => ({ ...prev, isLoading: true }));
+      try {
+        await onSendMessage(sessionRef.id, trimmedContent);
+      } finally {
+        setStatus((prev) => ({ ...prev, isLoading: false }));
+      }
+
       setContent("");
       setSelectedImage(null);
       setImagePaths(null);
-      //TODO - update local images using usestate
+
+      // Only set chat title if this was a newly created session
+      if (!currentSession && chatTitle) {
+        setChatTitle(chatTitle);
+      }
+      // TODO: update local images using useState
     }
   };
 

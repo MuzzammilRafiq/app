@@ -35,7 +35,7 @@ export default function ChatMessage(message: ChatMessageRecord) {
           </div>
         ) : (
           <div className="space-y-3">
-            {message.imagePaths && (
+            {message?.imagePaths && (
               <div className="flex flex-wrap gap-3">
                 <div className="relative">
                   <img

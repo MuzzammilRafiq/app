@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow, clipboard } from "electron";
 import { exec } from "child_process";
 import { promisify } from "util";
-
+import { nativeImage } from "electron";
 // Convert exec to promise-based function for async/await usage
 const execAsync = promisify(exec);
 
@@ -142,7 +142,6 @@ export function setupScreenshotHandlers() {
       }
 
       // Save the final image to clipboard
-      const nativeImage = require("electron").nativeImage;
       const image = nativeImage.createFromBuffer(finalBuffer);
       clipboard.writeImage(image);
 

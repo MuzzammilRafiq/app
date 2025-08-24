@@ -1,12 +1,5 @@
 import type { ChatMessage } from "./llm";
 
-export interface ChatSession {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 const STORAGE_KEY = "chat-sessions";
 
@@ -44,8 +37,8 @@ export function createNewSession(): ChatSession {
     id: Date.now().toString(),
     title: "New Chat",
     messages: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 }
 
@@ -60,7 +53,7 @@ export function updateSessionTitle(session: ChatSession): ChatSession {
     return {
       ...session,
       title: title || "New Chat",
-      updatedAt: new Date(),
+      updatedAt: Date.now(),
     };
   }
   return session;

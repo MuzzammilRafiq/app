@@ -161,5 +161,57 @@ interface Window {
      * @returns {Promise<{success: boolean, error?: string}>} Cleanup result
      */
     cleanupHeicCache: () => Promise<{ success: boolean; error?: string }>;
+
+    /**
+     * Database API: create a new chat session
+     */
+    dbCreateSession: (title: string, id?: string) => Promise<import("../common/types").ChatSessionRecord>;
+
+    /**
+     * Database API: list sessions ordered by recently updated
+     */
+    dbGetSessions: () => Promise<import("../common/types").ChatSessionRecord[]>;
+
+    /**
+     * Database API: get a session by id
+     */
+    dbGetSession: (id: string) => Promise<import("../common/types").ChatSessionRecord | null>;
+
+    /**
+     * Database API: update a session title
+     */
+    dbUpdateSessionTitle: (id: string, title: string) => Promise<boolean>;
+
+    /**
+     * Database API: touch a session to bump updatedAt
+     */
+    dbTouchSession: (id: string, timestamp: number) => Promise<boolean>;
+
+    /**
+     * Database API: delete a session (cascades messages)
+     */
+    dbDeleteSession: (id: string) => Promise<boolean>;
+
+    /**
+     * Database API: add a chat message
+     */
+    dbAddChatMessage: (
+      message: import("../common/types").ChatMessageRecord
+    ) => Promise<import("../common/types").ChatMessageRecord>;
+
+    /**
+     * Database API: get chat messages for a session
+     */
+    dbGetChatMessages: (sessionId: string) => Promise<import("../common/types").ChatMessageRecord[]>;
+
+    /**
+     * Database API: delete a single chat message by id
+     */
+    dbDeleteChatMessage: (id: string) => Promise<boolean>;
+
+    /**
+     * Database API: delete all messages for a session
+     */
+    dbDeleteChatMessagesBySession: (sessionId: string) => Promise<number>;
   };
 }

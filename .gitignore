@@ -31,3 +31,4 @@ dist-renderer
 *.sln
 *.sw?
 vectordb
+db

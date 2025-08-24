@@ -50,3 +50,12 @@ export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
   currentView: "chat",
   setCurrentView: (view) => set({ currentView: view }),
 }));
+
+interface ChatTitleStore {
+  chatTitle: string;
+  setChatTitle: (title: string) => void;
+}
+export const useChatTitleStore = create<ChatTitleStore>((set) => ({
+  chatTitle: "",
+  setChatTitle: (title) => set({ chatTitle: title }),
+}));

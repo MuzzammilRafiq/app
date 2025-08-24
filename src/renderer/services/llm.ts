@@ -1,16 +1,5 @@
 import type { ImageData } from "./imageUtils";
-import type { StreamChunk } from "../../common/types";
-
-export interface ChatMessage {
-  id: string;
-  content: string;
-  role: "user" | "assistant" | "execution";
-  timestamp: Date;
-  isError?: boolean;
-  images?: ImageData[];
-  type: "stream" | "log" | "plan";
-}
-
+import type { StreamChunk,ChatSessionRecord } from "../../common/types";
 export interface ChatResponse {
   text: string;
   error?: string;
@@ -38,7 +27,7 @@ function waitForElectronAPI(timeout = 5000): Promise<typeof window.electronAPI> 
 }
 
 export async function streamMessageWithHistory(
-  messages: ChatMessage[],
+  messages: ChatSessionRecord[],
   onChunk: StreamCallback
 ): Promise<ChatResponse> {
   try {

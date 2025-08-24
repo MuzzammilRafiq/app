@@ -1,21 +1,38 @@
 import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
-import { useChatSessionRecordsStore, useCurrentSessionStore } from "../utils/store";
+import {
+  useChatSessionRecordsStore,
+  useChatTitleStore,
+  useCurrentSessionStore,
+  useCurrentViewStore,
+  useSidebarCollapsedStore,
+} from "../utils/store";
 import type { ChatSessionRecord, ChatSessionWithMessages } from "../../common/types";
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 
-interface SidebarProps {
-  currentSessionId: string | null;
-  onNewSession: () => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  onOpenSettings: () => void;
-}
 const iconClass =
   "p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
 
-export default function Sidebar({ onNewSession, isCollapsed, onToggleCollapse, onOpenSettings }: SidebarProps) {
+export default function Sidebar() {
   const { chatSessionRecords, setChatSessionRecords } = useChatSessionRecordsStore();
+  const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
   const { currentSession, setCurrentSession } = useCurrentSessionStore();
+  const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
+  const setChatTitle = useChatTitleStore((s) => s.setChatTitle);
+
+  const onNewSession = async () => {
+    try {
+      // Prefer a clean default title instead of reusing the prior one
+      const title = "New Chat";
+      const newSession = await window.electronAPI.dbCreateSession(title);
+      setChatSessionRecords([...chatSessionRecords, newSession]);
+      setCurrentSession({ ...newSession, messages: [] });
+      setChatTitle(title);
+    } catch (e) {
+      console.error("Failed to create new session", e);
+      toast.error("Failed to create new chat");
+    }
+  };
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -33,33 +50,31 @@ export default function Sidebar({ onNewSession, isCollapsed, onToggleCollapse, o
     fetchMessages();
   }, []);
 
-  const setCurrentChatSession = async (session: ChatSessionRecord) => {
-    const messages = await window.electronAPI.dbGetChatMessages(session.id);
-    const chatSessionWithMessages: ChatSessionWithMessages = { ...session, messages };
+  const setCurrentChatSession = (session: ChatSessionRecord) => {
+    // Defer message loading to ChatContainer effect for consistency & single responsibility
+    const chatSessionWithMessages: ChatSessionWithMessages = { ...session, messages: [] };
     setCurrentSession(chatSessionWithMessages);
   };
-  const isCurrentSessionEmpty = currentSession ? currentSession.messages.length === 0 : true;
 
   // const chatSessionRecords = useChatSessionRecordsStore(state=>state.chatSessionRecords);
   // const currentSession = useCurrentSessionStore(state => state.currentSession);
 
-  if (isCollapsed) {
+  if (sidebarCollapsed) {
     return (
       <div className="w-14 h-full flex flex-col">
         <div className="flex-1 overflow-y-auto p-2 w-full">
-          <button onClick={onToggleCollapse} className={`${iconClass} flex-1 overflow-y-auto p-2  mb-1 w-10`}>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={`${iconClass} flex-1 overflow-y-auto p-2  mb-1 w-10`}
+          >
             {MenuSVG}
           </button>
-          <button
-            onClick={onNewSession}
-            disabled={isCurrentSessionEmpty}
-            className={`${iconClass} shadow-sm  flex-1 p-2 w-ful mb-1 w-10`}
-          >
+          <button onClick={onNewSession} className={`${iconClass} shadow-sm flex-1 p-2 mb-1 w-10`}>
             {PlusSVG}
           </button>
         </div>
         <div className="p-2">
-          <button onClick={onOpenSettings} className={`${iconClass} p-2 w-10`} title="Settings">
+          <button onClick={() => setCurrentView("settings")} className={`${iconClass} p-2 w-10`} title="Settings">
             {GearSVG}
           </button>
         </div>
@@ -70,7 +85,7 @@ export default function Sidebar({ onNewSession, isCollapsed, onToggleCollapse, o
       <div className="w-52 h-full border-r border-gray-300 flex flex-col">
         <div className="flex-1 overflow-y-auto p-2">
           <button
-            onClick={onToggleCollapse}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className={`${iconClass} flex-1 overflow-y-auto p-2 w-full  justify-start mb-1`}
           >
             {MenuSVG}
@@ -78,7 +93,6 @@ export default function Sidebar({ onNewSession, isCollapsed, onToggleCollapse, o
           </button>
           <button
             onClick={onNewSession}
-            disabled={isCurrentSessionEmpty}
             className={`${iconClass} shadow-sm bg-white flex-1 p-2 w-full justify-start mb-1`}
           >
             {PlusSVG}
@@ -127,7 +141,11 @@ export default function Sidebar({ onNewSession, isCollapsed, onToggleCollapse, o
 
         {/* Settings button at bottom */}
         <div className="p-2 border-t border-gray-200">
-          <button onClick={onOpenSettings} className={`${iconClass} p-2 w-full justify-start`} title="Settings">
+          <button
+            onClick={() => setCurrentView("settings")}
+            className={`${iconClass} p-2 w-full justify-start`}
+            title="Settings"
+          >
             {GearSVG}
             <span className="ml-2 text-sm font-medium">Settings</span>
           </button>
