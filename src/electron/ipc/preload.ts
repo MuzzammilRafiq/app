@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbGetSessions: () => ipcRenderer.invoke("db:get-sessions"),
   dbGetSession: (id: string) => ipcRenderer.invoke("db:get-session", id),
   dbUpdateSessionTitle: (id: string, title: string) => ipcRenderer.invoke("db:update-session-title", id, title),
-  dbTouchSession: (id: string) => ipcRenderer.invoke("db:touch-session", id),
+  dbTouchSession: (id: string, timestamp: number) => ipcRenderer.invoke("db:touch-session", id, timestamp),
   dbDeleteSession: (id: string) => ipcRenderer.invoke("db:delete-session", id),
 
   dbAddChatMessage: (message: any) => ipcRenderer.invoke("db:add-chat-message", message),

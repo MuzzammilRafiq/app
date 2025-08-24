@@ -19,8 +19,8 @@ export function setupDatabaseHandlers() {
     return dbService.updateSessionTitle(id, title);
   });
 
-  ipcMain.handle("db:touch-session", async (_event, id: string) => {
-    return dbService.touchSession(id);
+  ipcMain.handle("db:touch-session", async (_event, id: string, timestamp: number) => {
+    return dbService.touchSession(id, timestamp);
   });
 
   ipcMain.handle("db:delete-session", async (_event, id: string) => {
