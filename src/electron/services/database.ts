@@ -1,19 +1,17 @@
 import { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
 import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType } from "../../common/types.js";
-
+import log from "../../common/log.js";
+import { getDirs } from "../get-folder.js";
+import path from "path";
+// TODO - handle ERRORS
 export class DatabaseService {
   private static instance: DatabaseService | null = null;
   private db: Database;
 
   private constructor() {
-    //TODO handle path using electron.app.getPath()
-    // Choose a per-user application data path; keep a separate db file for dev.
-    const isDev = process.env.NODE_ENV === "development";
-    let dbPath = "./db/database.dev.db";
-    // if (!isDev) {
-    //   dbPath = path.join(app.getPath("userData"), "database.db");
-    // }
+    const { dbDir } = getDirs();
+    const dbPath = path.join(dbDir, "database.db");
 
     this.db = new Database(dbPath);
     // Safer defaults for desktop apps
@@ -29,10 +27,6 @@ export class DatabaseService {
     return DatabaseService.instance;
   }
 
-  /**
-   * Creates the `sessions` and `chat_messages` tables and supporting indexes if they don't exist.
-   * Runs inside a transaction for atomicity.
-   */
   private initializeSchema(): void {
     const createSessions = `
       CREATE TABLE IF NOT EXISTS sessions (
@@ -45,15 +39,15 @@ export class DatabaseService {
 
     const createMessages = `
       CREATE TABLE IF NOT EXISTS chat_messages (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('user','assistant','execution')),
-        timestamp INTEGER NOT NULL,
-        is_error INTEGER NOT NULL DEFAULT 0,
-        images TEXT,
-        type TEXT NOT NULL CHECK(type IN ('stream','log','plan')),
-        FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('user','assistant','execution')),
+      timestamp INTEGER NOT NULL,
+      is_error INTEGER NOT NULL DEFAULT 0,
+      images TEXT DEFAULT NULL, -- store JSON array (string[]) or NULL
+      type TEXT NOT NULL CHECK(type IN ('stream','log','plan')),
+      FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
     `;
 
@@ -71,11 +65,6 @@ export class DatabaseService {
     trx();
   }
 
-  // Session CRUD
-  /**
-   * Creates a new chat session row.
-   * If `id` is not provided, a timestamp-based string id is used.
-   */
   createSession(title: string, id: string = randomUUID()): ChatSessionRecord {
     const now = Date.now();
     // NOTE: Use positional parameters because named parameters in bun:sqlite require the prefix
@@ -87,9 +76,6 @@ export class DatabaseService {
     return record;
   }
 
-  /**
-   * Returns all sessions ordered by most recently updated first.
-   */
   getSessions(): ChatSessionRecord[] {
     const rows = this.db
       .prepare(
@@ -99,9 +85,6 @@ export class DatabaseService {
     return rows as ChatSessionRecord[];
   }
 
-  /**
-   * Retrieves a single session by id, or null if not found.
-   */
   getSessionById(id: string): ChatSessionRecord | null {
     const row = this.db
       .prepare(`SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`)
@@ -109,9 +92,6 @@ export class DatabaseService {
     return (row as ChatSessionRecord) ?? null;
   }
 
-  /**
-   * Updates the session title and bumps its `updatedAt` timestamp.
-   */
   updateSessionTitle(id: string, title: string): boolean {
     const updatedAt = Date.now();
     const info = this.db
@@ -120,67 +100,67 @@ export class DatabaseService {
     return info.changes > 0;
   }
 
-  /**
-   * Touches a session to mark it as recently updated without changing content.
-   */
-  touchSession(id: string): boolean {
-    const updatedAt = Date.now();
-    const info = this.db.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`).run(updatedAt, id);
+  touchSession(id: string, timestamp: number): boolean {
+    const info = this.db.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`).run(timestamp, id);
     return info.changes > 0;
   }
 
-  /**
-   * Deletes a session; cascades to delete related chat messages via FK.
-   */
   deleteSession(id: string): boolean {
     const info = this.db.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
     return info.changes > 0;
   }
 
-  // Message CRUD
-  /**
-   * Adds a chat message for a session. Serializes `images` as JSON if provided,
-   * converts Date timestamps to epoch ms, and touches the parent session for recency.
-   */
-  addChatMessage(message: {
-    id?: string;
-    sessionId: string;
-    content: string;
-    role: ChatRole;
-    timestamp?: number | Date;
-    isError?: boolean;
-    images?: unknown[] | null; // ImageData[] shape from renderer
-    type: ChatType;
-  }): ChatMessageRecord {
-    const id = message.id ?? randomUUID();
-    const ts = message.timestamp instanceof Date ? message.timestamp.getTime() : (message.timestamp ?? Date.now());
-    const imagesJson = message.images == null ? null : JSON.stringify(message.images);
+  addChatMessage(message: ChatMessageRecord): ChatMessageRecord {
     const isError = message.isError ? 1 : 0;
+    const serializedImages = message.imagePaths ? JSON.stringify(message.imagePaths) : null;
     const insert = this.db.prepare(
       `INSERT INTO chat_messages (id, session_id, content, role, timestamp, is_error, images, type)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    insert.run(id, message.sessionId, message.content, message.role, ts, isError, imagesJson, message.type);
 
-    // Update session timestamp to keep it sorted by recency
-    this.touchSession(message.sessionId);
+    // Make both the insert and session touch atomic.
+    const runAtomic = this.db.transaction(() => {
+      insert.run(
+        message.id,
+        message.sessionId,
+        message.content,
+        message.role,
+        message.timestamp,
+        isError,
+        serializedImages,
+        message.type
+      );
+      // Update session timestamp to keep it sorted by recency
+      this.touchSession(message.sessionId, message.timestamp);
+    });
 
-    return {
-      id,
-      sessionId: message.sessionId,
-      content: message.content,
-      role: message.role,
-      timestamp: ts,
-      isError: Boolean(isError),
-      images: imagesJson,
-      type: message.type,
-    };
+    try {
+      runAtomic();
+      return {
+        id: message.id,
+        sessionId: message.sessionId,
+        content: message.content,
+        role: message.role,
+        timestamp: message.timestamp,
+        isError: message.isError,
+        imagePaths: message.imagePaths,
+        type: message.type,
+      };
+    } catch (err: any) {
+      log.RED(err?.message);
+      return {
+        id: message.id,
+        sessionId: message.sessionId,
+        content: message.content,
+        role: message.role,
+        timestamp: message.timestamp,
+        isError: err?.message,
+        imagePaths: message.imagePaths,
+        type: message.type,
+      };
+    }
   }
 
-  /**
-   * Returns all messages for a session ordered by ascending time.
-   * Note: `images` remains a JSON string; deserialize at call site if needed.
-   */
   getChatMessagesBySession(sessionId: string): ChatMessageRecord[] {
     const rows = this.db
       .prepare(
@@ -203,9 +183,10 @@ export class DatabaseService {
       role: ChatRole;
       timestamp: number;
       isError: 0 | 1;
-      images: string | null;
+      imagePaths: string | null;
       type: ChatType;
     }>;
+    //@ts-expect-error TODO- here
     return rows.map((row) => ({
       id: row.id,
       sessionId: row.sessionId,
@@ -213,34 +194,17 @@ export class DatabaseService {
       role: row.role,
       timestamp: row.timestamp,
       isError: row.isError === 1,
-      images: row.images,
+      imagePaths: row.imagePaths,
       type: row.type,
     }));
   }
-
-  /**
-   * Deletes a single message by id.
-   */
   deleteChatMessage(id: string): boolean {
     const info = this.db.prepare(`DELETE FROM chat_messages WHERE id = ?`).run(id);
     return info.changes > 0;
   }
-
-  /**
-   * Deletes all messages under a given session id.
-   * Returns number of rows removed.
-   */
   deleteChatMessagesBySession(sessionId: string): number {
     const info = this.db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`).run(sessionId);
     return info.changes;
   }
 }
-
-// Export a shared singleton to reuse the same connection across the app.
-const dbService = DatabaseService.getInstance();
-export default dbService;
-
-if (require.main === module) {
-  // console.log(dbService.createSession("test"));
-  console.log(dbService.getSessions());
-}
+export default DatabaseService.getInstance();
