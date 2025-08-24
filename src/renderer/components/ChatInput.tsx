@@ -4,23 +4,26 @@ import toast from "react-hot-toast";
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, ScreenshotSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
 
-interface ChatInputProps {
-  onSendMessage: (message: string, images?: ImageData[]) => void;
+export interface Status {
+  isStreaming: boolean;
   isLoading: boolean;
-  isStreaming?: boolean;
-  disabled?: boolean;
-  onScreenshot?: () => void;
 }
-
+interface ChatInputProps {
+  onSendMessage: (sessionId: string, content: string, imagePaths: string[] | null) => Promise<void>;
+  status: Status;
+  setStatus: React.Dispatch<React.SetStateAction<Status>>;
+  sessionId: string;
+  onScreenshot?: () => void;
+  imagePaths: string[] | null;
+  setImagePaths: React.Dispatch<React.SetStateAction<string[] | null>>;
+}
 export interface ChatInputHandle {
   addImage: (image: ImageData) => void;
 }
 
-const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
-  { onSendMessage, isLoading, isStreaming = false, disabled = false, onScreenshot },
-  ref
-) {
-  const [message, setMessage] = useState("");
+function ChatInput(props: ChatInputProps, ref: React.Ref<ChatInputHandle>) {
+  const { onSendMessage, status, sessionId, setStatus, onScreenshot, imagePaths, setImagePaths } = props;
+  const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -29,11 +32,15 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
-    const trimmedMessage = message.trim();
-    if ((trimmedMessage || selectedImage) && !isLoading && !isStreaming && !disabled) {
-      onSendMessage(trimmedMessage, selectedImage ? [selectedImage] : undefined);
-      setMessage("");
+    const trimmedContent = content.trim();
+    if ((trimmedContent || selectedImage) && !status.isLoading && !status.isStreaming) {
+      setStatus({ ...status, isLoading: true });
+      onSendMessage(sessionId, trimmedContent, imagePaths);
+      setStatus({ ...status, isLoading: false });
+      setContent("");
       setSelectedImage(null);
+      setImagePaths(null);
+      //TODO - update local images using usestate
     }
   };
 
@@ -138,7 +145,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [message]);
+  }, [content]);
 
   const handleImageSelect = async (imagePath: string) => {
     setIsProcessingImage(true);
@@ -224,12 +231,12 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       <div className="text-gray-500">
         <textarea
           ref={textareaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
           onKeyUp={handleKeyPress}
           onPaste={handlePaste}
           placeholder="Ask or Act"
-          disabled={isLoading || disabled}
+          disabled={status.isLoading || status.isStreaming}
           className="w-full px-4 py-3 resize-none max-h-32 min-h-[48px]"
           rows={1}
         />
@@ -242,7 +249,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           <div className="flex items-center gap-2 relative">
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || disabled || isProcessingImage}
+              disabled={status.isLoading || isProcessingImage}
               className={iconClass + " shadow-sm bg-white border border-gray-200"}
               title={selectedImage ? "Replace Image" : "Upload Image"}
               type="button"
@@ -252,7 +259,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             {onScreenshot && (
               <button
                 onClick={onScreenshot}
-                disabled={isLoading || disabled}
+                disabled={status.isLoading}
                 className={iconClass + " shadow-sm bg-white border border-gray-200"}
                 title="Take Screenshot"
                 type="button"
@@ -262,7 +269,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             )}
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              disabled={isLoading || disabled}
+              disabled={status.isLoading}
               className={iconClass + " shadow-sm bg-white border border-gray-200"}
               title="Search Images"
               type="button"
@@ -274,16 +281,15 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           <div className="flex items-center ml-auto">
             <button
               onClick={handleSend}
-              disabled={(!message.trim() && !selectedImage) || isLoading || isStreaming || disabled}
+              disabled={(!content.trim() && !selectedImage) || status.isLoading || status.isStreaming}
               className={iconClass}
               type="button"
             >
-              {isLoading ? LoadingSVG : isStreaming ? PauseSVG : SendSVG}
+              {status.isLoading ? LoadingSVG : status.isStreaming ? PauseSVG : SendSVG}
             </button>
           </div>
         </div>
       </div>
-
       <SearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
@@ -291,6 +297,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       />
     </div>
   );
-});
-
-export default ChatInput;
+}
+const ChatInputWRef = forwardRef<ChatInputHandle, ChatInputProps>(ChatInput);
+export default ChatInputWRef;
