@@ -43,4 +43,7 @@ export function setupDatabaseHandlers() {
   ipcMain.handle("db:delete-chat-messages-by-session", async (_event, sessionId: string) => {
     return dbService.deleteChatMessagesBySession(sessionId);
   });
+  ipcMain.handle("db:get-all-sessions-with-messages", async (_event, limit: number) => {
+    return dbService.getAllSessionsWithMessages(limit);
+  });
 }

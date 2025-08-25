@@ -1,6 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType } from "../../common/types.js";
+import {
+  ChatMessageRecord,
+  ChatRole,
+  ChatSessionRecord,
+  ChatType,
+  ChatSessionWithMessages,
+} from "../../common/types.js";
 import log from "../../common/log.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
@@ -54,8 +60,6 @@ export class DatabaseService {
     const createIdx1 = `CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);`;
     const createIdx2 = `CREATE INDEX IF NOT EXISTS idx_chat_messages_session_time ON chat_messages(session_id, timestamp);`;
 
-    // Node's sqlite doesn't have built-in transactions like better-sqlite3
-    // We'll use BEGIN/COMMIT for transaction support
     try {
       this.db.exec("BEGIN TRANSACTION");
       this.db.exec(createSessions);
@@ -70,7 +74,19 @@ export class DatabaseService {
     }
   }
 
+  private validateInput(value: any, name: string, allowEmpty: boolean = false): void {
+    if (value === null || value === undefined) {
+      throw new Error(`${name} cannot be null or undefined`);
+    }
+    if (typeof value === "string" && !allowEmpty && value.trim() === "") {
+      throw new Error(`${name} cannot be empty`);
+    }
+  }
+
   createSession(title: string, id: string = randomUUID()): ChatSessionRecord {
+    this.validateInput(title, "title");
+    this.validateInput(id, "id");
+
     const now = Date.now();
     const stmt = this.db.prepare(`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`);
     const record: ChatSessionRecord = { id, title, createdAt: now, updatedAt: now };
@@ -80,7 +96,7 @@ export class DatabaseService {
       return record;
     } catch (error) {
       log.RED(`Failed to create session: ${error}`);
-      throw error;
+      throw new Error(`Failed to create session: ${error}`);
     }
   }
 
@@ -103,11 +119,13 @@ export class DatabaseService {
       }));
     } catch (error) {
       log.RED(`Failed to get sessions: ${error}`);
-      throw error;
+      throw new Error(`Failed to get sessions: ${error}`);
     }
   }
 
   getSessionById(id: string): ChatSessionRecord | null {
+    this.validateInput(id, "id");
+
     try {
       const stmt = this.db.prepare(
         `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`
@@ -116,11 +134,32 @@ export class DatabaseService {
       return row ?? null;
     } catch (error) {
       log.RED(`Failed to get session by id: ${error}`);
-      return null;
+      throw new Error(`Failed to get session by id: ${error}`);
+    }
+  }
+
+  /**
+   * Retrieve a single chat session together with all of its messages (ascending by timestamp).
+   * Returns null if the session does not exist.
+   */
+  getSessionWithMessages(sessionId: string): ChatSessionWithMessages | null {
+    this.validateInput(sessionId, "sessionId");
+
+    try {
+      const session = this.getSessionById(sessionId);
+      if (!session) return null;
+      const messages = this.getChatMessagesBySession(sessionId);
+      return { ...session, messages };
+    } catch (error) {
+      log.RED(`Failed to get session with messages: ${error}`);
+      throw new Error(`Failed to get session with messages: ${error}`);
     }
   }
 
   updateSessionTitle(id: string, title: string): boolean {
+    this.validateInput(id, "id");
+    this.validateInput(title, "title");
+
     try {
       const updatedAt = Date.now();
       const stmt = this.db.prepare(`UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`);
@@ -128,40 +167,76 @@ export class DatabaseService {
       return result.changes > 0;
     } catch (error) {
       log.RED(`Failed to update session title: ${error}`);
-      return false;
+      throw new Error(`Failed to update session title: ${error}`);
     }
   }
 
-  touchSession(id: string, timestamp: number): boolean {
+  touchSession(id: string, timestamp: number): ChatSessionRecord {
+    this.validateInput(id, "id");
+    if (typeof timestamp !== "number" || timestamp <= 0) {
+      throw new Error("timestamp must be a positive number");
+    }
+
     try {
       const stmt = this.db.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`);
       const result = stmt.run(timestamp, id);
-      return result.changes > 0;
+      if (result.changes === 0) {
+        throw new Error(`Session with id ${id} not found`);
+      }
+      const session = this.getSessionById(id);
+      if (!session) {
+        throw new Error(`Session with id ${id} not found after update`);
+      }
+      return session;
     } catch (error) {
       log.RED(`Failed to touch session: ${error}`);
-      return false;
+      throw new Error(`Failed to touch session: ${error}`);
     }
   }
 
   deleteSession(id: string): boolean {
+    this.validateInput(id, "id");
+
     try {
       const stmt = this.db.prepare(`DELETE FROM sessions WHERE id = ?`);
       const result = stmt.run(id);
       return result.changes > 0;
     } catch (error) {
       log.RED(`Failed to delete session: ${error}`);
-      return false;
+      throw new Error(`Failed to delete session: ${error}`);
     }
   }
 
   addChatMessage(message: ChatMessageRecord): ChatMessageRecord {
+    // Input validation
+    this.validateInput(message.id, "message.id");
+    this.validateInput(message.sessionId, "message.sessionId");
+    this.validateInput(message.content, "message.content", true); // Allow empty content
+    this.validateInput(message.role, "message.role");
+    this.validateInput(message.type, "message.type");
+
+    if (typeof message.timestamp !== "number" || message.timestamp <= 0) {
+      throw new Error("message.timestamp must be a positive number");
+    }
+
+    // Validate role and type against allowed values
+    const validRoles: ChatRole[] = ["user", "assistant", "execution"];
+    const validTypes: ChatType[] = ["stream", "log", "plan", "user"];
+
+    if (!validRoles.includes(message.role)) {
+      throw new Error(`Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`);
+    }
+
+    if (!validTypes.includes(message.type)) {
+      throw new Error(`Invalid type: ${message.type}. Must be one of: ${validTypes.join(", ")}`);
+    }
+
     const serializedImages = message.imagePaths ? JSON.stringify(message.imagePaths) : null;
     const insertStmt = this.db.prepare(
       `INSERT INTO chat_messages (id, session_id, content, role, timestamp, is_error, images, type)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
-    // Make both the insert and session touch atomic using transaction
     try {
       this.db.exec("BEGIN TRANSACTION");
 
@@ -171,12 +246,13 @@ export class DatabaseService {
         message.content,
         message.role,
         message.timestamp,
-        message.isError,
+        message.isError || "",
         serializedImages,
         message.type
       );
 
       // Update session timestamp to keep it sorted by recency
+      // If this fails, we want to rollback the entire transaction
       this.touchSession(message.sessionId, message.timestamp);
 
       this.db.exec("COMMIT");
@@ -187,27 +263,20 @@ export class DatabaseService {
         content: message.content,
         role: message.role,
         timestamp: message.timestamp,
-        isError: message.isError,
+        isError: message.isError || "",
         imagePaths: message.imagePaths,
         type: message.type,
       };
-    } catch (err: any) {
+    } catch (error) {
       this.db.exec("ROLLBACK");
-      log.RED(`Failed to add chat message: ${err?.message}`);
-      return {
-        id: message.id,
-        sessionId: message.sessionId,
-        content: message.content,
-        role: message.role,
-        timestamp: message.timestamp,
-        isError: err?.message || "Unknown error occurred",
-        imagePaths: message.imagePaths,
-        type: message.type,
-      };
+      log.RED(`Failed to add chat message: ${error}`);
+      throw new Error(`Failed to add chat message: ${error}`);
     }
   }
 
   getChatMessagesBySession(sessionId: string): ChatMessageRecord[] {
+    this.validateInput(sessionId, "sessionId");
+
     try {
       const stmt = this.db.prepare(
         `SELECT id,
@@ -246,29 +315,121 @@ export class DatabaseService {
       }));
     } catch (error) {
       log.RED(`Failed to get chat messages by session: ${error}`);
-      return [];
+      throw new Error(`Failed to get chat messages by session: ${error}`);
+    }
+  }
+
+  /**
+   * Retrieve sessions with their messages using a single optimized SQL query.
+   * Sessions are ordered by updatedAt descending and limited by the provided limit (number of sessions, NOT messages).
+   * Messages within each session are ordered ascending by timestamp.
+   * If limit = -1 (default) all sessions are returned.
+   */
+  getAllSessionsWithMessages(limit: number = -1): ChatSessionWithMessages[] {
+    if (limit !== -1 && (typeof limit !== "number" || limit <= 0)) {
+      throw new Error("limit must be -1 or a positive number");
+    }
+
+    try {
+      // Single query with JOIN to get sessions and their messages
+      // Using a subquery to limit sessions first, then join with messages
+      const baseSessionQuery = `SELECT id FROM sessions ORDER BY updated_at DESC`;
+      const sessionQuery = limit === -1 ? baseSessionQuery : `${baseSessionQuery} LIMIT ?`;
+
+      const query = `
+        SELECT 
+          s.id as sessionId,
+          s.title,
+          s.created_at as sessionCreatedAt,
+          s.updated_at as sessionUpdatedAt,
+          m.id as messageId,
+          m.content,
+          m.role,
+          m.timestamp,
+          m.is_error as isError,
+          m.images,
+          m.type
+        FROM (${sessionQuery}) limited_sessions
+        JOIN sessions s ON s.id = limited_sessions.id
+        LEFT JOIN chat_messages m ON s.id = m.session_id
+        ORDER BY s.updated_at DESC, m.timestamp ASC
+      `;
+
+      const stmt = this.db.prepare(query);
+      const rows = (limit === -1 ? stmt.all() : stmt.all(limit)) as Array<{
+        sessionId: string;
+        title: string;
+        sessionCreatedAt: number;
+        sessionUpdatedAt: number;
+        messageId: string | null;
+        content: string | null;
+        role: ChatRole | null;
+        timestamp: number | null;
+        isError: string | null;
+        images: string | null;
+        type: ChatType | null;
+      }>;
+
+      // Group the results by session
+      const sessionsMap = new Map<string, ChatSessionWithMessages>();
+
+      for (const row of rows) {
+        if (!sessionsMap.has(row.sessionId)) {
+          sessionsMap.set(row.sessionId, {
+            id: row.sessionId,
+            title: row.title,
+            createdAt: row.sessionCreatedAt,
+            updatedAt: row.sessionUpdatedAt,
+            messages: [],
+          });
+        }
+
+        // Add message if it exists (LEFT JOIN can produce null messages for sessions without messages)
+        if (row.messageId) {
+          const session = sessionsMap.get(row.sessionId)!;
+          session.messages.push({
+            id: row.messageId,
+            sessionId: row.sessionId,
+            content: row.content!,
+            role: row.role!,
+            timestamp: row.timestamp!,
+            isError: row.isError || "",
+            imagePaths: row.images ? JSON.parse(row.images) : null,
+            type: row.type!,
+          });
+        }
+      }
+
+      return Array.from(sessionsMap.values());
+    } catch (error) {
+      log.RED(`Failed to get all sessions with messages: ${error}`);
+      throw new Error(`Failed to get all sessions with messages: ${error}`);
     }
   }
 
   deleteChatMessage(id: string): boolean {
+    this.validateInput(id, "id");
+
     try {
       const stmt = this.db.prepare(`DELETE FROM chat_messages WHERE id = ?`);
       const result = stmt.run(id);
       return result.changes > 0;
     } catch (error) {
       log.RED(`Failed to delete chat message: ${error}`);
-      return false;
+      throw new Error(`Failed to delete chat message: ${error}`);
     }
   }
 
   deleteChatMessagesBySession(sessionId: string): number {
+    this.validateInput(sessionId, "sessionId");
+
     try {
       const stmt = this.db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`);
       const result = stmt.run(sessionId);
       return Number(result.changes);
     } catch (error) {
       log.RED(`Failed to delete chat messages by session: ${error}`);
-      return 0;
+      throw new Error(`Failed to delete chat messages by session: ${error}`);
     }
   }
 

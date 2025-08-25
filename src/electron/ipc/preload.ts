@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getConvertedHeicPath: (heicPath: string) => ipcRenderer.invoke("get-converted-heic-path", heicPath),
   getHeicCacheStats: () => ipcRenderer.invoke("get-heic-cache-stats"),
   cleanupHeicCache: () => ipcRenderer.invoke("cleanup-heic-cache"),
+  saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) =>
+    ipcRenderer.invoke("media:save-image", image),
 
   // database service APIs
   dbCreateSession: (title: string, id?: string) => ipcRenderer.invoke("db:create-session", title, id),
@@ -51,4 +53,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbDeleteChatMessage: (id: string) => ipcRenderer.invoke("db:delete-chat-message", id),
   dbDeleteChatMessagesBySession: (sessionId: string) =>
     ipcRenderer.invoke("db:delete-chat-messages-by-session", sessionId),
+  dbGetAllSessionsWithMessages: (limit: number) => ipcRenderer.invoke("db:get-all-sessions-with-messages", limit),
 });
