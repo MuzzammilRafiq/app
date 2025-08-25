@@ -162,6 +162,13 @@ interface Window {
      */
     cleanupHeicCache: () => Promise<{ success: boolean; error?: string }>;
 
+  /**
+   * Persist a base64 encoded image into the app media directory
+   * @param image base64 data (no data URL), mimeType and optional original name
+   * @returns absolute filesystem path of the stored image
+   */
+  saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
+
     /**
      * Database API: create a new chat session
      */
@@ -185,7 +192,7 @@ interface Window {
     /**
      * Database API: touch a session to bump updatedAt
      */
-    dbTouchSession: (id: string, timestamp: number) => Promise<boolean>;
+    dbTouchSession: (id: string, timestamp: number) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
      * Database API: delete a session (cascades messages)
@@ -213,5 +220,9 @@ interface Window {
      * Database API: delete all messages for a session
      */
     dbDeleteChatMessagesBySession: (sessionId: string) => Promise<number>;
+    /**
+     * Database API: get all sessions with their messages, limited by number of sessions
+     */
+    dbGetAllSessionsWithMessages: (limit: number) => Promise<import("../common/types").ChatSessionWithMessages[]>;
   };
 }

@@ -5,7 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { useCurrentViewStore } from "./utils/store";
 
 export default function App() {
-  const currentView = useCurrentViewStore((state) => state.currentView);
+  const currentView = useCurrentViewStore((s) => s.currentView);
   return (
     <div>
       <Toaster position="top-center" toastOptions={{ duration: 1000 }} />
