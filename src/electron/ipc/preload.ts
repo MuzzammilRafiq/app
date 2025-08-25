@@ -13,17 +13,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("stream-chunk");
   },
 
-  //image related stuff
-  captureScreenshot: () => ipcRenderer.invoke("screenshot:capture"),
-
-  onGlobalScreenshotTrigger: (callback: () => void) => {
-    ipcRenderer.on("global-screenshot-trigger", () => callback());
-  },
-
-  removeGlobalScreenshotListener: () => {
-    ipcRenderer.removeAllListeners("global-screenshot-trigger");
-  },
-
   addImageFolder: (folderPath: string) => ipcRenderer.invoke("image-embeddings:scan-folder", folderPath),
 
   searchImagesByText: (query: string, limit: number = 10) =>

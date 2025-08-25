@@ -2,7 +2,6 @@ import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { setupScreenshotHandlers } from "./ipc/screenshot.js";
 import { setupStreamHandlers } from "./ipc/stream.js";
 import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
@@ -58,16 +57,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  setupScreenshotHandlers();
   setupStreamHandlers();
   setupImageEmbeddingHandlers();
   setupFileOperationHandlers();
   setupDatabaseHandlers();
-  globalShortcut.register("Alt+Space", () => {
-    if (mainWindow) {
-      mainWindow.webContents.send("global-screenshot-trigger");
-    }
-  });
   createWindow();
 });
 

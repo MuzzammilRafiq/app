@@ -274,7 +274,6 @@ export default function ChatContainer() {
           <div className="flex-1 relative">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             <div className="flex items-center justify-between w-full gap-2 relative py-2 px-1">
-              {/* Left group: image, screenshot, and clear chat buttons */}
               <div className="flex items-center gap-2 relative">
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -285,17 +284,6 @@ export default function ChatContainer() {
                 >
                   {isProcessingImage ? LoadingSVG : ImageSVG}
                 </button>
-                {/* {onScreenshot && (
-                      <button
-                        onClick={onScreenshot}
-                        disabled={isLoading}
-                        className={iconClass + " shadow-sm bg-white border border-gray-200"}
-                        title="Take Screenshot"
-                        type="button"
-                      >
-                        {ScreenshotSVG}
-                      </button>
-                    )} */}
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
                   disabled={isLoading}

@@ -27,9 +27,6 @@
  * @property {Function} electronAPI.streamMessageWithHistory - Streams messages with conversation history to Gemini AI
  * @property {Function} electronAPI.onStreamChunk - Sets up a listener for streaming chunks from Gemini AI
  * @property {Function} electronAPI.removeStreamChunkListener - Removes all stream chunk listeners
- * @property {Function} electronAPI.captureScreenshot - Captures a screenshot using the system's native screenshot tool
- * @property {Function} electronAPI.onGlobalScreenshotTrigger - Sets up a listener for global screenshot trigger
- * @property {Function} electronAPI.removeGlobalScreenshotListener - Removes all global screenshot trigger listeners
  * @property {Function} electronAPI.selectFolder - Opens a dialog to select a folder
  * @property {Function} electronAPI.scanFolder - Scans a folder for images
  * @property {Function} electronAPI.addImageFolder - Adds an image folder to be indexed for search
@@ -61,34 +58,6 @@ interface Window {
      * Removes all stream chunk listeners
      */
     removeStreamChunkListener: () => void;
-
-    /**
-     * Captures a screenshot using the system's native screenshot tool and saves to clipboard
-     *
-     * @returns {Promise<{success: boolean, hasImage?: boolean, message?: string, error?: string, imageData?: {data: string, mimeType: string}}>} Screenshot result
-     */
-    captureScreenshot: () => Promise<{
-      success: boolean;
-      hasImage?: boolean;
-      message?: string;
-      error?: string;
-      imageData?: {
-        data: string;
-        mimeType: string;
-      };
-    }>;
-
-    /**
-     * Sets up a listener for global screenshot trigger (Option+Space hotkey)
-     *
-     * @param {Function} callback - Callback function to handle global screenshot trigger
-     */
-    onGlobalScreenshotTrigger: (callback: () => void) => void;
-
-    /**
-     * Removes all global screenshot trigger listeners
-     */
-    removeGlobalScreenshotListener: () => void;
 
     /**
      * Opens a dialog to select a folder
@@ -162,12 +131,12 @@ interface Window {
      */
     cleanupHeicCache: () => Promise<{ success: boolean; error?: string }>;
 
-  /**
-   * Persist a base64 encoded image into the app media directory
-   * @param image base64 data (no data URL), mimeType and optional original name
-   * @returns absolute filesystem path of the stored image
-   */
-  saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
+    /**
+     * Persist a base64 encoded image into the app media directory
+     * @param image base64 data (no data URL), mimeType and optional original name
+     * @returns absolute filesystem path of the stored image
+     */
+    saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
 
     /**
      * Database API: create a new chat session
