@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatSessionRecord, ChatSessionWithMessages } from "../../common/types";
+import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../common/types";
 
 // --------------chatSessions-------------------
 interface ChatSessionRecordsStore {
@@ -51,6 +51,14 @@ export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
   setCurrentView: (view) => set({ currentView: view }),
 }));
 
+interface Store {
+  chatSessionsWithMessages: ChatSessionWithMessages[];
+  currentSession?: ChatSessionWithMessages;
+  createNewSession: (newSession: ChatSessionRecord) => void;
+  populateSessions: (sessions: ChatSessionWithMessages[]) => void;
+  setCurrentSession: (session: ChatSessionWithMessages) => void;
+  addMessage: (message: ChatMessageRecord, updatedSession: ChatSessionRecord) => void;
+}
 interface ChatTitleStore {
   chatTitle: string;
   setChatTitle: (title: string) => void;
@@ -58,4 +66,37 @@ interface ChatTitleStore {
 export const useChatTitleStore = create<ChatTitleStore>((set) => ({
   chatTitle: "",
   setChatTitle: (title) => set({ chatTitle: title }),
+}));
+export const useStore = create<Store>((set) => ({
+  chatSessionsWithMessages: [],
+  currentSession: undefined,
+  createNewSession: (newSession) => {
+    set((state) => ({
+      chatSessionsWithMessages: [...state.chatSessionsWithMessages, { ...newSession, messages: [] }],
+      currentSession: { ...newSession, messages: [] },
+    }));
+  },
+  populateSessions: (sessions) => {
+    set((_state) => ({
+      chatSessionsWithMessages: sessions,
+      currentSession: sessions.length > 0 ? sessions[0] : undefined,
+    }));
+  },
+  setCurrentSession: (session) => {
+    set({ currentSession: session });
+  },
+  addMessage: (message, updatedSession) => {
+    set((state) => ({
+      chatSessionsWithMessages: state.chatSessionsWithMessages.map((session) => {
+        if (session.id === updatedSession.id) {
+          return { ...updatedSession, messages: [...session.messages, message] };
+        }
+        return session;
+      }),
+      currentSession:
+        state.currentSession && state.currentSession.id === updatedSession.id
+          ? { ...updatedSession, messages: [...state.currentSession.messages, message] }
+          : state.currentSession,
+    }));
+  },
 }));

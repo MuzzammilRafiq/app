@@ -35,17 +35,21 @@ export default function ChatMessage(message: ChatMessageRecord) {
           </div>
         ) : (
           <div className="space-y-3">
-            {message?.imagePaths && (
+            {message?.imagePaths && message.imagePaths.length > 0 && (
               <div className="flex flex-wrap gap-3">
-                <div className="relative">
-                  <img
-                    // TODO- implement image rendering
-                    src={`data:${"image/png"};base64,${(message.imagePaths[0] as ImageData).data}`}
-                    alt="something went wrong while rendering the image"
-                    className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
-                    style={{ maxWidth: "200px" }}
-                  />
-                </div>
+                {message.imagePaths.map((p, idx) => (
+                  <div className="relative" key={idx}>
+                    <img
+                      src={`file://${p}`}
+                      alt={"attached image"}
+                      className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                      style={{ maxWidth: "200px" }}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).alt = "Failed to load image";
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             )}
 

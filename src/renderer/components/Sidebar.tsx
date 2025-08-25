@@ -1,12 +1,5 @@
 import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
-import {
-  useChatSessionRecordsStore,
-  useChatTitleStore,
-  useCurrentSessionStore,
-  useCurrentViewStore,
-  useSidebarCollapsedStore,
-} from "../utils/store";
-import type { ChatSessionRecord, ChatSessionWithMessages } from "../../common/types";
+import { useCurrentViewStore, useSidebarCollapsedStore, useStore } from "../utils/store";
 import { useEffect } from "react";
 import toast from "react-hot-toast";
 
@@ -14,20 +7,19 @@ const iconClass =
   "p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
 
 export default function Sidebar() {
-  const { chatSessionRecords, setChatSessionRecords } = useChatSessionRecordsStore();
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
-  const { currentSession, setCurrentSession } = useCurrentSessionStore();
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
-  const setChatTitle = useChatTitleStore((s) => s.setChatTitle);
-
+  const createNewSession = useStore((s) => s.createNewSession);
+  const populateSessions = useStore((s) => s.populateSessions);
+  const currentSession = useStore((s) => s.currentSession);
+  const chatSessionsWithMessages = useStore((s) => s.chatSessionsWithMessages);
+  const setCurrentSession = useStore((s) => s.setCurrentSession);
   const onNewSession = async () => {
     try {
       // Prefer a clean default title instead of reusing the prior one
-      const title = "New Chat";
+      const title = "temp";
       const newSession = await window.electronAPI.dbCreateSession(title);
-      setChatSessionRecords([...chatSessionRecords, newSession]);
-      setCurrentSession({ ...newSession, messages: [] });
-      setChatTitle(title);
+      createNewSession(newSession);
     } catch (e) {
       console.error("Failed to create new session", e);
       toast.error("Failed to create new chat");
@@ -35,29 +27,11 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      const sessions = await window.electronAPI.dbGetSessions();
-      setChatSessionRecords(sessions);
-      // const sessionsWithMessages: ChatSessionWithMessages[] = await Promise.all(
-      //   sessions.map(async (session) => {
-      //     const messages = await window.electronAPI.dbGetChatMessages(session.id);
-      //     return { ...session, messages };
-      //   })
-      // );
-      // TODO - memoise it later we dont need to load messages all at once every render
-      // setChatSessionsWithMessages(sessionsWithMessages);
-    };
-    fetchMessages();
+    (async () => {
+      const sessions = await window.electronAPI.dbGetAllSessionsWithMessages(50);
+      populateSessions(sessions);
+    })();
   }, []);
-
-  const setCurrentChatSession = (session: ChatSessionRecord) => {
-    // Defer message loading to ChatContainer effect for consistency & single responsibility
-    const chatSessionWithMessages: ChatSessionWithMessages = { ...session, messages: [] };
-    setCurrentSession(chatSessionWithMessages);
-  };
-
-  // const chatSessionRecords = useChatSessionRecordsStore(state=>state.chatSessionRecords);
-  // const currentSession = useCurrentSessionStore(state => state.currentSession);
 
   if (sidebarCollapsed) {
     return (
@@ -99,11 +73,11 @@ export default function Sidebar() {
             <span className="ml-2 text-sm font-medium">New Chat</span>
           </button>
 
-          {chatSessionRecords.length === 0 ? (
+          {chatSessionsWithMessages.length === 0 ? (
             <div className="text-center text-gray-500 text-sm mt-8">No chat sessions yet</div>
           ) : (
             <div className="space-y-1">
-              {chatSessionRecords.map((session) => (
+              {chatSessionsWithMessages.map((session) => (
                 <div
                   key={session.id}
                   className={`group flex items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
@@ -111,7 +85,7 @@ export default function Sidebar() {
                       ? "bg-blue-50 border-blue-200"
                       : "bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200"
                   }`}
-                  onClick={() => setCurrentChatSession(session)}
+                  onClick={() => setCurrentSession(session)}
                 >
                   <div className="flex-1 min-w-0">
                     <div
