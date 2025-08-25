@@ -1,7 +1,6 @@
 import type { ChatMessageRecord } from "../../common/types";
 import MarkdownRenderer from "./response-renders/message-renderer";
 import clsx from "clsx";
-import LogRenderer from "./response-renders/log-renderer";
 import PlanRenderer from "./response-renders/plan-renderer";
 export default function ChatMessage(message: ChatMessageRecord) {
   const isUser = message.role === "user";
@@ -58,7 +57,7 @@ export default function ChatMessage(message: ChatMessageRecord) {
                 case "plan":
                   return <PlanRenderer content={message.content} />;
                 case "log":
-                  return <LogRenderer content={message.content} />;
+                  return <div className="text-sm text-gray-700 whitespace-pre-wrap">{message.content}</div>;
                 case "stream":
                   return <MarkdownRenderer content={message.content} isUser={message.role === "user"} />;
                 case "user":

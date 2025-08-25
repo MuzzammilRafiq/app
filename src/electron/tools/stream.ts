@@ -48,6 +48,9 @@ export const stream = async (event: any, messages: any[]) => {
 
     log.BLUE(`plan: ${JSON.stringify(plan, null, 2)}`);
     const finalResponse = await router(plan.steps, lastUserMessage.content, event);
+
+    // Return final assistant text so renderer can know streaming is complete
+    return { text: finalResponse };
   } catch (error) {
     console.log(chalk.red("Error calling Gemini API with streaming:", error));
     return {

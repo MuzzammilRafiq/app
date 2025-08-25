@@ -1,22 +1,53 @@
 import { useState } from "react";
 import type { MakePlanResponse } from "../../../common/types";
 import clsx from "clsx";
-export default function PlanRenderer({ content }: { content: string }) {
-  const [isExpanded, setIsExpanded] = useState(true);   
-  let plan: MakePlanResponse[];
 
+// Attempt to safely extract and parse a JSON array from possibly noisy content
+interface ExtractedPlan {
+  steps: MakePlanResponse[];
+  logs?: string;
+}
+
+function extractPlan(raw: string): ExtractedPlan | null {
+  // Direct parse possibilities
   try {
-    // Parse the JSON string content
-    plan = JSON.parse(content);
-  } catch (error) {
-    // If parsing fails, fall back to displaying as raw text
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return { steps: parsed as MakePlanResponse[] };
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).steps)) {
+      return {
+        steps: (parsed as any).steps as MakePlanResponse[],
+        logs: typeof (parsed as any).logs === "string" ? (parsed as any).logs : undefined,
+      };
+    }
+  } catch (_) {
+    // ignore and try fallback
+  }
+  // Fallback: first JSON array for steps
+  const match = raw.match(/\[[\s\S]*?\]/);
+  if (match) {
+    try {
+      const candidate = JSON.parse(match[0]);
+      if (Array.isArray(candidate)) return { steps: candidate as MakePlanResponse[] };
+    } catch (_) {
+      // ignore
+    }
+  }
+  return null;
+}
+export default function PlanRenderer({ content }: { content: string }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const extracted = extractPlan(content);
+  if (!extracted) {
+    // Raw fallback (non-JSON or unrecoverable)
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded"
         >
-          <div className="text-xs font-semibold text-blue-600">Plan</div>
+          <div className="text-xs font-semibold text-blue-600">Plan (raw)</div>
           <svg
             className={clsx(
               "w-4 h-4 text-blue-600 transition-transform duration-200",
@@ -77,7 +108,7 @@ export default function PlanRenderer({ content }: { content: string }) {
         )}
       >
         <div className="space-y-3">
-          {plan.map((step: MakePlanResponse, index: number) => (
+          {extracted.steps.map((step: MakePlanResponse, index: number) => (
             <div key={index} className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm">
               <div className="flex items-start space-x-3">
                 {/* Step number */}
@@ -131,6 +162,14 @@ export default function PlanRenderer({ content }: { content: string }) {
               </div>
             </div>
           ))}
+          {extracted.logs && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-4">
+              <div className="text-xs font-semibold text-slate-600 mb-2">Execution Log</div>
+              <pre className="text-xs whitespace-pre-wrap text-slate-700 max-h-64 overflow-y-auto">
+                {extracted.logs}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
     </div>

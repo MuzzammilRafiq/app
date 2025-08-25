@@ -1,17 +1,30 @@
 import { useRef, useState, useEffect } from "react";
 import ChatMessage from "./ChatMessage";
+import PlanRenderer from "./response-renders/plan-renderer";
+import MarkdownRenderer from "./response-renders/message-renderer";
 import toast from "react-hot-toast";
 import { useStore } from "../utils/store";
 import { fileToBase64, validateImageFile, type ImageData } from "../services/imageUtils";
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
+import type { ChatMessageRecord } from "../../common/types";
 
 export default function ChatContainer() {
   const currentSession = useStore((s) => s.currentSession);
   const addMessage = useStore((s) => s.addMessage);
+  const createNewSession = useStore((s) => s.createNewSession);
   // const chatInputRef = useRef<{ addImage: (image: ImageData) => void }>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming] = useState(false); // streaming state placeholder
+  const [isStreaming, setIsStreaming] = useState(false);
+  // Ordered streaming segments as they arrive
+  type SegmentType = "plan" | "log" | "stream";
+  interface Segment {
+    id: string;
+    type: SegmentType;
+    content: string; // accumulated content for this contiguous segment
+  }
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const segmentsRef = useRef<Segment[]>([]);
   const [imagePaths, setImagePaths] = useState<string[] | null>(null);
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
@@ -22,13 +35,35 @@ export default function ChatContainer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSendMessage = async () => {
-    if (!currentSession) return;
+    // Trim once
     const trimmedContent = content.trim();
-    console.log("Sending message with content:", { trimmedContent, selectedImage, imagePaths, isLoading, isStreaming });
-    // Clear the input field immediately to improve responsiveness
+
+    if (!trimmedContent && !selectedImage) {
+      // Nothing to send
+      return;
+    }
+    if (isLoading || isStreaming) {
+      return; // Prevent concurrent sends
+    }
+
+    let session = currentSession;
+    if (!session) {
+      try {
+        const newSessionRecord = await window.electronAPI.dbCreateSession("New Chat");
+        createNewSession(newSessionRecord);
+        session = { ...newSessionRecord, messages: [] } as any; // fallback local reference
+      } catch (e) {
+        toast.error("Failed to create chat session");
+        return;
+      }
+    }
+    if (!session) return; // TS safety
+
+    console.log("Sending message:", { trimmedContent, hasImage: !!selectedImage, sessionId: session.id });
+    // Optimistically clear input for snappy UI
     setContent("");
-    console.log((trimmedContent || selectedImage) && (isLoading || isStreaming));
-    if ((trimmedContent || selectedImage) && !isLoading && !isStreaming) {
+
+    if (trimmedContent || selectedImage) {
       setIsLoading(true);
       try {
         let storedImagePaths: string[] | null = null;
@@ -52,8 +87,8 @@ export default function ChatContainer() {
 
         const messageRecord = {
           id: crypto.randomUUID(),
-          sessionId: currentSession.id,
-          content,
+          sessionId: session.id,
+          content: trimmedContent,
           role: "user" as const,
           timestamp: Date.now(),
           isError: "",
@@ -62,11 +97,93 @@ export default function ChatContainer() {
         };
 
         const newMessage = await window.electronAPI.dbAddChatMessage(messageRecord);
-        const updatedSession = await window.electronAPI.dbTouchSession(currentSession.id, Date.now())!;
+        const updatedSession = await window.electronAPI.dbTouchSession(session.id, Date.now())!;
         if (!updatedSession) {
           throw new Error("Failed to update session timestamp");
         }
         addMessage(newMessage, updatedSession);
+
+        // Prepare for streaming BEFORE invoking backend so we don't miss early chunks
+        setIsStreaming(true);
+        segmentsRef.current = [];
+        setSegments([]);
+
+        // Attach listener immediately
+        const handleChunk = (data: { chunk: string; type: SegmentType }) => {
+          setSegments((prev) => {
+            const updated = [...prev];
+            if (data.type === "plan") {
+              // Plan is single; overwrite if exists else insert at end
+              const existingIndex = updated.findIndex((s) => s.type === "plan");
+              if (existingIndex >= 0) {
+                const existing = updated[existingIndex];
+                if (existing) {
+                  updated[existingIndex] = { id: existing.id, type: existing.type, content: data.chunk };
+                }
+              } else {
+                updated.push({ id: crypto.randomUUID(), type: "plan", content: data.chunk });
+              }
+            } else {
+              const last = updated[updated.length - 1];
+              if (last && last.type === data.type) {
+                last.content += data.chunk;
+              } else {
+                updated.push({ id: crypto.randomUUID(), type: data.type, content: data.chunk });
+              }
+            }
+            segmentsRef.current = updated;
+            return updated;
+          });
+        };
+        window.electronAPI.onStreamChunk(handleChunk);
+
+        try {
+          // Build history using messages BEFORE adding new message (currentSession is pre-add) + newMessage
+          const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
+          const history = existingMessages.concat([newMessage]);
+          await window.electronAPI.streamMessageWithHistory(history);
+          // After stream completes, persist each segment in arrival order
+          for (const seg of segmentsRef.current) {
+            let contentToSave = seg.content;
+            if (seg.type === "plan") {
+              // Sanitize plan: keep array or object as is; attempt to extract array if contamination
+              try {
+                const parsed = JSON.parse(contentToSave);
+                if (Array.isArray(parsed)) {
+                  contentToSave = JSON.stringify(parsed);
+                } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).steps)) {
+                  // leave as-is (could contain logs in unified object if future change)
+                }
+              } catch {
+                const match = contentToSave.match(/\[[\s\S]*?\]/);
+                if (match) contentToSave = match[0];
+              }
+            }
+            const record = {
+              id: crypto.randomUUID(),
+              sessionId: session.id,
+              content: contentToSave.trim(),
+              role: "assistant" as const,
+              timestamp: Date.now(),
+              isError: "",
+              imagePaths: null as null,
+              type: seg.type as SegmentType,
+            };
+            const saved = await window.electronAPI.dbAddChatMessage(record);
+            const touched = await window.electronAPI.dbTouchSession(session.id, Date.now());
+            if (touched) {
+              addMessage(saved, touched);
+            }
+          }
+        } catch (streamErr) {
+          console.error("Streaming error:", streamErr);
+          toast.error("Streaming failed");
+        } finally {
+          window.electronAPI.removeStreamChunkListener();
+          setIsStreaming(false);
+          segmentsRef.current = [];
+          setSegments([]);
+        }
       } catch (error) {
         console.error("Error sending message:", error);
         toast.error("Failed to send message");
@@ -79,7 +196,7 @@ export default function ChatContainer() {
     setSelectedImage(null);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -208,14 +325,115 @@ export default function ChatContainer() {
   const iconClass =
     "p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
 
+  // Removed global streaming effect; listener is managed per send to avoid duplicates.
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {currentSession && currentSession.messages.length > 0 ? (
         <div className="flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar max-w-[80%] mx-auto">
-            {currentSession.messages.map((message) => (
-              <ChatMessage key={message.id} {...message} />
-            ))}
+            {(() => {
+              if (!currentSession?.messages) return null;
+
+              const groupedMessages: Array<{
+                userMessage: ChatMessageRecord | null;
+                assistantMessages: ChatMessageRecord[];
+              }> = [];
+
+              let currentGroup = {
+                userMessage: null as ChatMessageRecord | null,
+                assistantMessages: [] as ChatMessageRecord[],
+              };
+
+              for (const message of currentSession.messages) {
+                if (message.role === "user") {
+                  // Start new group with user message
+                  if (currentGroup.userMessage || currentGroup.assistantMessages.length > 0) {
+                    groupedMessages.push(currentGroup);
+                  }
+                  currentGroup = { userMessage: message, assistantMessages: [] };
+                } else {
+                  // Add assistant message to current group
+                  currentGroup.assistantMessages.push(message);
+                }
+              }
+
+              // Add final group if it has content
+              if (currentGroup.userMessage || currentGroup.assistantMessages.length > 0) {
+                groupedMessages.push(currentGroup);
+              }
+
+              return groupedMessages.map((group, groupIndex) => (
+                <div key={groupIndex} className="space-y-4">
+                  {/* Render user message */}
+                  {group.userMessage && <ChatMessage key={group.userMessage.id} {...group.userMessage} />}
+
+                  {/* Render assistant messages in two sections */}
+                  {group.assistantMessages.length > 0 && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
+                        {/* Top section: Plans and Logs */}
+                        <div className="max-h-60 overflow-y-auto">
+                          {group.assistantMessages
+                            .filter((msg) => msg.type === "plan")
+                            .map((msg) => (
+                              <div key={msg.id}>
+                                <PlanRenderer content={msg.content} />
+                              </div>
+                            ))}
+
+                          {group.assistantMessages
+                            .filter((msg) => msg.type === "log")
+                            .map((msg) => (
+                              <div key={msg.id} className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">
+                                {msg.content}
+                              </div>
+                            ))}
+                        </div>
+
+                        {/* Bottom section: Stream messages */}
+                        {group.assistantMessages
+                          .filter((msg) => msg.type === "stream")
+                          .map((msg) => (
+                            <div key={msg.id} className="prose prose-sm max-w-none">
+                              <MarkdownRenderer content={msg.content} isUser={false} />
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ));
+            })()}
+            {/* Live streaming assistant message preview (not yet stored) */}
+            {isStreaming && segments.length > 0 && (
+              <div className="p-3 rounded-lg border border-blue-100 bg-blue-50/40 animate-pulse space-y-4">
+                <div className="max-h-60 overflow-y-auto">
+                  {/* Render plan */}
+                  {segments.find((seg) => seg.type === "plan") && (
+                    <PlanRenderer content={segments.find((seg) => seg.type === "plan")!.content} />
+                  )}
+
+                  {/* Render log as simple text */}
+                  {segments.find((seg) => seg.type === "log") && (
+                    <div className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">
+                      {segments.find((seg) => seg.type === "log")!.content}
+                    </div>
+                  )}
+                </div>
+
+                {/* Render other segments (stream) separately */}
+                {segments
+                  .filter((seg) => seg.type === "stream")
+                  .map((seg) => (
+                    <div
+                      key={seg.id}
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: seg.content.replace(/\n/g, "<br/>") }}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -262,7 +480,7 @@ export default function ChatContainer() {
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              onKeyUp={handleKeyPress}
+              onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="Ask or Act"
               disabled={isLoading || isStreaming}
