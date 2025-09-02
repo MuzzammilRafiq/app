@@ -110,7 +110,7 @@ export default function ChatContainer() {
         setSegments([]);
 
         // Attach listener immediately
-        const handleChunk = (data: { chunk: string; type: SegmentType }) => {
+        const handleStreamChunk = (data: { chunk: string; type: SegmentType }) => {
           setSegments((prev) => {
             const updated = [...prev];
             if (data.type === "plan") {
@@ -127,7 +127,11 @@ export default function ChatContainer() {
             } else {
               const last = updated[updated.length - 1];
               if (last && last.type === data.type) {
-                last.content += data.chunk;
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: last.content + data.chunk,
+                };
+                // last.content += data.chunk;
               } else {
                 updated.push({ id: crypto.randomUUID(), type: data.type, content: data.chunk });
               }
@@ -136,7 +140,9 @@ export default function ChatContainer() {
             return updated;
           });
         };
-        window.electronAPI.onStreamChunk(handleChunk);
+
+        // Register listener
+        window.electronAPI.onStreamChunk(handleStreamChunk);
 
         try {
           // Build history using messages BEFORE adding new message (currentSession is pre-add) + newMessage
@@ -375,19 +381,19 @@ export default function ChatContainer() {
                       <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
                         {/* Top section: Plans and Logs */}
 
-                          {group.assistantMessages
-                            .filter((msg) => msg.type === "plan")
-                            .map((msg) => (
-                                <PlanRenderer content={msg.content} />
-                            ))}
+                        {group.assistantMessages
+                          .filter((msg) => msg.type === "plan")
+                          .map((msg) => (
+                            <PlanRenderer content={msg.content} />
+                          ))}
 
-                          {group.assistantMessages
-                            .filter((msg) => msg.type === "log")
-                            .map((msg) => (
+                        {group.assistantMessages
+                          .filter((msg) => msg.type === "log")
+                          .map((msg) => (
                             <div key={msg.id}>
                               <LogRenderer content={msg.content} />
-                              </div>
-                            ))}
+                            </div>
+                          ))}
                         {/* Bottom section: Stream messages */}
                         {group.assistantMessages
                           .filter((msg) => msg.type === "stream")
