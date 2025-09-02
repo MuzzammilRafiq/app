@@ -4,7 +4,8 @@ import { GoogleGenAI } from "@google/genai";
 export const generalTool = async (context: string, event: any): Promise<{ output: string }> => {
   try {
     log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
-    const prompt = `You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a nicely formatted markdown response`;
+    const prompt =
+      "You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a nicely formatted markdown response dont add ```markdown ``` around the response it is redundant";
 
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -34,7 +35,7 @@ export const generalTool = async (context: string, event: any): Promise<{ output
         fullText += chunkText;
       }
     }
-
+    log.BG_BLUE(fullText);
     // Streaming complete - no need to send final chunk
 
     return { output: fullText };
