@@ -8,6 +8,7 @@ import { fileToBase64, validateImageFile, type ImageData } from "../services/ima
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
 import type { ChatMessageRecord } from "../../common/types";
+import LogRenderer from "./response-renders/log-renderer";
 
 export default function ChatContainer() {
   const currentSession = useStore((s) => s.currentSession);
@@ -373,24 +374,20 @@ export default function ChatContainer() {
                     <div className="flex justify-start">
                       <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
                         {/* Top section: Plans and Logs */}
-                        <div className="max-h-60 overflow-y-auto">
+
                           {group.assistantMessages
                             .filter((msg) => msg.type === "plan")
                             .map((msg) => (
-                              <div key={msg.id}>
                                 <PlanRenderer content={msg.content} />
-                              </div>
                             ))}
 
                           {group.assistantMessages
                             .filter((msg) => msg.type === "log")
                             .map((msg) => (
-                              <div key={msg.id} className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">
-                                {msg.content}
+                            <div key={msg.id}>
+                              <LogRenderer content={msg.content} />
                               </div>
                             ))}
-                        </div>
-
                         {/* Bottom section: Stream messages */}
                         {group.assistantMessages
                           .filter((msg) => msg.type === "stream")

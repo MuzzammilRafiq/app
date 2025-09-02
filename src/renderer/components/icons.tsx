@@ -133,3 +133,53 @@ export const SearchSVG = (
     />
   </svg>
 );
+
+// New icon components (functional) to allow dynamic className overrides
+export const ChevronDownIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+
+export const ClipboardIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+    />
+  </svg>
+);
+
+export const CheckSolidIcon = ({ className = "w-3 h-3" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+    <path
+      fillRule="evenodd"
+      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+export const ClockIcon = ({ className = "w-3 h-3" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+export const BadgeCheckIcon = ({ className = "w-3 h-3" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
