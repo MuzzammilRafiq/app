@@ -1,9 +1,9 @@
 import chalk from "chalk";
 import { GoogleGenAI } from "@google/genai";
 import { tools, getPlan } from "./plan.js";
-import log from "../../common/log.js";
+import log from "../common/log.js";
 import { extractImage } from "./extract-image/index.js";
-import { MakePlanResponse } from "../../common/types.js";
+import { MakePlanResponse } from "../common/types.js";
 
 const router = async (plan: MakePlanResponse[], context: string, event: any): Promise<string> => {
   log.BLUE(`router called with plan: ${JSON.stringify(plan)} and context: ${context}`);

@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import { groq } from "../../services/groq.js";
-import log from "../../../common/log.js";
+import log from "../../common/log.js";
 const execAsync = promisify(exec);
 
 // Security: List of dangerous commands that should be blocked

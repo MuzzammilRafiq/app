@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import log from "../../../common/log.js";
+import log from "../../common/log.js";
 
 export const extractImage = async (ai: GoogleGenAI, lastUserMessage: any, event: any) => {
   if (lastUserMessage.images && lastUserMessage.images.length > 0) {

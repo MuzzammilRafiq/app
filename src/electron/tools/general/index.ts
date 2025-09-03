@@ -1,4 +1,4 @@
-import log from "../../../common/log.js";
+import log from "../../common/log.js";
 import { GoogleGenAI } from "@google/genai";
 
 export const generalTool = async (context: string, event: any): Promise<{ output: string }> => {
