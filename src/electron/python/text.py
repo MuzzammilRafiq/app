@@ -4,7 +4,8 @@ import constants as C
 import uuid
 from pathlib import Path
 import pymupdf
-
+import os
+from logger import log_error, log_success, log_info, log_warning
 
 class TextChroma:
     def __init__(self):
@@ -21,7 +22,7 @@ class TextChroma:
                 ],
             )
         except Exception as e:
-            print(e)
+            log_error(str(e))
 
     def READ(self, query_text: str, n_results: int = 10):
         try:
@@ -32,25 +33,25 @@ class TextChroma:
             )
             return results
         except Exception as e:
-            print(e)
+            log_error(str(e))
             return []
 
     def DELETE_ALL(self):
         try:
             self.collection.delete(where={})
         except Exception as e:
-            print(f"Error deleting images from database: {e}")
+            log_error(f"Error deleting text from database: {e}")
             raise e
 
     def DELETE(self, file_paths: list[str]):
         try:
             self.collection.delete(where={"path": {"$in": file_paths}})
         except Exception as e:
-            print(f"Error deleting images from database: {e}")
+            log_error(f"Error deleting text from database: {e}")
             raise e
 
-    def pdf_text_to_chunk(self, path, chunk_size=300):
-        def divide(index, text, chunk_size=300):
+    def pdf_text_to_chunk(self, path, chunk_size=100):
+        def divide(index, text, chunk_size=100):
             chunks = []
             words = text.split()
             
@@ -69,8 +70,8 @@ class TextChroma:
             res.extend(chunks)
         return res
 
-    def text_file_to_chunk_simple(path, chunk_size=300):
-        def divide_by_words_simple(text, chunk_size=300):
+    def text_file_to_chunk_simple(self, path, chunk_size=100):
+        def divide_by_words_simple(text, chunk_size=100):
             chunks = []
             words = text.split()
             lines = text.split("\n")
@@ -171,7 +172,7 @@ class TextChroma:
         if not folder_path.is_dir():
             raise ValueError(f"Path is not a directory: {folder_path}")
 
-        print(f"Searching for files in: {folder_path}")
+        log_info(f"Searching for files in: {folder_path}")
         file_paths = []
         for root, dirs, files in os.walk(folder_path):
             for file in files:
@@ -181,7 +182,7 @@ class TextChroma:
                     file_paths.append(absolute_path)
 
         total_files = len(file_paths)
-        print(f"Found {total_files} text files")
+        log_info(f"Found {total_files} text files")
         if total_files == 0:
             return {
                 "total_found": 0,
@@ -200,10 +201,18 @@ class TextChroma:
                 else:
                     chunks = self.text_file_to_chunk_simple(file)
                 self.CREATE(chunks)
+                total_added += 1
+                log_success(f"Processed file: {file}")
             except Exception as e:
+                log_error(f"Error processing file {file}: {str(e)}")
                 errors.append(str(e))
 
-
-
+        result = {
+            "total_found": total_files,
+            "total_added": total_added,
+            "errors": errors
+        }
+        log_success(f"Operation completed: {total_added}/{total_files} files processed")
+        return result
 
 textChroma = TextChroma()

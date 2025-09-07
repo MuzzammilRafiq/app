@@ -3,6 +3,7 @@ from chroma import ChromaDB
 import os
 from pathlib import Path
 import constants as C
+from logger import log_error, log_success, log_info, log_warning
 
 class ImageChroma:
     def __init__(self):
@@ -15,7 +16,7 @@ class ImageChroma:
                 uris=image_paths,
             )
         except Exception as e:
-            print(e)
+            log_error(str(e))
 
     def READ(self,query_text: str, n_results: int = 10):
         try:
@@ -26,7 +27,7 @@ class ImageChroma:
             )
             return results["uris"][0]
         except Exception as e:
-            print(e)
+            log_error(str(e))
             return []
     
     def DELETE_ALL(self):
@@ -36,13 +37,13 @@ class ImageChroma:
             if results["ids"]:
                 self.collection.delete(ids=results["ids"])
                 deleted_count = len(results["ids"])
-                print(f"Successfully deleted {deleted_count} images from database")
+                log_success(f"Successfully deleted {deleted_count} images from database")
                 return {"deleted_count": deleted_count, "status": "success"}
             else:
-                print("No images found in database to delete")
+                log_info("No images found in database to delete")
                 return {"deleted_count": 0, "status": "no_images_found"}
         except Exception as e:
-            print(f"Error deleting images from database: {e}")
+            log_error(f"Error deleting images from database: {e}")
             raise e
         
     
@@ -69,7 +70,7 @@ class ImageChroma:
         if not folder_path.is_dir():
             raise ValueError(f"Path is not a directory: {folder_path}")
 
-        print(f"Searching for images in: {folder_path}")
+        log_info(f"Searching for images in: {folder_path}")
 
         image_paths = []
         for root, dirs, files in os.walk(folder_path):
@@ -80,7 +81,7 @@ class ImageChroma:
                     image_paths.append(absolute_path)
 
         total_images = len(image_paths)
-        print(f"Found {total_images} image files")
+        log_info(f"Found {total_images} image files")
 
         if total_images == 0:
             return {
@@ -97,13 +98,13 @@ class ImageChroma:
         for i in range(0, total_images, batch_size):
             batch = image_paths[i : i + batch_size]
             try:
-                print(f"Processing batch {batches_processed + 1}: {len(batch)} images")
+                log_info(f"Processing batch {batches_processed + 1}: {len(batch)} images")
                 self.CREATE(batch)
                 added_count += len(batch)
                 batches_processed += 1
             except Exception as e:
                 error_msg = f"Error processing batch {batches_processed + 1}: {str(e)}"
-                print(error_msg)
+                log_error(error_msg)
                 errors.append(error_msg)
 
         result = {
@@ -113,7 +114,7 @@ class ImageChroma:
             "errors": errors,
         }
 
-        print(f"Operation completed: {added_count}/{total_images} images added to ChromaDB")
+        log_success(f"Operation completed: {added_count}/{total_images} images added to ChromaDB")
         return result
     
 imageCHroma = ImageChroma()

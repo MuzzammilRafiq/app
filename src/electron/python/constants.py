@@ -1,4 +1,4 @@
-PATH = "../../../user_data/chroma"
+PATH = "./db/chroma"
 TEXT="text"
 IMAGE="image"
 DEFAULT_BATCH_SIZE = 100
