@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../electron/common/types";
+import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../common/types";
 
 // --------------chatSessions-------------------
 interface ChatSessionRecordsStore {

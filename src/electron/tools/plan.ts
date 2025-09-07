@@ -2,7 +2,7 @@ import { groq } from "../services/groq.js";
 import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
-import { MakePlanResponse } from "../common/types.js";
+import { MakePlanResponse } from "../../common/types.js";
 
 export const tools = {
   terminal_tool: {

@@ -1,5 +1,5 @@
 import { extractVideoInfoFromText, getVideoDetailsById, getVideoID, getVideoSummaryById } from "./service.js";
-import log from "../../common/log.js";
+import log from "../../../common/log.js";
 
 export const youtubeTool = async (context: string): Promise<{ output: string }> => {
   try {

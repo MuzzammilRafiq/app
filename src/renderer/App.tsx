@@ -1,6 +1,6 @@
 import ChatContainer from "./components/ChatContainer";
 import Sidebar from "./components/Sidebar";
-import Settings from "./components/Settings";
+import Settings from "./components/settings/Settings";
 import { Toaster } from "react-hot-toast";
 import { useCurrentViewStore } from "./utils/store";
 

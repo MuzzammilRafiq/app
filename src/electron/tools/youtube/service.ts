@@ -1,8 +1,8 @@
 import { google } from "googleapis";
-import { VideoDetails, VideoInfoResult, VideoParams } from "../../common/types.js";
+import { VideoDetails, VideoInfoResult, VideoParams } from "../../../common/types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
 import { groq } from "../../services/groq.js";
-import log from "../../common/log.js";
+import log from "../../../common/log.js";
 
 import dotenv from "dotenv";
 dotenv.config();
