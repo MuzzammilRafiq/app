@@ -29,7 +29,7 @@ class ChromaDB:
         elif collection == C.TEXT:
             ChromaDB.__text_collection = ChromaDB.__text_collection or ChromaDB.__client.get_or_create_collection(
                 name=collection,
-                embedding_function=SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L12-v2")
+                embedding_function=SentenceTransformerEmbeddingFunction(model_name="stsb-mpnet-base-v2")
             )
             return ChromaDB.__text_collection
         else:

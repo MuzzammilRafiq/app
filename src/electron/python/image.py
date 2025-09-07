@@ -98,7 +98,7 @@ class ImageChroma:
             batch = image_paths[i : i + batch_size]
             try:
                 print(f"Processing batch {batches_processed + 1}: {len(batch)} images")
-                self.add_images_to_db(batch)
+                self.CREATE(batch)
                 added_count += len(batch)
                 batches_processed += 1
             except Exception as e:
