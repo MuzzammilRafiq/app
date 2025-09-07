@@ -30,5 +30,10 @@ dist-renderer
 *.njsproj
 *.sln
 *.sw?
-vectordb
-db
+user_data/
+# python
+__pycache__/
+.venv
+.env/
+vectordb/
+db/

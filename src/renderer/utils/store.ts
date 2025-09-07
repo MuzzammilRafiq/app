@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../common/types";
+import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../electron/common/types";
 
 // --------------chatSessions-------------------
 interface ChatSessionRecordsStore {
@@ -71,32 +71,49 @@ export const useStore = create<Store>((set) => ({
   chatSessionsWithMessages: [],
   currentSession: undefined,
   createNewSession: (newSession) => {
-    set((state) => ({
-      chatSessionsWithMessages: [...state.chatSessionsWithMessages, { ...newSession, messages: [] }],
-      currentSession: { ...newSession, messages: [] },
-    }));
+    set((state) => {
+      // Add new session at the beginning since it's the most recent
+      const newSessionWithMessages = { ...newSession, messages: [] };
+      return {
+        chatSessionsWithMessages: [newSessionWithMessages, ...state.chatSessionsWithMessages],
+        currentSession: newSessionWithMessages,
+      };
+    });
   },
   populateSessions: (sessions) => {
-    set((_state) => ({
-      chatSessionsWithMessages: sessions,
-      currentSession: sessions.length > 0 ? sessions[0] : undefined,
-    }));
+    set((_state) => {
+      // Sort sessions by updatedAt descending (most recent first) to ensure correct order
+      const sortedSessions = sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+
+      return {
+        chatSessionsWithMessages: sortedSessions,
+        currentSession: sortedSessions.length > 0 ? sortedSessions[0] : undefined,
+      };
+    });
   },
   setCurrentSession: (session) => {
     set({ currentSession: session });
   },
   addMessage: (message, updatedSession) => {
-    set((state) => ({
-      chatSessionsWithMessages: state.chatSessionsWithMessages.map((session) => {
+    set((state) => {
+      // Update the session with the new message
+      const updatedSessions = state.chatSessionsWithMessages.map((session) => {
         if (session.id === updatedSession.id) {
           return { ...updatedSession, messages: [...session.messages, message] };
         }
         return session;
-      }),
-      currentSession:
-        state.currentSession && state.currentSession.id === updatedSession.id
-          ? { ...updatedSession, messages: [...state.currentSession.messages, message] }
-          : state.currentSession,
-    }));
+      });
+
+      // Sort sessions by updatedAt descending (most recent first)
+      const sortedSessions = updatedSessions.sort((a, b) => b.updatedAt - a.updatedAt);
+
+      return {
+        chatSessionsWithMessages: sortedSessions,
+        currentSession:
+          state.currentSession && state.currentSession.id === updatedSession.id
+            ? { ...updatedSession, messages: [...state.currentSession.messages, message] }
+            : state.currentSession,
+      };
+    });
   },
 }));
