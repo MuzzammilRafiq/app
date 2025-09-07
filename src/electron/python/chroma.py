@@ -1,7 +1,6 @@
 import chromadb
 from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction,SentenceTransformerEmbeddingFunction
 from chromadb.utils.data_loaders import ImageLoader
-from enum import Enum
 import constants as C
 class ChromaDB:
     __instance = None
@@ -23,7 +22,8 @@ class ChromaDB:
         if collection == C.IMAGE:
             ChromaDB.__image_collection = ChromaDB.__image_collection or ChromaDB.__client.get_or_create_collection(
                 name=collection,
-                embedding_function=OpenCLIPEmbeddingFunction(model_name="ViT-B-32")
+                embedding_function=OpenCLIPEmbeddingFunction(model_name="ViT-B-32"),
+                data_loader=ImageLoader()
             ) 
             return ChromaDB.__image_collection
         elif collection == C.TEXT:

@@ -5,11 +5,12 @@ from pathlib import Path
 import constants as C
 from logger import log_error, log_success, log_info, log_warning
 
+
 class ImageChroma:
     def __init__(self):
         self.collection = ChromaDB(C.PATH).get_collection(C.IMAGE)
 
-    def CREATE(self,image_paths:list[str]):
+    def CREATE(self, image_paths: list[str]):
         try:
             self.collection.add(
                 ids=[hashlib.sha256(uri.encode()).hexdigest() for uri in image_paths],
@@ -18,7 +19,7 @@ class ImageChroma:
         except Exception as e:
             log_error(str(e))
 
-    def READ(self,query_text: str, n_results: int = 10):
+    def READ(self, query_text: str, n_results: int = 10):
         try:
             results = self.collection.query(
                 query_texts=[query_text],
@@ -29,7 +30,22 @@ class ImageChroma:
         except Exception as e:
             log_error(str(e))
             return []
-    
+
+    def DELETE(self, folder_path: str):
+        try:
+            results= self.collection.get(include=["uris"])
+            if results == []:
+                log_success("folder not present in db")
+                return {"deleted_count": 0, "status": "success"}
+
+            ids = [id for id, uri in zip(results["ids"], results["uris"]) if uri.startswith(folder_path)]
+            self.collection.delete(ids=ids)
+            log_success(f"Successfully deleted {len(ids)} images from folder: {folder_path}")
+            return {"deleted_count": len(ids), "status": "success"}
+        except Exception as e:
+            log_error(str(e))
+            return []
+
     def DELETE_ALL(self):
         try:
             # Get all IDs from the collection
@@ -37,7 +53,9 @@ class ImageChroma:
             if results["ids"]:
                 self.collection.delete(ids=results["ids"])
                 deleted_count = len(results["ids"])
-                log_success(f"Successfully deleted {deleted_count} images from database")
+                log_success(
+                    f"Successfully deleted {deleted_count} images from database"
+                )
                 return {"deleted_count": deleted_count, "status": "success"}
             else:
                 log_info("No images found in database to delete")
@@ -45,9 +63,8 @@ class ImageChroma:
         except Exception as e:
             log_error(f"Error deleting images from database: {e}")
             raise e
-        
-    
-    def is_supported_image_file(self,file_path: str) -> bool:
+
+    def is_supported_image_file(self, file_path: str) -> bool:
         supported_extensions = {
             ".jpg",
             ".jpeg",
@@ -60,8 +77,10 @@ class ImageChroma:
         }
         _, ext = os.path.splitext(file_path.lower())
         return ext in supported_extensions
-    
-    def add_images_from_folder_recursively(self,folder_path: str, batch_size: int = 100):
+
+    def add_images_from_folder_recursively(
+        self, folder_path: str, batch_size: int = 100
+    ):
         folder_path = Path(folder_path).resolve()
 
         if not folder_path.exists():
@@ -98,7 +117,9 @@ class ImageChroma:
         for i in range(0, total_images, batch_size):
             batch = image_paths[i : i + batch_size]
             try:
-                log_info(f"Processing batch {batches_processed + 1}: {len(batch)} images")
+                log_info(
+                    f"Processing batch {batches_processed + 1}: {len(batch)} images"
+                )
                 self.CREATE(batch)
                 added_count += len(batch)
                 batches_processed += 1
@@ -114,7 +135,10 @@ class ImageChroma:
             "errors": errors,
         }
 
-        log_success(f"Operation completed: {added_count}/{total_images} images added to ChromaDB")
+        log_success(
+            f"Operation completed: {added_count}/{total_images} images added to ChromaDB"
+        )
         return result
-    
+
+
 imageCHroma = ImageChroma()

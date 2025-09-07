@@ -1,11 +1,10 @@
-from numpy import absolute
 from chroma import ChromaDB
 import constants as C
 import uuid
 from pathlib import Path
 import pymupdf
 import os
-from logger import log_error, log_success, log_info, log_warning
+from logger import log_error, log_success, log_info
 
 class TextChroma:
     def __init__(self):
