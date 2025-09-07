@@ -8,7 +8,7 @@ from logger import log_error, log_success, log_info
 
 class TextChroma:
     def __init__(self):
-        self.collection = ChromaDB("./k").get_collection(C.TEXT)
+        self.collection = ChromaDB(C.PATH).get_collection(C.TEXT)
 
     def CREATE(self, chunks):
         # chunks = [index,path,text]
@@ -42,12 +42,20 @@ class TextChroma:
             log_error(f"Error deleting text from database: {e}")
             raise e
 
-    def DELETE(self, file_paths: list[str]):
+    def DELETE(self, folder_path: str):
         try:
-            self.collection.delete(where={"path": {"$in": file_paths}})
+            results= self.collection.get(include=["metadatas"])
+            if results == []:
+                log_success("folder not present in db")
+                return {"deleted_count": 0, "status": "success"}
+
+            ids = [id for id, uri in zip(results["ids"], results["uris"]) if uri.startswith(folder_path)]
+            self.collection.delete(ids=ids)
+            log_success(f"Successfully deleted {len(ids)} images from folder: {folder_path}")
+            return {"deleted_count": len(ids), "status": "success"}
         except Exception as e:
-            log_error(f"Error deleting text from database: {e}")
-            raise e
+            log_error(str(e))
+            return []
 
     def pdf_text_to_chunk(self, path, chunk_size=100):
         def divide(index, text, chunk_size=100):

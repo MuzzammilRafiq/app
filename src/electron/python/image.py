@@ -38,13 +38,13 @@ class ImageChroma:
                 log_success("folder not present in db")
                 return {"deleted_count": 0, "status": "success"}
 
-            ids = [id for id, uri in zip(results["ids"], results["uris"]) if uri.startswith(folder_path)]
+            ids = [id for (id, uri) in zip(results["ids"], results["uris"]) if uri.startswith(folder_path)]
             self.collection.delete(ids=ids)
             log_success(f"Successfully deleted {len(ids)} images from folder: {folder_path}")
             return {"deleted_count": len(ids), "status": "success"}
         except Exception as e:
             log_error(str(e))
-            return []
+            return {"deleted_count": 0, "status": "error"}
 
     def DELETE_ALL(self):
         try:

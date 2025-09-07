@@ -19,7 +19,7 @@ class QueryRequest(BaseModel):
     n_results: int = C.DEFAULT_N_RESULTS
 
 
-@image_router.post("/images/scan-folder")
+@image_router.post("/image/scan-folder")
 async def add_images_from_folder(request: AddRequest) -> Dict[str, Any]:
     log_info(f"Received request to add images from folder: {request.folder_path}")
     try:
@@ -59,7 +59,7 @@ async def add_images_from_folder(request: AddRequest) -> Dict[str, Any]:
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@image_router.post("/images/query")
+@image_router.post("/image/query")
 async def query_images(request: QueryRequest) -> List[str]:
     log_info(
         f"Received query request: '{request.query_text[:50]}...' with n_results={request.n_results}"
@@ -87,7 +87,7 @@ async def query_images(request: QueryRequest) -> List[str]:
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@image_router.delete("/images/delete-all")
+@image_router.delete("/image/delete-all")
 async def delete_all_images() -> Dict[str, Any]:
     log_info("Received request to delete all images from database")
 

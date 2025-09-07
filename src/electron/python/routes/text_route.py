@@ -79,7 +79,7 @@ async def query_text(request: QueryRequest) ->Dict[str, Any]:
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@text_router.post("/text/delete-all")
+@text_router.delete("/text/delete-all")
 async def delete_all_text() -> Dict[str, Any]:
     log_info("Received request to delete all text from database")
 
@@ -97,6 +97,27 @@ async def delete_all_text() -> Dict[str, Any]:
         log_error(
             "An unexpected error occurred while deleting all text from database"
         )
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+        )
+
+
+@text_router.delete("/text/delete-folder")
+async def delete_folder(request:DeleteRequest) -> Dict[str, Any]:
+    log_info(f"Received request to delete folder: {request.folder_path}")
+    try:
+        if not request.folder_path.strip():
+            log_warning("Received request with empty folder path.")
+            raise HTTPException(status_code=400, detail="Folder path cannot be empty")
+        result = textChroma.DELETE(request.folder_path)
+        log_success(f"Successfully deleted folder: {request.folder_path}")
+        return {
+            "message": f"Successfully deleted folder: {request.folder_path}",
+            "deleted_count": result["deleted_count"],
+            "status": result["status"],
+        }
+    except Exception as e:
+        log_error(f"An unexpected error occurred while deleting folder: {request.folder_path}")
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
