@@ -25,7 +25,7 @@ export function setupImageEmbeddingHandlers() {
       if (!folder_path) {
         throw new Error("No folder path provided");
       }
-      const response = await fetch(`${URL}/images/scan-folder`, {
+      const response = await fetch(`${URL}/image/scan-folder`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -66,7 +66,7 @@ export function setupImageEmbeddingHandlers() {
         throw new Error("Query cannot be empty");
       }
 
-      const response = await fetch(`${URL}/images/query`, {
+      const response = await fetch(`${URL}/image/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -96,10 +96,9 @@ export function setupImageEmbeddingHandlers() {
       };
     }
   });
-
   ipcMain.handle("image-embeddings:delete-all", async (event) => {
     try {
-      const response = await fetch(`${URL}/images/delete-all`, {
+      const response = await fetch(`${URL}/image/delete-all`, {
         method: "DELETE",
       });
 
@@ -118,6 +117,39 @@ export function setupImageEmbeddingHandlers() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Error in image-embeddings:delete-all:", errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        message: null,
+      };
+    }
+  });
+ 
+  ipcMain.handle("image-embeddings:delete-folder", async (event,folder_path:string) => {
+    try {
+      const response = await fetch(`${URL}/image/delete-folder`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ folder_path }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      return {
+        success: true,
+        error: null,
+        message: result.message,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Error in image-embeddings:delete-folder:", errorMessage);
       return {
         success: false,
         error: errorMessage,
