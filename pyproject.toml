@@ -10,6 +10,7 @@ dependencies = [
     "open-clip-torch>=3.1.0",
     "pillow>=11.3.0",
     "pillow-heif>=1.1.0",
+    "pylint>=3.3.8",
     "sentence-transformers>=5.1.0",
     "uvicorn>=0.35.0",
 ]

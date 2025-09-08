@@ -1,4 +1,3 @@
-import type { ImageData } from "./imageUtils";
 import type { StreamChunk,ChatSessionRecord } from "../../common/types";
 export interface ChatResponse {
   text: string;

@@ -73,6 +73,13 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     scanFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+    /**
+     * Delete a folder for images
+     *
+     * @param {string} folder - The path to the folder to delete
+     * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
+     */
+    deleteFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
      * Adds an image folder to be indexed for search
