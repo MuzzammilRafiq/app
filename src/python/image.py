@@ -48,18 +48,8 @@ class ImageChroma:
 
     def DELETE_ALL(self):
         try:
-            # Get all IDs from the collection
-            results = self.collection.get(include=["uris"])
-            if results["ids"]:
-                self.collection.delete(ids=results["ids"])
-                deleted_count = len(results["ids"])
-                log_success(
-                    f"Successfully deleted {deleted_count} images from database"
-                )
-                return {"deleted_count": deleted_count, "status": "success"}
-            else:
-                log_info("No images found in database to delete")
-                return {"deleted_count": 0, "status": "no_images_found"}
+            self.collection.delete(where={})
+            log_success("Successfully deleted all images from database")
         except Exception as e:
             log_error(f"Error deleting images from database: {e}")
             raise e

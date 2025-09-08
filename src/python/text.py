@@ -217,7 +217,8 @@ class TextChroma:
         result = {
             "total_found": total_files,
             "total_added": total_added,
-            "errors": errors
+            "errors": errors,
+            "batches_processed":batches_processed
         }
         log_success(f"Operation completed: {total_added}/{total_files} files processed")
         return result

@@ -92,13 +92,12 @@ async def delete_all_images() -> Dict[str, Any]:
     log_info("Received request to delete all images from database")
 
     try:
-        result = imageCHroma.DELETE_ALL()
-        log_success(f"Successfully deleted images: {result}")
+        imageCHroma.DELETE_ALL()
+        log_success("Successfully deleted all images from database")
 
         return {
-            "message": f"Successfully deleted {result['deleted_count']} images from database",
-            "deleted_count": result["deleted_count"],
-            "status": result["status"],
+            "message": "Successfully deleted all images from database",
+            "status": "success",
         }
 
     except Exception as e:

@@ -84,13 +84,12 @@ async def delete_all_text() -> Dict[str, Any]:
     log_info("Received request to delete all text from database")
 
     try:
-        result = textChroma.DELETE_ALL()
-        log_success(f"Successfully deleted text: {result}")
+        textChroma.DELETE_ALL()
+        log_success("Successfully deleted all text from database")
 
         return {
-            "message": f"Successfully deleted {result['deleted_count']} text from database",
-            "deleted_count": result["deleted_count"],
-            "status": result["status"],
+            "message": "Successfully deleted all text from database",
+            "status": "success",
         }
 
     except Exception as e:
