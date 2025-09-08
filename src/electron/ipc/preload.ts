@@ -13,10 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("stream-chunk");
   },
 
-  addImageFolder: (folderPath: string) => ipcRenderer.invoke("image-embeddings:scan-folder", folderPath),
-
-  searchImagesByText: (query: string, limit: number = 10) =>
-    ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
+  //-------------------------image-embeddings-----------------------
+  searchImagesByText: (query: string, limit: number = 10) => ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
   deleteAllImageEmbeddings: () => ipcRenderer.invoke("image-embeddings:delete-all"),
 
   selectFolder: () => ipcRenderer.invoke("image-embeddings:select-folder"),
@@ -30,7 +28,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) =>
     ipcRenderer.invoke("media:save-image", image),
 
-  // database service APIs
+  //-------------------------text-embeddings---------------------------
+  searchTextsByText: (query: string, limit: number = 10) => ipcRenderer.invoke("text-embeddings:search-by-text", query, limit),
+  deleteAllTextEmbeddings: () => ipcRenderer.invoke("text-embeddings:delete-all"),
+  selectTextFolder: () => ipcRenderer.invoke("text-embeddings:select-folder"),
+  scanTextFolder: (folder: string) => ipcRenderer.invoke("text-embeddings:scan-folder", folder),
+  deleteTextFolder: (folder: string) => ipcRenderer.invoke("text-embeddings:delete-folder", folder),
+
+  //-------------------------database service APIs-----------------------------
   dbCreateSession: (title: string, id?: string) => ipcRenderer.invoke("db:create-session", title, id),
   dbGetSessions: () => ipcRenderer.invoke("db:get-sessions"),
   dbGetSession: (id: string) => ipcRenderer.invoke("db:get-session", id),

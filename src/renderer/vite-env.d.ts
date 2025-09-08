@@ -146,6 +146,43 @@ interface Window {
     saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
 
     /**
+     * Text embeddings API: search indexed text files by text query
+     * @param query The search query text
+     * @param limit Maximum number of results to return
+     * @returns Search results
+     */
+    searchTextsByText: (
+      query: string,
+      limit?: number
+    ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
+
+    /**
+     * Text embeddings API: delete all text embeddings from the index
+     * @returns Result of the deletion operation
+     */
+    deleteAllTextEmbeddings: () => Promise<any>;
+
+    /**
+     * Text embeddings API: opens a dialog to select a folder for text files
+     * @returns The selected folder path
+     */
+    selectTextFolder: () => Promise<string | null>;
+
+    /**
+     * Text embeddings API: scans a folder for text files
+     * @param folder The path to the folder to scan
+     * @returns Scan results
+     */
+    scanTextFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+
+    /**
+     * Text embeddings API: deletes a text folder from the index
+     * @param folder The path to the folder to delete
+     * @returns Deletion results
+     */
+    deleteTextFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+
+    /**
      * Database API: create a new chat session
      */
     dbCreateSession: (title: string, id?: string) => Promise<import("../common/types").ChatSessionRecord>;

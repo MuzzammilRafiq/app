@@ -6,6 +6,7 @@ import { setupStreamHandlers } from "./ipc/stream.js";
 import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
 import { setupDatabaseHandlers } from "./ipc/database.js";
+import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -59,6 +60,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   setupStreamHandlers();
   setupImageEmbeddingHandlers();
+  setupTextEmbeddingHandlers();
   setupFileOperationHandlers();
   setupDatabaseHandlers();
   createWindow();
