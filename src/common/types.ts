@@ -55,6 +55,30 @@ interface ChatSessionRecord {
 interface ChatSessionWithMessages extends ChatSessionRecord {
   messages: ChatMessageRecord[];
 }
+interface SearchResult {
+  ids: string[][];
+  embeddings: null | number[][];
+  documents: string[][];
+  uris: null | string[][];
+  included: string[];
+  data: null | unknown;
+  metadatas: {
+    index: number;
+    path: string;
+  }[][];
+  distances: null | unknown;
+}
+interface UniqueResult {
+  id: string;
+  document: string;
+  metadata: {
+    path: string;
+    index: number;
+  };
+}
+interface StreamMessageConfig {
+  rag?: boolean;
+}
 export type {
   ChatMessageRecord,
   ChatRole,
@@ -66,4 +90,7 @@ export type {
   VideoParams,
   VideoInfoResult,
   ChatSessionWithMessages,
+  SearchResult,
+  UniqueResult,
+  StreamMessageConfig,
 };

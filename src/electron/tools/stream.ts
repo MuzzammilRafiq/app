@@ -2,10 +2,11 @@ import chalk from "chalk";
 import { GoogleGenAI } from "@google/genai";
 import { tools, getPlan } from "./plan.js";
 import log from "../../common/log.js";
-import { extractImage } from "./extract-image/index.js";
+import { pre } from "./pre/index.js";
 import { MakePlanResponse } from "../../common/types.js";
+import { IpcMainInvokeEvent } from "electron";
 
-const router = async (plan: MakePlanResponse[], context: string, event: any): Promise<string> => {
+const router = async (plan: MakePlanResponse[], context: string, event: IpcMainInvokeEvent): Promise<string> => {
   log.BLUE(`router called with plan: ${JSON.stringify(plan)} and context: ${context}`);
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
@@ -30,13 +31,13 @@ const router = async (plan: MakePlanResponse[], context: string, event: any): Pr
 };
 
 // NOTE: WE are only considering last message for now
-export const stream = async (event: any, messages: any[]) => {
+export const stream = async (event: any, messages: any[], config: any) => {
   try {
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
     });
 
-    const lastUserMessage = await extractImage(ai, messages.pop(), event);
+    const lastUserMessage = await pre(ai, messages.pop(), event, config);
     // const updatedMessages = [...messages.slice(0, messages.length - 1), lastUserMessage];
 
     const plan = await getPlan(lastUserMessage.content);

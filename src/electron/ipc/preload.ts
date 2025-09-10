@@ -4,7 +4,8 @@ export interface StreamChunk {
   type: "stream" | "log" | "plan";
 }
 contextBridge.exposeInMainWorld("electronAPI", {
-  streamMessageWithHistory: (messages: any[]) => ipcRenderer.invoke("stream-message-with-history", messages),
+  streamMessageWithHistory: (messages: any[], config: any) =>
+    ipcRenderer.invoke("stream-message-with-history", messages, config),
   onStreamChunk: (callback: (data: StreamChunk) => void) => {
     ipcRenderer.on("stream-chunk", (event, data) => callback(data));
   },
