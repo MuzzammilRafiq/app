@@ -2,6 +2,10 @@ import { IpcMainInvokeEvent } from "electron";
 
 import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
+import { Labels, EventChannels, MODLES } from "../../../common/constants.js";
+import { SearchResult, UniqueResult } from "../../../common/types.js";
+
+
 
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(userQuery: string): Promise<string[]> {
@@ -47,7 +51,7 @@ User query: "${userQuery}"
     stream: false,
   };
 
-  const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
+  const content = await groq.chat(MODLES.KIMI_K2_INSTRUCT, options);
   if (!content) {
     throw new Error("No response content received from Groq");
   }
@@ -78,13 +82,17 @@ async function searchLocalAPI(query: string, limit: number = 3) {
     throw new Error(errorData.detail || `Server error: ${response.status}`);
   }
 
-  const results = await response.json();
+  const results: SearchResult = await response.json();
   return results;
 }
 
-export async function ragAnswer(event: IpcMainInvokeEvent, userQuery: string, limit = 3): Promise<string> {
+export async function ragAnswer(
+  event: IpcMainInvokeEvent,
+  userQuery: string,
+  limit = 3
+): Promise<string> {
   const queries = await generateSearchQueries(userQuery);
-  const results: any[] = [];
+  const results: SearchResult[] = [];
   for (const q of queries) {
     try {
       const r = await searchLocalAPI(q, limit);
@@ -95,7 +103,7 @@ export async function ragAnswer(event: IpcMainInvokeEvent, userQuery: string, li
   }
   // now elemenate the duplicate in results based on ids
   const set = new Set<string>();
-  const uniqueResults = [];
+  const uniqueResults: UniqueResult[] = [];
   for (const r of results) {
     const ids = r.ids[0];
     const documents = r.documents[0];
@@ -113,9 +121,9 @@ export async function ragAnswer(event: IpcMainInvokeEvent, userQuery: string, li
     }
   }
   log.BG_BRIGHT_GREEN("uniqueResults", uniqueResults);
-  event.sender.send("stream-chunk", {
+  event.sender.send(EventChannels.STREAM_CHUNK, {
     chunk: JSON.stringify(uniqueResults),
-    type: "source",
+    type: Labels.SOURCE,
   });
   return uniqueResults.map((ur) => ur.document).join("\n\n");
 }
