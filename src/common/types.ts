@@ -1,15 +1,14 @@
-type ChatType = "plan" | "log" | "stream" | "source" | "user";
-type ChatRole = "user" | "assistant";
+import type { Labels } from "./constants";
 
 interface MakePlanResponse {
   step_number: number;
   tool_name: string;
   description: string;
-  status: "todo" | "done";
+  status: Labels.TODO | Labels.DONE;
 }
 interface StreamChunk {
   chunk: string;
-  type: ChatType;
+  type: Labels.STREAM | Labels.LOG | Labels.PLAN | Labels.SOURCE;
 }
 interface VideoDetails {
   title: string;

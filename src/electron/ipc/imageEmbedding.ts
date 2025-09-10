@@ -1,10 +1,10 @@
-import { dialog, ipcMain, IpcMainInvokeEvent } from "electron";
-import { CHANNELS } from "../strings.js";
+import { dialog, ipcMain } from "electron";
+import { EventChannels } from "../../common/constants.js";
 
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 
 export function setupImageEmbeddingHandlers() {
-  ipcMain.handle(CHANNELS.IMAGE_EMBEDDINGS_SELECT_FOLDER, async (): Promise<string | null> => {
+  ipcMain.handle(EventChannels.IMAGE_EMBEDDINGS_SELECT_FOLDER, async (): Promise<string | null> => {
     try {
       const result = await dialog.showOpenDialog({
         properties: ["openDirectory"],
@@ -21,7 +21,7 @@ export function setupImageEmbeddingHandlers() {
       return null;
     }
   });
-  ipcMain.handle(CHANNELS.IMAGE_EMBEDDINGS_SCAN_FOLDER, async (event, folder_path: string) => {
+  ipcMain.handle(EventChannels.IMAGE_EMBEDDINGS_SCAN_FOLDER, async (event, folder_path: string) => {
     try {
       if (!folder_path) {
         throw new Error("No folder path provided");
@@ -61,7 +61,7 @@ export function setupImageEmbeddingHandlers() {
       };
     }
   });
-  ipcMain.handle(CHANNELS.IMAGE_EMBEDDINGS_SEARCH_BY_TEXT, async (event, query: string, limit: number = 10) => {
+  ipcMain.handle(EventChannels.IMAGE_EMBEDDINGS_SEARCH_BY_TEXT, async (event, query: string, limit: number = 10) => {
     try {
       if (!query || query.trim().length === 0) {
         throw new Error("Query cannot be empty");
@@ -97,7 +97,7 @@ export function setupImageEmbeddingHandlers() {
       };
     }
   });
-  ipcMain.handle(CHANNELS.IMAGE_EMBEDDINGS_DELETE_ALL, async (event) => {
+  ipcMain.handle(EventChannels.IMAGE_EMBEDDINGS_DELETE_ALL, async (event) => {
     try {
       const response = await fetch(`${URL}/image/delete-all`, {
         method: "DELETE",
@@ -125,8 +125,8 @@ export function setupImageEmbeddingHandlers() {
       };
     }
   });
-
-  ipcMain.handle(CHANNELS.IMAGE_EMBEDDINGS_DELETE_FOLDER, async (event, folder_path: string) => {
+ 
+  ipcMain.handle(EventChannels.IMAGE_EMBEDDINGS_DELETE_FOLDER, async (event,folder_path:string) => {
     try {
       const response = await fetch(`${URL}/image/delete-folder`, {
         method: "DELETE",

@@ -2,9 +2,9 @@ import chalk from "chalk";
 import { GoogleGenAI } from "@google/genai";
 import { tools, getPlan } from "./plan.js";
 import log from "../../common/log.js";
-import { preprocessMessage } from "./pre/index.js";
-import {type  MakePlanResponse } from "../../common/types.js";
-import { IpcMainInvokeEvent } from "electron";
+import { extractImage } from "./extract-image/index.js";
+import { MakePlanResponse } from "../../common/types.js";
+import { EventChannels, Labels } from "../../common/constants.js";
 
 const router = async (plan: MakePlanResponse[], context: string, event: IpcMainInvokeEvent): Promise<string> => {
   log.BLUE(`router called with plan: ${JSON.stringify(plan)} and context: ${context}`);
@@ -13,9 +13,9 @@ const router = async (plan: MakePlanResponse[], context: string, event: IpcMainI
   for (let i = 0; i < plan.length; i++) {
     const { step_number, description, status, tool_name } = plan[i];
     const toolFunction = tools[tool_name as keyof typeof tools].function;
-    event.sender.send("stream-chunk", {
+    event.sender.send(EventChannels.STREAM_CHUNK, {
       chunk: `Processing plan step ${step_number}: ${description}\n\n`,
-      type: "log",
+      type: Labels.LOG, 
     });
 
     if (tool_name === "general_tool") {
@@ -42,9 +42,9 @@ export const stream = async (event: any, messages: any[], config: any) => {
 
     const plan = await getPlan(lastUserMessage.content);
 
-    event.sender.send("stream-chunk", {
+    event.sender.send(EventChannels.STREAM_CHUNK, {
       chunk: JSON.stringify(plan.steps, null, 2),
-      type: "plan",
+      type: Labels.PLAN,
     });
 
     log.BLUE(`plan: ${JSON.stringify(plan, null, 2)}`);
