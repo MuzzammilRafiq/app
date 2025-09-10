@@ -1,3 +1,4 @@
+import { EventChannels, Labels, MODLES } from "../../../common/constants.js";
 import log from "../../../common/log.js";
 import { GoogleGenAI } from "@google/genai";
 
@@ -12,10 +13,10 @@ export const generalTool = async (context: string, event: any): Promise<{ output
     });
 
     const result = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
+      model: MODLES.GEMINI_2_5_FLASH,
       contents: [
-        { role: "user", parts: [{ text: prompt }] },
-        { role: "user", parts: [{ text: context }] },
+        { role: Labels.USER, parts: [{ text: prompt }] },
+        { role: Labels.USER, parts: [{ text: context }] },
       ],
       config: {
         thinkingConfig: {
@@ -28,9 +29,9 @@ export const generalTool = async (context: string, event: any): Promise<{ output
     for await (const chunk of result) {
       const chunkText = chunk.text;
       if (chunkText) {
-        event.sender.send("stream-chunk", {
+        event.sender.send(EventChannels.STREAM_CHUNK, {
           chunk: chunkText,
-          type: "stream",
+          type: Labels.STREAM,
         });
         fullText += chunkText;
       }

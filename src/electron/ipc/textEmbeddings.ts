@@ -1,9 +1,10 @@
 import { dialog, ipcMain } from "electron";
+import { EventChannels } from "../../common/constants.js";
 
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 
 export function setupTextEmbeddingHandlers() {
-  ipcMain.handle("text-embeddings:select-folder", async (): Promise<string | null> => {
+  ipcMain.handle(EventChannels.TEXT_EMBEDDINGS_SELECT_FOLDER, async (): Promise<string | null> => {
     try {
       const result = await dialog.showOpenDialog({
         properties: ["openDirectory"],
@@ -20,8 +21,8 @@ export function setupTextEmbeddingHandlers() {
       return null;
     }
   });
-  
-  ipcMain.handle("text-embeddings:scan-folder", async (event, folder_path: string) => {
+
+  ipcMain.handle(EventChannels.TEXT_EMBEDDINGS_SCAN_FOLDER, async (event, folder_path: string) => {
     try {
       if (!folder_path) {
         throw new Error("No folder path provided");
@@ -61,7 +62,7 @@ export function setupTextEmbeddingHandlers() {
       };
     }
   });
-  ipcMain.handle("text-embeddings:search-by-text", async (event, query: string, limit: number = 10) => {
+  ipcMain.handle(EventChannels.TEXT_EMBEDDINGS_SEARCH_BY_TEXT, async (event, query: string, limit: number = 10) => {
     try {
       if (!query || query.trim().length === 0) {
         throw new Error("Query cannot be empty");
@@ -97,7 +98,7 @@ export function setupTextEmbeddingHandlers() {
       };
     }
   });
-  ipcMain.handle("text-embeddings:delete-all", async (event) => {
+  ipcMain.handle(EventChannels.TEXT_EMBEDDINGS_DELETE_ALL, async (event) => {
     try {
       const response = await fetch(`${URL}/text/delete-all`, {
         method: "DELETE",
@@ -125,8 +126,8 @@ export function setupTextEmbeddingHandlers() {
       };
     }
   });
- 
-  ipcMain.handle("text-embeddings:delete-folder", async (event,folder_path:string) => {
+
+  ipcMain.handle(EventChannels.TEXT_EMBEDDINGS_DELETE_FOLDER, async (event,folder_path:string) => {
     try {
       const response = await fetch(`${URL}/text/delete-folder`, {
         method: "DELETE",

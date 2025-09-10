@@ -4,9 +4,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getDirs } from "../get-folder.js";
 import { heicConverter } from "../services/heicConverter.js";
+import { EventChannels } from "../../common/constants.js";
 
 export function setupFileOperationHandlers() {
-  ipcMain.handle("read-file-as-buffer", async (event, filePath: string) => {
+  ipcMain.handle(EventChannels.READ_FILE_AS_BUFFER, async (event, filePath: string) => {
     try {
       const buffer = await fs.readFile(filePath);
       return buffer;
@@ -16,7 +17,7 @@ export function setupFileOperationHandlers() {
     }
   });
 
-  ipcMain.handle("get-converted-heic-path", async (event, heicPath: string) => {
+  ipcMain.handle(EventChannels.GET_CONVERTED_HEIC_PATH, async (event, heicPath: string) => {
     try {
       return await heicConverter.getConvertedPath(heicPath);
     } catch (error) {
@@ -25,7 +26,7 @@ export function setupFileOperationHandlers() {
     }
   });
 
-  ipcMain.handle("get-heic-cache-stats", async () => {
+  ipcMain.handle(EventChannels.GET_HEIC_CACHE_STATS, async () => {
     try {
       return await heicConverter.getCacheStats();
     } catch (error) {
@@ -34,7 +35,7 @@ export function setupFileOperationHandlers() {
     }
   });
 
-  ipcMain.handle("cleanup-heic-cache", async () => {
+  ipcMain.handle(EventChannels.CLEANUP_HEIC_CACHE, async () => {
     try {
       await heicConverter.cleanupCache();
       return { success: true };
@@ -46,7 +47,7 @@ export function setupFileOperationHandlers() {
 
   // Save a base64 image into the media directory and return its absolute path
   ipcMain.handle(
-    "media:save-image",
+    EventChannels.MEDIA_SAVE_IMAGE,
     async (
       _event,
       image: {

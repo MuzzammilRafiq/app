@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { groq } from "../../services/groq.js";
 import log from  "../../../common/log.js";
+import { EventChannels, Labels, MODLES } from "../../../common/constants.js";
 const execAsync = promisify(exec);
 
 // Security: List of dangerous commands that should be blocked
@@ -301,7 +302,7 @@ export const terminalStep = async (
       },
       stream: false,
     };
-    const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
+    const content = await groq.chat(MODLES.KIMI_K2_INSTRUCT, options);
 
     if (!content) {
       throw new Error("No response content received from LLM");
@@ -313,7 +314,7 @@ export const terminalStep = async (
     } = JSON.parse(content);
 
     log.MAGENTA(response.command, response.updated_context);
-    event.sender.send("stream-chunk", {
+    event.sender.send(EventChannels.STREAM_CHUNK, {
       chunk: `RAN COMMAND: "${response.command}"\n`,
       type: "log",
     });
@@ -380,9 +381,9 @@ export const terminalAgent = async (
     const commandResult = await terminalTool(event, agentResponse.command);
 
     // Send command output to UI
-    event.sender.send("stream-chunk", {
+    event.sender.send(EventChannels.STREAM_CHUNK, {
       chunk: `${commandResult.output}\n`,
-      type: "log",
+      type: Labels.LOG, 
     });
 
     executionLog.push({
@@ -398,9 +399,9 @@ export const terminalAgent = async (
     if (!commandResult.success) {
       currentContext += `\nCommand failed with error: ${commandResult.reason}`;
       // Send error information to UI
-      event.sender.send("stream-chunk", {
+      event.sender.send(EventChannels.STREAM_CHUNK, {
         chunk: `ERROR: ${commandResult.reason}\n`,
-        type: "log",
+        type: Labels.LOG,
       });
     }
   }

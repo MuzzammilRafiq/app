@@ -5,6 +5,7 @@ import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
 
 import dotenv from "dotenv";
+import { MODLES } from "../../../common/constants.js";
 dotenv.config();
 
 export const extractVideoInfoFromText = async (context: string): Promise<VideoInfoResult> => {
@@ -53,7 +54,7 @@ Return the values in JSON format with generate_summary as a boolean.`;
     stream: false,
   };
 
-  const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
+  const response = await groq.chat(MODLES.KIMI_K2_INSTRUCT, options);
   log.CYAN(response);
   const { videotitle, channelname, generate_summary } = JSON.parse(response!);
   log.GREEN(
@@ -90,7 +91,7 @@ export const getVideoSummaryById = async (videoId: string): Promise<string> => {
     },
     stream: false,
   };
-  const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
+  const response = await groq.chat(MODLES.KIMI_K2_INSTRUCT, options);
   const { summary } = JSON.parse(response!);
   return summary;
 };
