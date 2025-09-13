@@ -214,7 +214,7 @@ export class DatabaseService {
     }
 
     // Validate role and type against allowed values
-    const validRoles: ChatRole[] = ["user", "assistant", "execution"];
+    const validRoles: ChatRole[] = ["user", "assistant"];
     const validTypes: ChatType[] = ["stream", "log", "plan", "user"];
 
     if (!validRoles.includes(message.role)) {
