@@ -2,7 +2,12 @@ import { GoogleGenAI } from "@google/genai";
 import log from "../../../common/log.js";
 import { ragAnswer } from "../rag/index.js";
 import { IpcMainInvokeEvent } from "electron";
-export const pre = async (ai: GoogleGenAI, lastUserMessage: any, event: IpcMainInvokeEvent, config: any) => {
+export const preProcessMessage = async (
+  ai: GoogleGenAI,
+  lastUserMessage: any,
+  event: IpcMainInvokeEvent,
+  config: any
+) => {
   if (lastUserMessage.images && lastUserMessage.images.length > 0) {
     const { data: imageData, mimeType: imageMimeType } = lastUserMessage.images[0];
     const imageBase64 = Buffer.from(imageData, "base64").toString("base64");
@@ -31,7 +36,7 @@ export const pre = async (ai: GoogleGenAI, lastUserMessage: any, event: IpcMainI
       timestamp: lastUserMessage.timestamp,
     };
   }
-  if (config.rag) {
+  if (config?.rag) {
     const retreivedDocuments = await ragAnswer(event, lastUserMessage.content);
     lastUserMessage.content =
       lastUserMessage.content + "\n" + "<RAG_RESULT>\n" + retreivedDocuments + "\n</RAG_RESULT>";

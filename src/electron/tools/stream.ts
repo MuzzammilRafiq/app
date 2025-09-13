@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { GoogleGenAI } from "@google/genai";
 import { tools, getPlan } from "./plan.js";
 import log from "../../common/log.js";
-import { pre } from "./pre/index.js";
+import { preProcessMessage } from "./pre/index.js";
 import { MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
 
@@ -37,7 +37,7 @@ export const stream = async (event: any, messages: any[], config: any) => {
       apiKey: process.env.GEMINI_API_KEY,
     });
 
-    const lastUserMessage = await pre(ai, messages.pop(), event, config);
+    const lastUserMessage = await preProcessMessage(ai, messages.pop(), event, config);
     // const updatedMessages = [...messages.slice(0, messages.length - 1), lastUserMessage];
 
     const plan = await getPlan(lastUserMessage.content);
