@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { tools, getPlan } from "./plan.js";
 import log from "../../common/log.js";
 import { preprocessMessage } from "./pre/index.js";
-import { MakePlanResponse } from "../../common/types.js";
+import {type  MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
 
 const router = async (plan: MakePlanResponse[], context: string, event: IpcMainInvokeEvent): Promise<string> => {

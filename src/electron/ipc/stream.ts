@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
-import { Channels } from "../../common/types.js";
+import { CHANNELS } from "../strings.js";
 import { stream } from "../tools/stream.js";
 
 export function setupStreamHandlers() {
-  ipcMain.handle(Channels.STREAM_MESSAGE_WITH_HISTORY, stream);
+  ipcMain.handle(CHANNELS.STREAM_MESSAGE_WITH_HISTORY, stream);
 }

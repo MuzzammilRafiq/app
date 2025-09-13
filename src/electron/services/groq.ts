@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
-import { Models } from "../../common/types.js";
+import { type Models } from "../utils.js";
 dotenv.config();
 class GroqService {
   private static instance: GroqService;

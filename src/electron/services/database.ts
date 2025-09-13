@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType, ChatSessionWithMessages } from "../../common/types.js";
+import type { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType, ChatSessionWithMessages } from "../../common/types.js";
 import log from "../../common/log.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
