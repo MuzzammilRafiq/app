@@ -7,7 +7,7 @@ import { useStore } from "../utils/store";
 import { fileToBase64, validateImageFile, type ImageData } from "../services/imageUtils";
 import { ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, SearchSVG, SendSVG } from "./icons";
 import SearchModal from "./SearchModal";
-import type { ChatMessageRecord } from "../../common/types";
+import type { ChatMessageRecord, ChatType, StreamChunk } from "../../common/types";
 import LogRenderer from "./response-renders/log-renderer";
 
 export default function ChatContainer() {
@@ -18,10 +18,9 @@ export default function ChatContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   // Ordered streaming segments as they arrive
-  type SegmentType = "plan" | "log" | "stream";
   interface Segment {
     id: string;
-    type: SegmentType;
+    type: ChatType;
     content: string; // accumulated content for this contiguous segment
   }
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -86,7 +85,7 @@ export default function ChatContainer() {
           storedImagePaths = imagePaths;
         }
 
-        const messageRecord = {
+        const messageRecord: ChatMessageRecord = {
           id: crypto.randomUUID(),
           sessionId: session.id,
           content: trimmedContent,
@@ -94,7 +93,7 @@ export default function ChatContainer() {
           timestamp: Date.now(),
           isError: "",
           imagePaths: storedImagePaths,
-          type: "user" as const,
+          type:"user"
         };
 
         const newMessage = await window.electronAPI.dbAddChatMessage(messageRecord);
@@ -110,7 +109,7 @@ export default function ChatContainer() {
         setSegments([]);
 
         // Attach listener immediately
-        const handleStreamChunk = (data: { chunk: string; type: SegmentType }) => {
+        const handleStreamChunk = (data: StreamChunk) => {
           setSegments((prev) => {
             const updated = [...prev];
             if (data.type === "plan") {
@@ -166,7 +165,7 @@ export default function ChatContainer() {
                 if (match) contentToSave = match[0];
               }
             }
-            const record = {
+            const record: ChatMessageRecord = {
               id: crypto.randomUUID(),
               sessionId: session.id,
               content: contentToSave.trim(),
@@ -174,7 +173,7 @@ export default function ChatContainer() {
               timestamp: Date.now(),
               isError: "",
               imagePaths: null as null,
-              type: seg.type as SegmentType,
+              type: seg.type,
             };
             const saved = await window.electronAPI.dbAddChatMessage(record);
             const touched = await window.electronAPI.dbTouchSession(session.id, Date.now());

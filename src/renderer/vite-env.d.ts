@@ -52,7 +52,7 @@ interface Window {
      *
      * @param {Function} callback - Callback function to handle stream chunks
      */
-    onStreamChunk: (callback: (data: { chunk: string; type: "stream" | "log" | "plan" }) => void) => void;
+    onStreamChunk: (callback: (data: import("../common/types.js").StreamChunk) => void) => void;
 
     /**
      * Removes all stream chunk listeners
