@@ -1,5 +1,5 @@
 import { type ImageData } from "../../services/imageUtils";
-import { iconClass, ImageSVG, LoadingSVG, PauseSVG, RemoveSVG, SearchSVG, SendSVG } from "../icons";
+import { FileSVG, iconClass, ImageSVG, LoadingSVG, PauseSVG, RAGSVG, RemoveSVG, SearchSVG, SendSVG } from "../icons";
 import SearchModal from "../SearchModal";
 import { handleImageUpload, handlePaste, handleImageSelect } from "../../services/chat-handlers";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +14,8 @@ interface ChatInputProps {
   isLoading: boolean;
   isStreaming: boolean;
   handleSendMessage: () => void;
+  isRAGEnabled: boolean;
+  setIsRAGEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ChatInput({
@@ -26,9 +28,12 @@ export default function ChatInput({
   isLoading,
   isStreaming,
   handleSendMessage,
+  isRAGEnabled,
+  setIsRAGEnabled,
 }: ChatInputProps) {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,13 +44,13 @@ export default function ChatInput({
     }
   }, [content]);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    };
-
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+  console.log(isRAGEnabled);
 
   return (
     <div className="flex-shrink-0 px-4 pb-4">
@@ -131,6 +136,18 @@ export default function ChatInput({
                 type="button"
               >
                 {SearchSVG}
+              </button>
+              <button
+                onClick={() => setIsRAGEnabled((isRAGEnabled) => !isRAGEnabled)}
+                disabled={isLoading}
+                className={
+                  " shadow-sm bg-white border border-gray-200" +
+                  (isRAGEnabled ? " text-blue-600 bg-blue-50 border-blue-200" : "")
+                }
+                title="Search Images"
+                type="button"
+              >
+                {RAGSVG}
               </button>
             </div>
             {/* Right group: send button */}

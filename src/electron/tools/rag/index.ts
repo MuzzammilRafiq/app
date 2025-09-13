@@ -83,6 +83,7 @@ async function searchLocalAPI(query: string, limit: number = 3) {
 }
 
 export async function ragAnswer(event: IpcMainInvokeEvent, userQuery: string, limit = 3): Promise<string> {
+  log.BG_BRIGHT_GREEN("RAG enabled, performing retrieval...", { userQuery, limit });
   const queries = await generateSearchQueries(userQuery);
   const results: any[] = [];
   for (const q of queries) {

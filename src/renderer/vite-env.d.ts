@@ -45,14 +45,14 @@ interface Window {
      * @param {any[]} messages - Array of message objects with role and content
      * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
      */
-    streamMessageWithHistory: (messages: any[]) => Promise<{ text: string; error?: string }>;
+    streamMessageWithHistory: (messages: any[], config: any) => Promise<{ text: string; error?: string }>;
 
     /**
      * Sets up a listener for streaming chunks from Gemini AI
      *
      * @param {Function} callback - Callback function to handle stream chunks
      */
-    onStreamChunk: (callback: (data: { chunk: string; type: "stream" | "log" | "plan" }) => void) => void;
+    onStreamChunk: (callback: (data: { chunk: string; type: "stream" | "log" | "plan" | "source" }) => void) => void;
 
     /**
      * Removes all stream chunk listeners

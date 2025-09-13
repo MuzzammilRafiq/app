@@ -1,6 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { ChatMessageRecord, ChatRole, ChatSessionRecord, ChatType, ChatSessionWithMessages } from "../../common/types.js";
+import {
+  ChatMessageRecord,
+  ChatRole,
+  ChatSessionRecord,
+  ChatType,
+  ChatSessionWithMessages,
+} from "../../common/types.js";
 import log from "../../common/log.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
@@ -46,7 +52,7 @@ export class DatabaseService {
       timestamp INTEGER NOT NULL,
       is_error TEXT NOT NULL DEFAULT '',
       images TEXT DEFAULT NULL, -- store JSON array (string[]) or NULL
-      type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user')),
+      type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
       FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
     `;
@@ -57,13 +63,78 @@ export class DatabaseService {
     try {
       this.db.exec("BEGIN TRANSACTION");
       this.db.exec(createSessions);
-      this.db.exec(createMessages);
-      this.db.exec(createIdx1);
-      this.db.exec(createIdx2);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
-      log.RED(`Failed to initialize database schema: ${error}`);
+      log.RED(`Failed to initialize sessions schema: ${error}`);
+      throw error;
+    }
+
+    // Ensure chat_messages table exists with updated CHECK including 'source'
+    try {
+      const getTableSql = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'");
+      const row = getTableSql.get() as { sql: string } | undefined;
+
+      if (!row) {
+        // Table doesn't exist; create fresh with updated schema
+        this.db.exec("BEGIN TRANSACTION");
+        this.db.exec(createMessages);
+        this.db.exec(createIdx1);
+        this.db.exec(createIdx2);
+        this.db.exec("COMMIT");
+      } else if (!row.sql.includes("'source'")) {
+        // Migrate table to include 'source' in CHECK constraint
+        log.YELLOW("Migrating chat_messages schema to include 'source' type...");
+        try {
+          this.db.exec("PRAGMA foreign_keys = OFF");
+          this.db.exec("BEGIN TRANSACTION");
+
+          // Create new table with correct schema
+          this.db.exec(
+            `CREATE TABLE chat_messages_new (
+              id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              content TEXT NOT NULL,
+              role TEXT NOT NULL CHECK(role IN ('user','assistant','execution')),
+              timestamp INTEGER NOT NULL,
+              is_error TEXT NOT NULL DEFAULT '',
+              images TEXT DEFAULT NULL,
+              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
+              FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );`
+          );
+
+          // Copy data
+          this.db.exec(
+            `INSERT INTO chat_messages_new (id, session_id, content, role, timestamp, is_error, images, type)
+             SELECT id, session_id, content, role, timestamp, is_error, images, type FROM chat_messages;`
+          );
+
+          // Drop old and rename new
+          this.db.exec(`DROP TABLE chat_messages;`);
+          this.db.exec(`ALTER TABLE chat_messages_new RENAME TO chat_messages;`);
+
+          // Recreate indexes
+          this.db.exec(createIdx1);
+          this.db.exec(createIdx2);
+
+          this.db.exec("COMMIT");
+        } catch (err) {
+          this.db.exec("ROLLBACK");
+          log.RED(`Failed to migrate chat_messages schema: ${err}`);
+          throw err;
+        } finally {
+          this.db.exec("PRAGMA foreign_keys = ON");
+        }
+      } else {
+        // Table exists and already supports 'source'; ensure indexes
+        this.db.exec("BEGIN TRANSACTION");
+        this.db.exec(createIdx1);
+        this.db.exec(createIdx2);
+        this.db.exec("COMMIT");
+      }
+    } catch (error) {
+      log.RED(`Failed to ensure chat_messages schema: ${error}`);
       throw error;
     }
   }
@@ -215,7 +286,7 @@ export class DatabaseService {
 
     // Validate role and type against allowed values
     const validRoles: ChatRole[] = ["user", "assistant", "execution"];
-    const validTypes: ChatType[] = ["stream", "log", "plan", "user"];
+    const validTypes: ChatType[] = ["stream", "log", "plan", "user", "source"];
 
     if (!validRoles.includes(message.role)) {
       throw new Error(`Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`);

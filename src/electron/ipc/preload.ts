@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 export interface StreamChunk {
   chunk: string;
-  type: "stream" | "log" | "plan";
+  type: "stream" | "log" | "plan" | "source";
 }
 contextBridge.exposeInMainWorld("electronAPI", {
   streamMessageWithHistory: (messages: any[], config: any) =>
@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   //-------------------------image-embeddings-----------------------
-  searchImagesByText: (query: string, limit: number = 10) => ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
+  searchImagesByText: (query: string, limit: number = 10) =>
+    ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
   deleteAllImageEmbeddings: () => ipcRenderer.invoke("image-embeddings:delete-all"),
 
   selectFolder: () => ipcRenderer.invoke("image-embeddings:select-folder"),
@@ -30,7 +31,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("media:save-image", image),
 
   //-------------------------text-embeddings---------------------------
-  searchTextsByText: (query: string, limit: number = 10) => ipcRenderer.invoke("text-embeddings:search-by-text", query, limit),
+  searchTextsByText: (query: string, limit: number = 10) =>
+    ipcRenderer.invoke("text-embeddings:search-by-text", query, limit),
   deleteAllTextEmbeddings: () => ipcRenderer.invoke("text-embeddings:delete-all"),
   selectTextFolder: () => ipcRenderer.invoke("text-embeddings:select-folder"),
   scanTextFolder: (folder: string) => ipcRenderer.invoke("text-embeddings:scan-folder", folder),

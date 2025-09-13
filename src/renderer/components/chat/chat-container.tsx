@@ -8,6 +8,7 @@ import { type ImageData } from "../../services/imageUtils";
 
 import type { ChatMessageRecord, ChatType, StreamChunk } from "../../../common/types";
 import LogRenderer from "./log-renderer";
+import SourceRenderer from "./source-renderer";
 
 import EmptyChat from "./empty-chat";
 import ChatInput from "./chat-input";
@@ -28,23 +29,17 @@ export default function ChatContainer() {
   const [imagePaths, setImagePaths] = useState<string[] | null>(null);
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
-
+  const [isRAGEnabled, setIsRAGEnabled] = useState(false);
   const handleSendMessage = async () => {
-    // Trim once
     const trimmedContent = content.trim();
-
-    if (!trimmedContent && !selectedImage) {
-      // Nothing to send
+    if (!trimmedContent || isLoading || isStreaming) {
       return;
-    }
-    if (isLoading || isStreaming) {
-      return; // Prevent concurrent sends
     }
 
     let session = currentSession;
     if (!session) {
       try {
-        const newSessionRecord = await window.electronAPI.dbCreateSession("New Chat");
+        const newSessionRecord = await window.electronAPI.dbCreateSession(trimmedContent.slice(0, 50) + "...");
         createNewSession(newSessionRecord);
         session = { ...newSessionRecord, messages: [] } as any; // fallback local reference
       } catch (e) {
@@ -52,17 +47,15 @@ export default function ChatContainer() {
         return;
       }
     }
-    if (!session) return; // TS safety
+    if (!session) return;
 
     console.log("Sending message:", { trimmedContent, hasImage: !!selectedImage, sessionId: session.id });
-    // Optimistically clear input for snappy UI
     setContent("");
 
     if (trimmedContent || selectedImage) {
       setIsLoading(true);
       try {
         let storedImagePaths: string[] | null = null;
-        // Save newly selected (unsaved) image if present (base64 in selectedImage)
         if (selectedImage) {
           try {
             const savedPath = await window.electronAPI.saveImageToMedia({
@@ -76,7 +69,6 @@ export default function ChatContainer() {
             toast.error("Failed to save image");
           }
         } else if (imagePaths && imagePaths.length > 0) {
-          // If imagePaths already provided (e.g., from search) reuse them
           storedImagePaths = imagePaths;
         }
 
@@ -103,7 +95,6 @@ export default function ChatContainer() {
         segmentsRef.current = [];
         setSegments([]);
 
-        // Attach listener immediately
         const handleStreamChunk = (data: StreamChunk) => {
           setSegments((prev) => {
             const updated = [...prev];
@@ -135,19 +126,18 @@ export default function ChatContainer() {
           });
         };
 
-        // Register listener
         window.electronAPI.onStreamChunk(handleStreamChunk);
 
         try {
-          // Build history using messages BEFORE adding new message (currentSession is pre-add) + newMessage
           const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
           const history = existingMessages.concat([newMessage]);
-          await window.electronAPI.streamMessageWithHistory(history);
+          await window.electronAPI.streamMessageWithHistory(history, {
+            rag: isRAGEnabled,
+          });
           // After stream completes, persist each segment in arrival order
           for (const seg of segmentsRef.current) {
             let contentToSave = seg.content;
             if (seg.type === "plan") {
-              // Sanitize plan: keep array or object as is; attempt to extract array if contamination
               try {
                 const parsed = JSON.parse(contentToSave);
                 if (Array.isArray(parsed)) {
@@ -192,7 +182,6 @@ export default function ChatContainer() {
         setIsLoading(false);
       }
     }
-    // Clear image paths after sending
     setImagePaths(null);
     setSelectedImage(null);
   };
@@ -247,7 +236,7 @@ export default function ChatContainer() {
                         {group.assistantMessages
                           .filter((msg) => msg.type === "plan")
                           .map((msg) => (
-                            <PlanRenderer content={msg.content} />
+                            <PlanRenderer key={msg.id} content={msg.content} />
                           ))}
 
                         {group.assistantMessages
@@ -263,6 +252,15 @@ export default function ChatContainer() {
                           .map((msg) => (
                             <div key={msg.id} className="prose prose-sm max-w-none">
                               <MarkdownRenderer content={msg.content} isUser={false} />
+                            </div>
+                          ))}
+
+                        {/* Sources: render after stream is complete (persisted messages only) */}
+                        {group.assistantMessages
+                          .filter((msg) => msg.type === "source")
+                          .map((msg) => (
+                            <div key={msg.id}>
+                              <SourceRenderer content={msg.content} />
                             </div>
                           ))}
                       </div>
@@ -298,6 +296,7 @@ export default function ChatContainer() {
                       dangerouslySetInnerHTML={{ __html: seg.content.replace(/\n/g, "<br/>") }}
                     />
                   ))}
+                {/* Do not render sources live; they will show after persistence */}
               </div>
             )}
           </div>
@@ -315,6 +314,8 @@ export default function ChatContainer() {
         isLoading={isLoading}
         isStreaming={isStreaming}
         handleSendMessage={handleSendMessage}
+        isRAGEnabled={isRAGEnabled}
+        setIsRAGEnabled={setIsRAGEnabled}
       />
     </div>
   );
