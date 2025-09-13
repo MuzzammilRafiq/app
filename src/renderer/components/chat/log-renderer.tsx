@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { BadgeCheckIcon, ChevronDownIcon } from "../../components/icons";
+import { BadgeCheckIcon, ChevronDownIcon } from "../icons";
 export default function LogRenderer({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   return (

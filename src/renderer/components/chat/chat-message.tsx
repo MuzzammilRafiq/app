@@ -1,7 +1,7 @@
-import type { ChatMessageRecord } from "../../common/types";
-import MarkdownRenderer from "./response-renders/message-renderer";
+import type { ChatMessageRecord } from "../../../common/types";
+import MarkdownRenderer from "./message-renderer";
 import clsx from "clsx";
-import PlanRenderer from "./response-renders/plan-renderer";
+import PlanRenderer from "./plan-renderer";
 export default function ChatMessage(message: ChatMessageRecord) {
   const isUser = message.role === "user";
   const isError = message.isError;

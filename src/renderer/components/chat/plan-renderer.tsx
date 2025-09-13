@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { MakePlanResponse } from "../../../common/types";
 import clsx from "clsx";
-import { ChevronDownIcon, ClipboardIcon, CheckSolidIcon, ClockIcon } from "../../components/icons";
+import { ChevronDownIcon, ClipboardIcon, CheckSolidIcon, ClockIcon } from "../icons";
 
 // Attempt to safely extract and parse a JSON array from possibly noisy content
 interface ExtractedPlan {

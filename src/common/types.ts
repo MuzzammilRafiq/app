@@ -1,3 +1,6 @@
+type ChatRole = "user" | "assistant" | "execution";
+type ChatType = "stream" | "log" | "plan" | "user";
+
 interface MakePlanResponse {
   step_number: number;
   tool_name: string;
@@ -6,7 +9,7 @@ interface MakePlanResponse {
 }
 interface StreamChunk {
   chunk: string;
-  type: "stream" | "log" | "plan";
+  type: ChatType;
 }
 interface VideoDetails {
   title: string;
@@ -30,9 +33,6 @@ interface VideoInfoResult {
   channelname: string;
   generate_summary: boolean;
 }
-
-type ChatRole = "user" | "assistant" | "execution";
-type ChatType = "stream" | "log" | "plan" | "user";
 
 interface ChatMessageRecord {
   id: string;

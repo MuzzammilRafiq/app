@@ -1,4 +1,4 @@
-import ChatContainer from "./components/ChatContainer";
+import ChatContainer from "./components/chat/chat-container";
 import Sidebar from "./components/Sidebar";
 import Settings from "./components/settings/Settings";
 import { Toaster } from "react-hot-toast";
