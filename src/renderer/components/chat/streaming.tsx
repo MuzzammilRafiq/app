@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { StreamChunk } from "../../../common/types";
-import { PlanRenderer, LogRenderer, MarkdownRenderer } from "./renderers";
+import { PlanRenderer, LogRenderer, MarkdownRenderer, SourceRenderer } from "./renderers";
 
 interface Segment {
   id: string;
@@ -14,12 +14,24 @@ export function useStreaming() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const segmentsRef = useRef<Segment[]>([]);
 
-  const setupStreaming = () => {
+  // Optional callback allows callers to handle chunks directly (e.g., write into store)
+  const setupStreaming = (onChunk?: (data: StreamChunk) => void) => {
     setIsStreaming(true);
     segmentsRef.current = [];
     setSegments([]);
 
     const handleStreamChunk = (data: StreamChunk) => {
+      // Allow external side-effects first
+      if (onChunk) {
+        try {
+          onChunk(data);
+        } catch (err) {
+          // Swallow errors from external callback to avoid breaking stream updates
+          // eslint-disable-next-line no-console
+          console.error("onChunk handler error:", err);
+        }
+      }
+
       setSegments((prev) => {
         const updated = [...prev];
         if (data.type === "plan") {
@@ -73,25 +85,40 @@ export function useStreaming() {
 export function StreamingPreview({ segments }: { segments: Segment[] }) {
   if (segments.length === 0) return null;
 
-  const planSegment = segments.find((seg) => seg.type === "plan");
-  const logSegment = segments.find((seg) => seg.type === "log");
+  const planSegments = segments.filter((seg) => seg.type === "plan");
+  const logSegments = segments.filter((seg) => seg.type === "log");
   const streamSegments = segments.filter((seg) => seg.type === "stream");
+  const sourceSegments = segments.filter((seg) => seg.type === "source");
 
   return (
-    <div className="p-3 rounded-lg border border-blue-100 bg-blue-50/40 animate-pulse space-y-4">
-      <div className="max-h-60 overflow-y-auto">
-        {planSegment && <PlanRenderer content={planSegment.content} />}
-        {logSegment && (
-          <div className="mt-4">
-            <LogRenderer content={logSegment.content} />
+    <div className="flex justify-start">
+      <div className="break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
+        {/* Plans */}
+        {planSegments.map((msg) => (
+          <PlanRenderer key={msg.id} content={msg.content} />
+        ))}
+
+        {/* Logs */}
+        {logSegments.map((msg) => (
+          <div key={msg.id}>
+            <LogRenderer content={msg.content} />
           </div>
-        )}
+        ))}
+
+        {/* Stream messages */}
+        {streamSegments.map((msg) => (
+          <div key={msg.id} className="prose prose-sm max-w-none">
+            <MarkdownRenderer content={msg.content} isUser={false} />
+          </div>
+        ))}
+
+        {/* Sources */}
+        {sourceSegments.map((msg) => (
+          <div key={msg.id}>
+            <SourceRenderer content={msg.content} />
+          </div>
+        ))}
       </div>
-      {streamSegments.map((seg) => (
-        <div key={seg.id} className="prose prose-sm max-w-none">
-          <MarkdownRenderer content={seg.content} isUser={false} />
-        </div>
-      ))}
     </div>
   );
 }

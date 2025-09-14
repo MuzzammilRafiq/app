@@ -46,7 +46,7 @@ function AssistantMessageSection({ messages }: { messages: ChatMessageRecord[] }
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
+      <div className="w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
         {/* Plans */}
         {planMessages.map((msg) => (
           <PlanRenderer key={msg.id} content={msg.content} />
@@ -84,7 +84,6 @@ export default function MessageGroups({ messages }: MessageGroupsProps) {
     <>
       {groupedMessages.map((group, groupIndex) => (
         <div key={groupIndex} className="space-y-4">
-          {/* User message */}
           {group.userMessage && (
             <div className="flex justify-end">
               <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere bg-blue-100 rounded-xl px-2 py-2">
@@ -112,7 +111,6 @@ export default function MessageGroups({ messages }: MessageGroupsProps) {
             </div>
           )}
 
-          {/* Assistant messages */}
           {group.assistantMessages.length > 0 && <AssistantMessageSection messages={group.assistantMessages} />}
         </div>
       ))}

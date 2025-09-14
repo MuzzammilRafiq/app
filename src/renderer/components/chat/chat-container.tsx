@@ -5,7 +5,7 @@ import { type ImageData } from "../../services/imageUtils";
 
 import ChatInput from "./chat-input";
 import MessageGroups from "./message-groups";
-import { StreamingPreview, useStreaming } from "./streaming";
+import { useStreaming } from "./streaming";
 import {
   handleImagePersistence,
   ensureSession,
@@ -25,7 +25,7 @@ export default function ChatContainer() {
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isRAGEnabled, setIsRAGEnabled] = useState(false);
 
-  const { isStreaming, segments, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
+  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
 
   const resetInputState = () => {
     setContent("");
@@ -52,7 +52,13 @@ export default function ChatContainer() {
       const storedImagePaths = await handleImagePersistence(selectedImage, imagePaths);
       const newMessage = await createUserMessage(session, trimmedContent, storedImagePaths, addMessage);
 
-      setupStreaming();
+      // Stream tokens directly into the current session's messages
+      const handleChunk = (data: any) => {
+        if (!session?.id) return;
+        // Grow the visible assistant message by type
+        useStore.getState().upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
+      };
+      setupStreaming(handleChunk);
 
       try {
         const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
@@ -61,8 +67,8 @@ export default function ChatContainer() {
         await window.electronAPI.streamMessageWithHistory(history, {
           rag: isRAGEnabled,
         });
-
-        await persistStreamingSegments(segmentsRef.current, session, addMessage);
+        // Persist what we received into DB so it's not ephemeral
+        await persistStreamingSegments(segmentsRef.current, session);
       } catch (streamErr) {
         console.error("Streaming error:", streamErr);
         toast.error("Streaming failed");
@@ -80,10 +86,9 @@ export default function ChatContainer() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {currentSession && currentSession.messages.length > 0 ? (
-        <div className="flex-1 overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar max-w-[80%] mx-auto">
+      {currentSession && currentSession?.messages?.length > 0 ? (
+        <div className="flex-1 overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar w-[80%] mx-auto">
           <MessageGroups messages={currentSession.messages} />
-          {isStreaming && <StreamingPreview segments={segments} />}
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">

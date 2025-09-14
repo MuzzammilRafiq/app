@@ -48,16 +48,14 @@ export async function handleImagePersistence(
 export async function ensureSession(
   currentSession: ChatSession | null,
   contentPreview: string,
-  createNewSession: MessageHandlers['createNewSession']
+  createNewSession: MessageHandlers["createNewSession"]
 ): Promise<ChatSession> {
   if (currentSession) {
     return currentSession;
   }
 
   try {
-    const newSessionRecord = await window.electronAPI.dbCreateSession(
-      contentPreview.slice(0, 50) + "..."
-    );
+    const newSessionRecord = await window.electronAPI.dbCreateSession(contentPreview.slice(0, 50) + "...");
     createNewSession(newSessionRecord);
     return { ...newSessionRecord, messages: [] } as ChatSession;
   } catch (e) {
@@ -73,7 +71,7 @@ export async function createUserMessage(
   session: ChatSession,
   messageContent: string,
   storedImagePaths: string[] | null,
-  addMessage: MessageHandlers['addMessage']
+  addMessage: MessageHandlers["addMessage"]
 ): Promise<ChatMessageRecord> {
   const messageRecord: ChatMessageRecord = {
     id: String(crypto.randomUUID()),
@@ -103,18 +101,19 @@ export async function createUserMessage(
 export async function persistStreamingSegments(
   segments: Array<{ id: string; type: string; content: string }>,
   session: ChatSession,
-  addMessage: MessageHandlers['addMessage']
-): Promise<void> {
+  addMessage?: MessageHandlers["addMessage"]
+): Promise<ChatMessageRecord[]> {
+  const savedRecords: ChatMessageRecord[] = [];
   for (const seg of segments) {
     let contentToSave = seg.content;
-    
+
     if (seg.type === "plan") {
       try {
         const parsed = JSON.parse(contentToSave);
         if (Array.isArray(parsed)) {
           contentToSave = JSON.stringify(parsed);
         } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).steps)) {
-          // leave as-is (could contain logs in unified object if future change)
+          // leave as-is
         }
       } catch {
         const match = contentToSave.match(/\[[\s\S]*?\]/);
@@ -135,8 +134,11 @@ export async function persistStreamingSegments(
 
     const saved = await window.electronAPI.dbAddChatMessage(record);
     const touched = await window.electronAPI.dbTouchSession(session.id, Date.now());
-    if (touched) {
+    if (touched && addMessage) {
+      // In the new flow, we already streamed into the store. Optionally, we could reconcile IDs here.
       addMessage(saved, touched);
     }
+    savedRecords.push(saved);
   }
+  return savedRecords;
 }

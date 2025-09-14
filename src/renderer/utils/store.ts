@@ -58,6 +58,9 @@ interface Store {
   populateSessions: (sessions: ChatSessionWithMessages[]) => void;
   setCurrentSession: (session: ChatSessionWithMessages) => void;
   addMessage: (message: ChatMessageRecord, updatedSession: ChatSessionRecord) => void;
+  // Streaming helpers
+  upsertStreamingAssistantMessage: (sessionId: string, type: ChatMessageRecord["type"], chunk: string) => void;
+  resetStreamingAssistantState: (sessionId: string) => void;
 }
 interface ChatTitleStore {
   chatTitle: string;
@@ -115,5 +118,51 @@ export const useStore = create<Store>((set) => ({
             : state.currentSession,
       };
     });
+  },
+  // During streaming we keep one in-memory assistant message per type and session.
+  upsertStreamingAssistantMessage: (sessionId, type, chunk) => {
+    set((state) => {
+      const updatedSessions = state.chatSessionsWithMessages.map((session) => {
+        if (session.id !== sessionId) return session;
+
+        // Try to find last assistant message of this type that is not marked error
+        const msgs = [...session.messages];
+        const last = msgs[msgs.length - 1];
+        if (last && last.role === "assistant" && last.type === type && !last.isError) {
+          const merged: ChatMessageRecord = {
+            ...last,
+            content: last.content + chunk,
+            timestamp: Date.now(),
+          };
+          msgs[msgs.length - 1] = merged;
+        } else {
+          const newMsg: ChatMessageRecord = {
+            id: String(crypto.randomUUID()),
+            sessionId,
+            content: chunk,
+            role: "assistant",
+            timestamp: Date.now(),
+            isError: "",
+            imagePaths: null,
+            type,
+          };
+          msgs.push(newMsg);
+        }
+
+        return { ...session, messages: msgs };
+      });
+
+      // Keep currentSession in sync if it's the same session
+      let newCurrent = state.currentSession;
+      if (state.currentSession && state.currentSession.id === sessionId) {
+        const sessionIdx = updatedSessions.findIndex((s) => s.id === sessionId);
+        if (sessionIdx >= 0) newCurrent = updatedSessions[sessionIdx];
+      }
+
+      return { chatSessionsWithMessages: updatedSessions, currentSession: newCurrent };
+    });
+  },
+  resetStreamingAssistantState: (_sessionId) => {
+    // No-op for now; ephemeral messages are part of session messages until persisted
   },
 }));

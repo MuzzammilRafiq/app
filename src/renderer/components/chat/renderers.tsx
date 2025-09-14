@@ -188,7 +188,7 @@ function extractPlan(raw: string): { steps: MakePlanResponse[]; logs?: string } 
 }
 
 export function PlanRenderer({ content }: { content: string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const extracted = extractPlan(content);
   if (!extracted) {
     return (
@@ -287,7 +287,7 @@ export function PlanRenderer({ content }: { content: string }) {
 
 // Collapsible log renderer
 export function LogRenderer({ content }: { content: string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-lg">
       <button
@@ -341,7 +341,7 @@ function parseSources(content: string): UniqueResult[] | null {
 }
 
 export function SourceRenderer({ content }: { content: string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const sources = parseSources(content);
   if (!sources || sources.length === 0) return null;
   return (
