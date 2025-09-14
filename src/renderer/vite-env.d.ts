@@ -144,6 +144,7 @@ interface Window {
      * @returns absolute filesystem path of the stored image
      */
     saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
+    saveImageFromPathToMedia: (filePath: string) => Promise<string>;
 
     /**
      * Text embeddings API: search indexed text files by text query

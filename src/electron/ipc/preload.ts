@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   cleanupHeicCache: () => ipcRenderer.invoke("cleanup-heic-cache"),
   saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) =>
     ipcRenderer.invoke("media:save-image", image),
+  saveImageFromPathToMedia: (filePath: string) => ipcRenderer.invoke("media:save-image-from-path", filePath),
 
   //-------------------------text-embeddings---------------------------
   searchTextsByText: (query: string, limit: number = 10) =>

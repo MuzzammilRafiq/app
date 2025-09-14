@@ -129,8 +129,9 @@ export const handleImageSelect = async ({
 }: ImageSelectHandlerProps) => {
   setIsProcessingImage(true);
   try {
-    // Instead of loading into memory, just store the path and display using file protocol via secure rendering
-    setImagePaths([imagePath]);
+    // Save a thumbnail copy of the selected image into media and use that stored path
+    const mediaPath = await window.electronAPI.saveImageFromPathToMedia(imagePath);
+    setImagePaths([mediaPath]);
     setSelectedImage(null); // clear any base64 selected image to avoid duplicate save
     toast.success("Image selected from search");
   } catch (error) {

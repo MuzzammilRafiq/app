@@ -141,10 +141,11 @@ export default function ChatInput({
                 onClick={() => setIsRAGEnabled((isRAGEnabled) => !isRAGEnabled)}
                 disabled={isLoading}
                 className={
+                  iconClass +
                   " shadow-sm bg-white border border-gray-200" +
                   (isRAGEnabled ? " text-blue-600 bg-blue-50 border-blue-200" : "")
                 }
-                title="Search Images"
+                title="Enable RAG"
                 type="button"
               >
                 {RAGSVG}
@@ -154,7 +155,11 @@ export default function ChatInput({
             <div className="flex items-center ml-auto">
               <button
                 onClick={handleSendMessage}
-                disabled={(!content.trim() && !selectedImage) || isLoading || isStreaming}
+                disabled={
+                  (!content.trim() && !selectedImage && !(imagePaths && imagePaths.length > 0)) ||
+                  isLoading ||
+                  isStreaming
+                }
                 className={iconClass}
                 type="button"
               >

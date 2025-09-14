@@ -35,7 +35,8 @@ export default function ChatContainer() {
 
   const handleSendMessage = async () => {
     const trimmedContent = content.trim();
-    if (!trimmedContent || isLoading || isStreaming) {
+    const hasAnyImage = !!selectedImage || (imagePaths && imagePaths.length > 0);
+    if ((!trimmedContent && !hasAnyImage) || isLoading || isStreaming) {
       return;
     }
 
@@ -48,9 +49,13 @@ export default function ChatContainer() {
     setIsLoading(true);
 
     try {
-      const session = await ensureSession(currentSession, trimmedContent, createNewSession);
+      const session = await ensureSession(
+        currentSession,
+        trimmedContent || (hasAnyImage ? "Image message" : ""),
+        createNewSession
+      );
       const storedImagePaths = await handleImagePersistence(selectedImage, imagePaths);
-      const newMessage = await createUserMessage(session, trimmedContent, storedImagePaths, addMessage);
+      const newMessage = await createUserMessage(session, trimmedContent || "", storedImagePaths, addMessage);
 
       // Stream tokens directly into the current session's messages
       const handleChunk = (data: any) => {

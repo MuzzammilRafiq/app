@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getDirs } from "../get-folder.js";
 import { heicConverter } from "../services/heicConverter.js";
+import sharp from "sharp";
 
 export function setupFileOperationHandlers() {
   ipcMain.handle("read-file-as-buffer", async (event, filePath: string) => {
@@ -59,31 +60,59 @@ export function setupFileOperationHandlers() {
         throw new Error("Invalid image payload");
       }
       const { mediaDir } = getDirs();
-
-      // Derive extension from mime type
-      const extMap: Record<string, string> = {
-        "image/png": "png",
-        "image/jpeg": "jpg",
-        "image/jpg": "jpg",
-        "image/gif": "gif",
-        "image/webp": "webp",
-        "image/heic": "heic",
-        "image/heif": "heif",
-      };
-      const guessedExt = extMap[image.mimeType.toLowerCase()] || "bin";
+      // Always save a compressed thumbnail (webp) to keep media small and durable
+      const THUMB_MAX = 512; // px
       const baseNameRaw = (image.name || "image").replace(/\.[^.]+$/, "");
       const safeBase = baseNameRaw.replace(/[^a-zA-Z0-9-_]/g, "_");
-      const fileName = `${Date.now()}-${randomUUID()}-${safeBase}.${guessedExt}`;
+      const fileName = `${Date.now()}-${randomUUID()}-${safeBase}.webp`;
       const filePath = path.join(mediaDir, fileName);
 
       try {
         const buffer = Buffer.from(image.data, "base64");
-        await fs.writeFile(filePath, buffer);
+        const out = await sharp(buffer)
+          .rotate() // auto-orient
+          .resize({ width: THUMB_MAX, height: THUMB_MAX, fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 70 })
+          .toBuffer();
+        await fs.writeFile(filePath, out);
         return filePath;
       } catch (error) {
-        console.error("Failed to save image:", error);
+        console.error("Failed to save thumbnail:", error);
         throw error;
       }
     }
   );
+
+  // Save a thumbnail from an existing file path into media and return the new media path
+  ipcMain.handle("media:save-image-from-path", async (_event, filePath: string) => {
+    if (!filePath) throw new Error("Invalid file path");
+    const { mediaDir } = getDirs();
+    const THUMB_MAX = 512; // px
+    try {
+      let sourcePath = filePath;
+      const lower = filePath.toLowerCase();
+      if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+        // Convert HEIC/HEIF to a cached JPEG path first
+        const converted = await heicConverter.getConvertedPath(filePath);
+        if (converted) sourcePath = converted;
+      }
+
+      const baseNameRaw = path.basename(sourcePath).replace(/\.[^.]+$/, "");
+      const safeBase = baseNameRaw.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const outName = `${Date.now()}-${randomUUID()}-${safeBase}.webp`;
+      const outPath = path.join(mediaDir, outName);
+
+      const inputBuffer = await fs.readFile(sourcePath);
+      const outputBuffer = await sharp(inputBuffer)
+        .rotate()
+        .resize({ width: THUMB_MAX, height: THUMB_MAX, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 70 })
+        .toBuffer();
+      await fs.writeFile(outPath, outputBuffer);
+      return outPath;
+    } catch (error) {
+      console.error("Failed to save thumbnail from path:", error);
+      throw error;
+    }
+  });
 }

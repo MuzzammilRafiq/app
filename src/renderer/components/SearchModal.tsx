@@ -14,6 +14,7 @@ export default function SearchModal({ isOpen, onClose, onSelectImage }: SearchMo
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [convertedImages, setConvertedImages] = useState<Map<string, string>>(new Map());
   const [convertingHeic, setConvertingHeic] = useState<Set<string>>(new Set());
 
@@ -127,11 +128,13 @@ export default function SearchModal({ isOpen, onClose, onSelectImage }: SearchMo
     if (!searchQuery.trim()) {
       setResults([]);
       setHasSearched(false);
+      setServiceUnavailable(false);
       return;
     }
 
     setIsSearching(true);
     setHasSearched(true);
+    setServiceUnavailable(false);
 
     try {
       const response = await window.electronAPI?.searchImagesByText(searchQuery.trim(), 10);
@@ -141,11 +144,23 @@ export default function SearchModal({ isOpen, onClose, onSelectImage }: SearchMo
         setResults(searchResults);
       } else {
         setResults([]);
-        console.error("Search failed:", response?.error);
+        if (response?.error) {
+          console.error("Search failed:", response.error);
+          // Check if it's a connection error (service not running)
+          if (
+            response.error.includes("fetch") ||
+            response.error.includes("ECONNREFUSED") ||
+            response.error.includes("Service not available")
+          ) {
+            setServiceUnavailable(true);
+            console.warn("Embedding service appears to be offline");
+          }
+        }
       }
     } catch (error) {
       console.error("Error searching images:", error);
       setResults([]);
+      setServiceUnavailable(true);
     } finally {
       setIsSearching(false);
     }
@@ -221,8 +236,22 @@ export default function SearchModal({ isOpen, onClose, onSelectImage }: SearchMo
           {hasSearched && results.length === 0 && !isSearching && (
             <div className="flex items-center justify-center h-48 text-gray-500">
               <div className="text-center">
-                <p className="text-sm">No images found for "{query}"</p>
-                <p className="text-xs text-gray-400 mt-1">Try different keywords or check if you have indexed images</p>
+                {serviceUnavailable ? (
+                  <>
+                    <p className="text-sm text-red-600">⚠️ Search service unavailable</p>
+                    <p className="text-xs text-gray-400 mt-1">Please start the embedding service and try again</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Run: <code className="bg-gray-100 px-1 rounded">python src/python/main.py</code>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm">No images found for "{query}"</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Try different keywords or check if you have indexed images
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )}
