@@ -1,5 +1,5 @@
 import { type ImageData } from "../../services/imageUtils";
-import { FileSVG, iconClass, ImageSVG, LoadingSVG, PauseSVG, RAGSVG, RemoveSVG, SearchSVG, SendSVG } from "../icons";
+import { iconClass, ImageSVG, LoadingSVG, PauseSVG, RAGSVG, RemoveSVG, SearchSVG, SendSVG } from "../icons";
 import SearchModal from "../SearchModal";
 import { handleImageUpload, handlePaste, handleImageSelect } from "../../services/chat-handlers";
 import { useEffect, useRef, useState } from "react";

@@ -1,4 +1,4 @@
-import type { StreamChunk,ChatSessionRecord } from "../../common/types";
+import type { StreamChunk, ChatSessionRecord } from "../../common/types";
 export interface ChatResponse {
   text: string;
   error?: string;
@@ -27,14 +27,15 @@ function waitForElectronAPI(timeout = 5000): Promise<typeof window.electronAPI> 
 
 export async function streamMessageWithHistory(
   messages: ChatSessionRecord[],
-  onChunk: StreamCallback
+  onChunk: StreamCallback,
+  config: any = {}
 ): Promise<ChatResponse> {
   try {
     const api = await waitForElectronAPI();
 
     api.onStreamChunk(onChunk);
     try {
-      const response = await api.streamMessageWithHistory(messages);
+      const response = await api.streamMessageWithHistory(messages, config);
       return response;
     } finally {
       api.removeStreamChunkListener();
