@@ -13,4 +13,9 @@ dependencies = [
     "pylint>=3.3.8",
     "sentence-transformers>=5.1.0",
     "uvicorn>=0.35.0",
+    "pymupdf>=1.24.10",
+    "colorama>=0.4.6",
+    "ipykernel>=6.30.1",
+    "ipywidgets>=8.1.7",
+    "pdf2image>=1.17.0",
 ]
