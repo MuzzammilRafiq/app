@@ -1,7 +1,6 @@
 import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
 import { useCurrentViewStore, useSidebarCollapsedStore, useStore } from "../utils/store";
 import { useEffect } from "react";
-import toast from "react-hot-toast";
 
 const iconClass =
   "p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
@@ -9,23 +8,13 @@ const iconClass =
 export default function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
-  const createNewSession = useStore((s) => s.createNewSession);
   const populateSessions = useStore((s) => s.populateSessions);
   const currentSession = useStore((s) => s.currentSession);
   const chatSessionsWithMessages = useStore((s) => s.chatSessionsWithMessages);
   const setCurrentSession = useStore((s) => s.setCurrentSession);
   const onNewSession = async () => {
-    try {
-      // Prefer a clean default title instead of reusing the prior one
-      const title = "temp";
-      const newSession = await window.electronAPI.dbCreateSession(title);
-      createNewSession(newSession);
-    } catch (e) {
-      console.error("Failed to create new session", e);
-      toast.error("Failed to create new chat");
-    }
+    setCurrentSession(undefined);
   };
-
   useEffect(() => {
     (async () => {
       const sessions = await window.electronAPI.dbGetAllSessionsWithMessages(50);

@@ -53,10 +53,10 @@ export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
 
 interface Store {
   chatSessionsWithMessages: ChatSessionWithMessages[];
-  currentSession?: ChatSessionWithMessages;
+  currentSession: ChatSessionWithMessages | undefined;
   createNewSession: (newSession: ChatSessionRecord) => void;
   populateSessions: (sessions: ChatSessionWithMessages[]) => void;
-  setCurrentSession: (session: ChatSessionWithMessages) => void;
+  setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (message: ChatMessageRecord, updatedSession: ChatSessionRecord) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (sessionId: string, type: ChatMessageRecord["type"], chunk: string) => void;
