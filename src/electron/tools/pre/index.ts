@@ -4,6 +4,7 @@ import { ragAnswer } from "../rag/index.js";
 import { IpcMainInvokeEvent } from "electron";
 import { promises as fs } from "fs";
 import path from "node:path";
+import { ChatMessageRecord } from "../../../common/types.js";
 
 function guessMimeFromPath(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
@@ -26,40 +27,14 @@ function guessMimeFromPath(filePath: string): string {
   }
 }
 export const preProcessMessage = async (
-  ai: GoogleGenAI,
-  lastUserMessage: any,
+  lastUserMessage: ChatMessageRecord,
   event: IpcMainInvokeEvent,
   config: any
 ) => {
-  // Support legacy base64 images array and current imagePaths on disk
-  if (lastUserMessage?.images && lastUserMessage.images.length > 0) {
-    const { data: imageData, mimeType: imageMimeType } = lastUserMessage.images[0];
-    const imageBase64 = typeof imageData === "string" ? imageData : Buffer.from(imageData).toString("base64");
-    log.BLUE("generating image description (inline image)");
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          inlineData: {
-            mimeType: imageMimeType,
-            data: imageBase64,
-          },
-        },
-        { text: "Describe this image and extract text" },
-      ],
+      const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
     });
-    log.GREEN("image description generated");
-    event.sender.send("stream-chunk", {
-      chunk: `*Extracted Image description:*`,
-      type: "log",
-    });
-    lastUserMessage = {
-      id: lastUserMessage.id,
-      content: lastUserMessage.content + "\n\n" + "<ATTACH_IMAGE_DESC>\n" + result.text + "\n</ATTACH_IMAGE_DESC>",
-      role: "user",
-      timestamp: lastUserMessage.timestamp,
-    };
-  } else if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
+ if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
     try {
       const imagePath = lastUserMessage.imagePaths[0];
       const mimeType = guessMimeFromPath(imagePath);
@@ -85,12 +60,27 @@ export const preProcessMessage = async (
       });
       lastUserMessage = {
         id: lastUserMessage.id,
+        sessionId: lastUserMessage.sessionId,
+        isError: lastUserMessage.isError,
+        imagePaths: lastUserMessage.imagePaths,
+        type: lastUserMessage.type,
         content:
           (lastUserMessage.content || "") + "\n\n" + "<ATTACH_IMAGE_DESC>\n" + result.text + "\n</ATTACH_IMAGE_DESC>",
         role: "user",
         timestamp: lastUserMessage.timestamp,
       };
     } catch (err) {
+       lastUserMessage = {
+        id: lastUserMessage.id,
+        sessionId: lastUserMessage.sessionId,
+        isError: lastUserMessage.isError,
+        imagePaths: lastUserMessage.imagePaths,
+        type: lastUserMessage.type,
+        content:
+          (lastUserMessage.content || "") + "\n\n" + "<ATTACH_IMAGE_DESC>\n" + "failed to generate description" + "\n</ATTACH_IMAGE_DESC>",
+        role: "user",
+        timestamp: lastUserMessage.timestamp,
+      };
       log.RED(`Failed to read/process image at path: ${err}`);
     }
   }

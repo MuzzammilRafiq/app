@@ -47,7 +47,7 @@ export default function ChatContainer() {
     });
 
     setIsLoading(true);
-
+    resetInputState();
     try {
       const session = await ensureSession(
         currentSession,
@@ -85,7 +85,6 @@ export default function ChatContainer() {
       toast.error("Failed to send message");
     } finally {
       setIsLoading(false);
-      resetInputState();
     }
   };
 
