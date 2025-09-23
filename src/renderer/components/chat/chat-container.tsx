@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import { useStore } from "../../utils/store";
 import { type ImageData } from "../../services/imageUtils";
+import type { ChatMessageRecord } from "../../../common/types";
 
 import ChatInput from "./chat-input";
 import MessageGroups from "./message-groups";
+import MessageDetailsSidebar from "./message-details-sidebar";
 import { useStreaming } from "./streaming";
 import {
   handleImagePersistence,
@@ -24,6 +26,12 @@ export default function ChatContainer() {
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isRAGEnabled, setIsRAGEnabled] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarPlans, setSidebarPlans] = useState<ChatMessageRecord[]>([]);
+  const [sidebarLogs, setSidebarLogs] = useState<ChatMessageRecord[]>([]);
+  const [sidebarSources, setSidebarSources] = useState<ChatMessageRecord[]>([]);
+  const [autoOpenEnabled] = useState(true);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
 
@@ -32,6 +40,65 @@ export default function ChatContainer() {
     setImagePaths(null);
     setSelectedImage(null);
   };
+
+  const openSidebar = (payload: { plans: ChatMessageRecord[]; logs: ChatMessageRecord[]; sources: ChatMessageRecord[] }) => {
+    setSidebarPlans(payload.plans || []);
+    setSidebarLogs(payload.logs || []);
+    setSidebarSources(payload.sources || []);
+    setSidebarOpen(true);
+  };
+  const closeSidebar = () => setSidebarOpen(false);
+
+  // Auto-open sidebar when new assistant details arrive
+  const prevCountRef = useRef(0);
+  const messages = (currentSession?.messages ?? []) as ChatMessageRecord[];
+
+  const computeLastAssistantGroup = () => {
+    if (!messages.length) return { plans: [] as ChatMessageRecord[], logs: [] as ChatMessageRecord[], sources: [] as ChatMessageRecord[] };
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg && msg.role === "user") {
+        lastUserIdx = i;
+        break;
+      }
+    }
+    const assistantGroup = messages.slice(lastUserIdx + 1);
+    const plans = assistantGroup.filter((m) => m.type === "plan");
+    const logs = assistantGroup.filter((m) => m.type === "log");
+    const sources = assistantGroup.filter((m) => m.type === "source");
+    return { plans, logs, sources };
+  };
+
+  // Effect to auto-open details sidebar for new messages
+  // Conditions:
+  // - Message count increased OR content changed significantly
+  // - There are any plans/logs/sources in the last assistant group
+  // - Open the sidebar if closed; update if open
+  // - Avoid auto-opening on very first render unless new content arrived
+  useEffect(() => {
+    if (!autoOpenEnabled) return;
+    const prev = prevCountRef.current as number;
+    const curr = messages.length;
+    const { plans, logs, sources } = computeLastAssistantGroup();
+    const hasDetails = plans.length > 0 || logs.length > 0 || sources.length > 0;
+
+    const isNew = curr > prev; // naive new-message detection
+    // Also consider first-time hydration: don't auto-open unless something new arrived
+    if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
+      setSidebarPlans(plans);
+      setSidebarLogs(logs);
+      setSidebarSources(sources);
+      setSidebarOpen(true);
+      setHasAutoOpened(true);
+    } else if (hasDetails && sidebarOpen) {
+      // Keep sidebar content in sync if it's already open
+      setSidebarPlans(plans);
+      setSidebarLogs(logs);
+      setSidebarSources(sources);
+    }
+    prevCountRef.current = curr;
+  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
 
   const handleSendMessage = async () => {
     const trimmedContent = content.trim();
@@ -91,8 +158,11 @@ export default function ChatContainer() {
   return (
     <div className="flex-1 flex flex-col h-full">
       {currentSession && currentSession?.messages?.length > 0 ? (
-        <div className="flex-1 overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar w-[80%] mx-auto">
-          <MessageGroups messages={currentSession.messages} />
+        <div className="flex-1 relative h-full">
+          <div className="overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar w-[80%] mx-auto">
+            <MessageGroups messages={currentSession.messages} onOpenDetails={openSidebar} />
+          </div>
+          <MessageDetailsSidebar isOpen={sidebarOpen} onClose={closeSidebar} plans={sidebarPlans} logs={sidebarLogs} sources={sidebarSources} />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">

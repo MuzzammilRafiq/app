@@ -1,4 +1,4 @@
-import { PlanRenderer, MarkdownRenderer, LogRenderer, SourceRenderer } from "./renderers";
+import { MarkdownRenderer } from "./renderers";
 import type { ChatMessageRecord } from "../../../common/types";
 
 interface MessageGroup {
@@ -8,6 +8,7 @@ interface MessageGroup {
 
 interface MessageGroupsProps {
   messages: ChatMessageRecord[];
+  onOpenDetails?: (payload: { plans: ChatMessageRecord[]; logs: ChatMessageRecord[]; sources: ChatMessageRecord[] }) => void;
 }
 
 function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
@@ -38,7 +39,7 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
   return groupedMessages;
 }
 
-function AssistantMessageSection({ messages }: { messages: ChatMessageRecord[] }) {
+function AssistantMessageSection({ messages, onOpenDetails }: { messages: ChatMessageRecord[]; onOpenDetails?: MessageGroupsProps["onOpenDetails"] }) {
   const planMessages = messages.filter((msg) => msg.type === "plan");
   const logMessages = messages.filter((msg) => msg.type === "log");
   const streamMessages = messages.filter((msg) => msg.type === "stream");
@@ -47,29 +48,22 @@ function AssistantMessageSection({ messages }: { messages: ChatMessageRecord[] }
   return (
     <div className="flex justify-start">
       <div className="w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
-        {/* Plans */}
-        {planMessages.map((msg) => (
-          <PlanRenderer key={msg.id} content={msg.content} />
-        ))}
-
-        {/* Logs */}
-        {logMessages.map((msg) => (
-          <div key={msg.id}>
-            <LogRenderer content={msg.content} />
+        {/* Single Details button */}
+        {(planMessages.length > 0 || logMessages.length > 0 || sourceMessages.length > 0) && (
+          <div>
+            <button
+              onClick={() => onOpenDetails && onOpenDetails({ plans: planMessages, logs: logMessages, sources: sourceMessages })}
+              className="cursor-pointer text-[11px] px-0 py-0 bg-transparent border-0 text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 focus:outline-none focus:ring-0 opacity-90 hover:opacity-100"
+            >
+              Details
+            </button>
           </div>
-        ))}
+        )}
 
-        {/* Stream messages */}
+        {/* Stream messages - keep inline */}
         {streamMessages.map((msg) => (
           <div key={msg.id} className="prose prose-sm max-w-none">
             <MarkdownRenderer content={msg.content} isUser={false} />
-          </div>
-        ))}
-
-        {/* Sources */}
-        {sourceMessages.map((msg) => (
-          <div key={msg.id}>
-            <SourceRenderer content={msg.content} />
           </div>
         ))}
       </div>
@@ -77,7 +71,7 @@ function AssistantMessageSection({ messages }: { messages: ChatMessageRecord[] }
   );
 }
 
-export default function MessageGroups({ messages }: MessageGroupsProps) {
+export default function MessageGroups({ messages, onOpenDetails }: MessageGroupsProps) {
   const groupedMessages = groupMessages(messages);
 
   return (
@@ -111,7 +105,9 @@ export default function MessageGroups({ messages }: MessageGroupsProps) {
             </div>
           )}
 
-          {group.assistantMessages.length > 0 && <AssistantMessageSection messages={group.assistantMessages} />}
+          {group.assistantMessages.length > 0 && (
+            <AssistantMessageSection messages={group.assistantMessages} onOpenDetails={onOpenDetails} />
+          )}
         </div>
       ))}
     </>
