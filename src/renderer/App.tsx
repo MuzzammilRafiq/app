@@ -1,6 +1,6 @@
 import ChatContainer from "./components/chat/chat-container";
 import Sidebar from "./components/Sidebar";
-import Settings from "./components/settings/Settings";
+import Settings from "./components/settings";
 import { Toaster } from "react-hot-toast";
 import { useCurrentViewStore } from "./utils/store";
 
@@ -10,7 +10,7 @@ export default function App() {
     <div>
       <Toaster position="top-center" toastOptions={{ duration: 1000 }} />
       <div className="h-screen bg-white flex">
-        <Sidebar />
+        {currentView === "chat" && <Sidebar />}
         <div className="flex-1 flex flex-col h-full">
           {(() => {
             switch (currentView) {
