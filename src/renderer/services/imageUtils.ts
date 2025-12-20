@@ -15,10 +15,14 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
   })) as Blob;
 
   // Create a new File object from the converted blob
-  return new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), {
-    type: "image/jpeg",
-    lastModified: file.lastModified,
-  });
+  return new File(
+    [convertedBlob],
+    file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+    {
+      type: "image/jpeg",
+      lastModified: file.lastModified,
+    },
+  );
 }
 
 export async function fileToBase64(file: File): Promise<string> {
@@ -60,7 +64,15 @@ export function validateImageFile(file: File): {
   error?: string;
 } {
   const maxSize = 20 * 1024 * 1024;
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+  const allowedTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/heic",
+    "image/heif",
+  ];
 
   if (file.size > maxSize) {
     return { isValid: false, error: "Image file size must be less than 20MB" };

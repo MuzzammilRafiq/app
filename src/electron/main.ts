@@ -39,16 +39,24 @@ function createWindow(): BrowserWindow {
   if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://localhost:5173");
   } else {
-    mainWindow.loadFile(path.join(app.getAppPath(), "dist-renderer/index.html"));
+    mainWindow.loadFile(
+      path.join(app.getAppPath(), "dist-renderer/index.html"),
+    );
   }
 
   if (process.env.NODE_ENV === "development") {
     mainWindow.webContents.openDevTools();
-    mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
-      if (message.includes("Autofill.enable") || message.includes("Autofill.setAddresses")) {
-        return;
-      }
-    });
+    mainWindow.webContents.on(
+      "console-message",
+      (event, level, message, line, sourceId) => {
+        if (
+          message.includes("Autofill.enable") ||
+          message.includes("Autofill.setAddresses")
+        ) {
+          return;
+        }
+      },
+    );
   }
 
   mainWindow.on("closed", () => {

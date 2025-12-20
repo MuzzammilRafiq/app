@@ -54,7 +54,7 @@ export default function Images() {
 
   const handleImageRemoveFolder = async (folder: string) => {
     try {
-      setIsScanning(true)
+      setIsScanning(true);
       const folders = new Map(selectedFolders);
       folders.delete(folder);
       setSelectedFolders(folders);
@@ -76,9 +76,7 @@ export default function Images() {
 
   return (
     <div className="bg-gray-100 px-3 py-6 rounded-xl">
-      <h2>
-        Index images
-      </h2>
+      <h2>Index images</h2>
 
       <div className="space-y-2 mb-3">
         {selectedFolders &&

@@ -1,5 +1,9 @@
 import { google } from "googleapis";
-import { VideoDetails, VideoInfoResult, VideoParams } from "../../../common/types.js";
+import {
+  VideoDetails,
+  VideoInfoResult,
+  VideoParams,
+} from "../../../common/types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
 import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
@@ -7,7 +11,9 @@ import log from "../../../common/log.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-export const extractVideoInfoFromText = async (context: string): Promise<VideoInfoResult> => {
+export const extractVideoInfoFromText = async (
+  context: string,
+): Promise<VideoInfoResult> => {
   log.BG_BLUE("___________extractVideoInfoFromText___________");
   const PROMPT = `Extract the video title, channel name, and determine if the user wants a summary from the following context.
 
@@ -57,7 +63,7 @@ Return the values in JSON format with generate_summary as a boolean.`;
   log.CYAN(response);
   const { videotitle, channelname, generate_summary } = JSON.parse(response!);
   log.GREEN(
-    `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`
+    `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`,
   );
   return { videotitle, channelname, generate_summary };
 };
@@ -123,7 +129,10 @@ export const getVideoDetailsById = async ({
   };
 };
 
-export const getVideoID = async (videotitle: string, channelname: string): Promise<string> => {
+export const getVideoID = async (
+  videotitle: string,
+  channelname: string,
+): Promise<string> => {
   const searchQuery = `${videotitle} channel:${channelname}`;
   const encodedQuery = encodeURIComponent(searchQuery);
   const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=2&q=${encodedQuery}&type=video&key=${process.env.YOUTUBE_API_KEY}`;

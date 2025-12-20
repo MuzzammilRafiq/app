@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import { groq } from "../../services/groq.js";
-import log from  "../../../common/log.js";
+import log from "../../../common/log.js";
 const execAsync = promisify(exec);
 
 // Security: List of dangerous commands that should be blocked
@@ -176,7 +176,9 @@ BULK READ EXAMPLE (WHAT NOT TO DO):
 
 Remember: Understand what the user wants to achieve and preserve the information they need to see. Context should serve the user's intent, not just track technical progress.
 `;
-const checkCommandSecurity = (command: string): { needConformation: boolean; reason: string } => {
+const checkCommandSecurity = (
+  command: string,
+): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 
   // Check for dangerous commands
@@ -208,7 +210,7 @@ const checkCommandSecurity = (command: string): { needConformation: boolean; rea
 export const terminalTool = async (
   event: any,
   command: string,
-  confirm = true
+  confirm = true,
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -243,7 +245,9 @@ export const terminalTool = async (
     return {
       output: output || "Command executed successfully with no output",
       needConformation: false,
-      reason: stderr ? "Command executed with warnings/info messages" : "Command executed successfully",
+      reason: stderr
+        ? "Command executed with warnings/info messages"
+        : "Command executed successfully",
       success: true,
     };
   } catch (error: any) {
@@ -261,7 +265,7 @@ export const terminalTool = async (
 export const terminalStep = async (
   event: any,
   context: string,
-  index: number
+  index: number,
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -287,11 +291,13 @@ export const terminalStep = async (
             properties: {
               updated_context: {
                 type: "string",
-                description: "Updated context string including progress and relevant information for next steps",
+                description:
+                  "Updated context string including progress and relevant information for next steps",
               },
               command: {
                 type: "string",
-                description: "Next terminal command to execute, or 'DONE' if goal is achieved",
+                description:
+                  "Next terminal command to execute, or 'DONE' if goal is achieved",
               },
             },
             required: ["updated_context", "command"],
@@ -338,7 +344,7 @@ export const terminalStep = async (
 export const terminalAgent = async (
   initialContext: string,
   event: any,
-  maxIterations: number = 40
+  maxIterations: number = 40,
 ): Promise<{ output: string }> => {
   log.WHITE("terminal agent started");
   log.BG_BRIGHT_RED(JSON.stringify(initialContext, null, 2));
@@ -354,7 +360,9 @@ export const terminalAgent = async (
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
     const agentResponse = await terminalStep(event, currentContext, iteration);
     if (!agentResponse.success) {
-      log.RED("terminal agent failed:" + agentResponse.error || "Unknown error");
+      log.RED(
+        "terminal agent failed:" + agentResponse.error || "Unknown error",
+      );
       executionLog.push({
         iteration,
         context: currentContext,
@@ -406,7 +414,9 @@ export const terminalAgent = async (
   }
 
   log.RED("max iterations reached");
-  log.YELLOW("task may not be fully completed. consider increasing maxIterations or checking the plan.");
+  log.YELLOW(
+    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
+  );
 
   return { output: currentContext };
 };
@@ -423,7 +433,8 @@ export const executeCommandFD = {
       properties: {
         command: {
           type: "string",
-          description: "The terminal command to execute (e.g., 'ls -la', 'pwd', 'cat file.txt')",
+          description:
+            "The terminal command to execute (e.g., 'ls -la', 'pwd', 'cat file.txt')",
         },
         confirmed: {
           type: "boolean",

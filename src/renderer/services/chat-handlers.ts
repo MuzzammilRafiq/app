@@ -42,7 +42,11 @@ export const handleImageUpload = async ({
     const hadPreviousImage = selectedImage !== null;
     setSelectedImage(newImage);
 
-    toast.success(hadPreviousImage ? "Image replaced successfully" : "Image added successfully");
+    toast.success(
+      hadPreviousImage
+        ? "Image replaced successfully"
+        : "Image added successfully",
+    );
   } catch (error) {
     console.error("Error processing image:", error);
     toast.error("Failed to process image");
@@ -106,7 +110,11 @@ export const handlePaste = async ({
     const hadPreviousImage = selectedImage !== null;
     setSelectedImage(newImage);
 
-    toast.success(hadPreviousImage ? "Image replaced successfully" : "Image pasted successfully");
+    toast.success(
+      hadPreviousImage
+        ? "Image replaced successfully"
+        : "Image pasted successfully",
+    );
   } catch (error) {
     console.error("Error processing pasted image:", error);
     toast.error("Failed to process pasted image");
@@ -130,7 +138,8 @@ export const handleImageSelect = async ({
   setIsProcessingImage(true);
   try {
     // Save a thumbnail copy of the selected image into media and use that stored path
-    const mediaPath = await window.electronAPI.saveImageFromPathToMedia(imagePath);
+    const mediaPath =
+      await window.electronAPI.saveImageFromPathToMedia(imagePath);
     setImagePaths([mediaPath]);
     setSelectedImage(null); // clear any base64 selected image to avoid duplicate save
     toast.success("Image selected from search");

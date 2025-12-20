@@ -22,9 +22,9 @@ export interface PathRecord {
 }
 
 export interface TextPathRecord extends PathRecord {
-  type: 'text';
+  type: "text";
 }
 
 export interface ImagePathRecord extends PathRecord {
-  type: 'image';
+  type: "image";
 }

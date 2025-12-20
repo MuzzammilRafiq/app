@@ -1,5 +1,9 @@
 import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
-import { useCurrentViewStore, useSidebarCollapsedStore, useStore } from "../utils/store";
+import {
+  useCurrentViewStore,
+  useSidebarCollapsedStore,
+  useStore,
+} from "../utils/store";
 import { useEffect } from "react";
 
 const iconClass =
@@ -17,7 +21,8 @@ export default function Sidebar() {
   };
   useEffect(() => {
     (async () => {
-      const sessions = await window.electronAPI.dbGetAllSessionsWithMessages(50);
+      const sessions =
+        await window.electronAPI.dbGetAllSessionsWithMessages(50);
       populateSessions(sessions);
     })();
   }, []);
@@ -32,12 +37,19 @@ export default function Sidebar() {
           >
             {MenuSVG}
           </button>
-          <button onClick={onNewSession} className={`${iconClass} shadow-sm flex-1 p-2 mb-1 w-10`}>
+          <button
+            onClick={onNewSession}
+            className={`${iconClass} shadow-sm flex-1 p-2 mb-1 w-10`}
+          >
             {PlusSVG}
           </button>
         </div>
         <div className="p-2">
-          <button onClick={() => setCurrentView("settings")} className={`${iconClass} p-2 w-10`} title="Settings">
+          <button
+            onClick={() => setCurrentView("settings")}
+            className={`${iconClass} p-2 w-10`}
+            title="Settings"
+          >
             {GearSVG}
           </button>
         </div>
@@ -63,7 +75,9 @@ export default function Sidebar() {
           </button>
 
           {chatSessionsWithMessages.length === 0 ? (
-            <div className="text-center text-gray-500 text-sm mt-8">No chat sessions yet</div>
+            <div className="text-center text-gray-500 text-sm mt-8">
+              No chat sessions yet
+            </div>
           ) : (
             <div className="space-y-1">
               {chatSessionsWithMessages.map((session) => (
@@ -79,7 +93,9 @@ export default function Sidebar() {
                   <div className="flex-1 min-w-0">
                     <div
                       className={`text-sm truncate ${
-                        currentSession?.id === session.id ? "text-blue-700" : "text-gray-700"
+                        currentSession?.id === session.id
+                          ? "text-blue-700"
+                          : "text-gray-700"
                       }`}
                     >
                       {session.title}

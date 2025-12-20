@@ -20,7 +20,9 @@ const extractTextFromSubtitlesFile = async () => {
     // Skip empty lines, timestamps, and VTT headers
     if (
       !trimmedLine ||
-      /^\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}/.test(trimmedLine) ||
+      /^\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}/.test(
+        trimmedLine,
+      ) ||
       /^(WEBVTT|Kind:|Language:)/.test(trimmedLine)
     ) {
       continue;
@@ -39,7 +41,9 @@ const extractTextFromSubtitlesFile = async () => {
   return cleanLines.join(" ");
 };
 
-export const getSubtitlesByVideoId = async (videoId: string): Promise<string> => {
+export const getSubtitlesByVideoId = async (
+  videoId: string,
+): Promise<string> => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 

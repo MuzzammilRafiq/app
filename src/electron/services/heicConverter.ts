@@ -38,7 +38,10 @@ class HeicConverter {
   /**
    * Convert HEIC to JPEG using native macOS sips command (much faster than heic2any)
    */
-  private async convertWithSips(inputPath: string, outputPath: string): Promise<boolean> {
+  private async convertWithSips(
+    inputPath: string,
+    outputPath: string,
+  ): Promise<boolean> {
     return new Promise((resolve) => {
       const sips = spawn("sips", [
         "-s",

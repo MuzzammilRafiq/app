@@ -5,8 +5,14 @@ import { preProcessMessage } from "./pre/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
 
-const router = async (plan: MakePlanResponse[], context: string, event: IpcMainInvokeEvent): Promise<string> => {
-  log.BLUE(`router called with plan: ${JSON.stringify(plan)} and context: ${context}`);
+const router = async (
+  plan: MakePlanResponse[],
+  context: string,
+  event: IpcMainInvokeEvent,
+): Promise<string> => {
+  log.BLUE(
+    `router called with plan: ${JSON.stringify(plan)} and context: ${context}`,
+  );
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
   for (let i = 0; i < plan.length; i++) {
@@ -24,18 +30,37 @@ const router = async (plan: MakePlanResponse[], context: string, event: IpcMainI
     }
 
     updatedPlan.push({ step_number, description, status: "done", tool_name });
-    log.BLUE(JSON.stringify({ step_number, description, status: "done", tool_name }, null, 2));
+    log.BLUE(
+      JSON.stringify(
+        { step_number, description, status: "done", tool_name },
+        null,
+        2,
+      ),
+    );
   }
   return result.output;
 };
 
 // TODO: better handle context of previous messages
-export const stream = async (event: any, messages: ChatMessageRecord[], config: any) => {
+export const stream = async (
+  event: any,
+  messages: ChatMessageRecord[],
+  config: any,
+) => {
   try {
-    const filteredMessages = messages.filter(msg => msg.type === "user" || msg.type === "stream");
+    const filteredMessages = messages.filter(
+      (msg) => msg.type === "user" || msg.type === "stream",
+    );
 
-    const lastUserMessage = await preProcessMessage(filteredMessages.pop()!, event, config);
-    const updatedMessages = [...filteredMessages.slice(0, filteredMessages.length - 1), lastUserMessage];
+    const lastUserMessage = await preProcessMessage(
+      filteredMessages.pop()!,
+      event,
+      config,
+    );
+    const updatedMessages = [
+      ...filteredMessages.slice(0, filteredMessages.length - 1),
+      lastUserMessage,
+    ];
 
     const plan = await getPlan(updatedMessages);
 
@@ -45,7 +70,11 @@ export const stream = async (event: any, messages: ChatMessageRecord[], config: 
     });
 
     log.BLUE(`plan: ${JSON.stringify(plan, null, 2)}`);
-    const finalResponse = await router(plan.steps, lastUserMessage.content, event);
+    const finalResponse = await router(
+      plan.steps,
+      lastUserMessage.content,
+      event,
+    );
 
     // Return final assistant text so renderer can know streaming is complete
     return { text: finalResponse };

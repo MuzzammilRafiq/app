@@ -72,7 +72,9 @@ export class DatabaseService {
 
     // Ensure chat_messages table exists with updated CHECK including 'source'
     try {
-      const getTableSql = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'");
+      const getTableSql = this.db.prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'",
+      );
       const row = getTableSql.get() as { sql: string } | undefined;
 
       if (!row) {
@@ -84,7 +86,9 @@ export class DatabaseService {
         this.db.exec("COMMIT");
       } else if (!row.sql.includes("'source'")) {
         // Migrate table to include 'source' in CHECK constraint
-        log.YELLOW("Migrating chat_messages schema to include 'source' type...");
+        log.YELLOW(
+          "Migrating chat_messages schema to include 'source' type...",
+        );
         try {
           this.db.exec("PRAGMA foreign_keys = OFF");
           this.db.exec("BEGIN TRANSACTION");
@@ -101,18 +105,20 @@ export class DatabaseService {
               images TEXT DEFAULT NULL,
               type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            );`
+            );`,
           );
 
           // Copy data
           this.db.exec(
             `INSERT INTO chat_messages_new (id, session_id, content, role, timestamp, is_error, images, type)
-             SELECT id, session_id, content, role, timestamp, is_error, images, type FROM chat_messages;`
+             SELECT id, session_id, content, role, timestamp, is_error, images, type FROM chat_messages;`,
           );
 
           // Drop old and rename new
           this.db.exec(`DROP TABLE chat_messages;`);
-          this.db.exec(`ALTER TABLE chat_messages_new RENAME TO chat_messages;`);
+          this.db.exec(
+            `ALTER TABLE chat_messages_new RENAME TO chat_messages;`,
+          );
 
           // Recreate indexes
           this.db.exec(createIdx1);
@@ -139,7 +145,11 @@ export class DatabaseService {
     }
   }
 
-  private validateInput(value: any, name: string, allowEmpty: boolean = false): void {
+  private validateInput(
+    value: any,
+    name: string,
+    allowEmpty: boolean = false,
+  ): void {
     if (value === null || value === undefined) {
       throw new Error(`${name} cannot be null or undefined`);
     }
@@ -153,8 +163,15 @@ export class DatabaseService {
     this.validateInput(id, "id");
 
     const now = Date.now();
-    const stmt = this.db.prepare(`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`);
-    const record: ChatSessionRecord = { id, title, createdAt: now, updatedAt: now };
+    const stmt = this.db.prepare(
+      `INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+    );
+    const record: ChatSessionRecord = {
+      id,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    };
 
     try {
       stmt.run(record.id, record.title, record.createdAt, record.updatedAt);
@@ -168,7 +185,7 @@ export class DatabaseService {
   getSessions(): ChatSessionRecord[] {
     try {
       const stmt = this.db.prepare(
-        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions ORDER BY updated_at DESC`
+        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions ORDER BY updated_at DESC`,
       );
       const rows = stmt.all() as Array<{
         id: string;
@@ -193,7 +210,7 @@ export class DatabaseService {
 
     try {
       const stmt = this.db.prepare(
-        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`
+        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`,
       );
       const row = stmt.get(id) as ChatSessionRecord | undefined;
       return row ?? null;
@@ -227,7 +244,9 @@ export class DatabaseService {
 
     try {
       const updatedAt = Date.now();
-      const stmt = this.db.prepare(`UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`);
+      const stmt = this.db.prepare(
+        `UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`,
+      );
       const result = stmt.run(title, updatedAt, id);
       return result.changes > 0;
     } catch (error) {
@@ -243,7 +262,9 @@ export class DatabaseService {
     }
 
     try {
-      const stmt = this.db.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`);
+      const stmt = this.db.prepare(
+        `UPDATE sessions SET updated_at = ? WHERE id = ?`,
+      );
       const result = stmt.run(timestamp, id);
       if (result.changes === 0) {
         throw new Error(`Session with id ${id} not found`);
@@ -289,17 +310,23 @@ export class DatabaseService {
     const validTypes: ChatType[] = ["stream", "log", "plan", "user", "source"];
 
     if (!validRoles.includes(message.role)) {
-      throw new Error(`Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`);
+      throw new Error(
+        `Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`,
+      );
     }
 
     if (!validTypes.includes(message.type)) {
-      throw new Error(`Invalid type: ${message.type}. Must be one of: ${validTypes.join(", ")}`);
+      throw new Error(
+        `Invalid type: ${message.type}. Must be one of: ${validTypes.join(", ")}`,
+      );
     }
 
-    const serializedImages = message.imagePaths ? JSON.stringify(message.imagePaths) : null;
+    const serializedImages = message.imagePaths
+      ? JSON.stringify(message.imagePaths)
+      : null;
     const insertStmt = this.db.prepare(
       `INSERT INTO chat_messages (id, session_id, content, role, timestamp, is_error, images, type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     );
 
     try {
@@ -313,7 +340,7 @@ export class DatabaseService {
         message.timestamp,
         message.isError || "",
         serializedImages,
-        message.type
+        message.type,
       );
 
       // Update session timestamp to keep it sorted by recency
@@ -354,7 +381,7 @@ export class DatabaseService {
                 type
          FROM chat_messages
          WHERE session_id = ?
-         ORDER BY timestamp ASC`
+         ORDER BY timestamp ASC`,
       );
 
       const rows = stmt.all(sessionId) as Array<{
@@ -399,7 +426,8 @@ export class DatabaseService {
       // Single query with JOIN to get sessions and their messages
       // Using a subquery to limit sessions first, then join with messages
       const baseSessionQuery = `SELECT id FROM sessions ORDER BY updated_at DESC`;
-      const sessionQuery = limit === -1 ? baseSessionQuery : `${baseSessionQuery} LIMIT ?`;
+      const sessionQuery =
+        limit === -1 ? baseSessionQuery : `${baseSessionQuery} LIMIT ?`;
 
       const query = `
         SELECT 
@@ -489,7 +517,9 @@ export class DatabaseService {
     this.validateInput(sessionId, "sessionId");
 
     try {
-      const stmt = this.db.prepare(`DELETE FROM chat_messages WHERE session_id = ?`);
+      const stmt = this.db.prepare(
+        `DELETE FROM chat_messages WHERE session_id = ?`,
+      );
       const result = stmt.run(sessionId);
       return Number(result.changes);
     } catch (error) {

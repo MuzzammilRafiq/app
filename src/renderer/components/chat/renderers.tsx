@@ -6,35 +6,73 @@ import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import clsx from "clsx";
 
 import type { MakePlanResponse, UniqueResult } from "../../../common/types";
-import { BadgeCheckIcon, ChevronDownIcon, CheckSolidIcon, ClockIcon, FileSVG, ClipboardIcon } from "../icons";
+import {
+  BadgeCheckIcon,
+  ChevronDownIcon,
+  CheckSolidIcon,
+  ClockIcon,
+  FileSVG,
+  ClipboardIcon,
+} from "../icons";
 
 // Markdown renderer for both user and assistant content
-export function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolean }) {
+export function MarkdownRenderer({
+  content,
+  isUser,
+}: {
+  content: string;
+  isUser: boolean;
+}) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className={clsx("text-xl font-bold mb-3 mt-6", isUser ? "text-blue-700" : "text-slate-800")}>
+          <h1
+            className={clsx(
+              "text-xl font-bold mb-3 mt-6",
+              isUser ? "text-blue-700" : "text-slate-800",
+            )}
+          >
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className={clsx("text-lg font-bold mb-2 mt-5", isUser ? "text-blue-700" : "text-slate-800")}>
+          <h2
+            className={clsx(
+              "text-lg font-bold mb-2 mt-5",
+              isUser ? "text-blue-700" : "text-slate-800",
+            )}
+          >
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className={clsx("text-base font-bold mb-2 mt-4", isUser ? "text-blue-700" : "text-slate-800")}>
+          <h3
+            className={clsx(
+              "text-base font-bold mb-2 mt-4",
+              isUser ? "text-blue-700" : "text-slate-800",
+            )}
+          >
             {children}
           </h3>
         ),
         p: ({ children }) => (
-          <p className={clsx("mb-2 leading-relaxed", isUser ? "text-blue-700" : "text-slate-700")}>{children}</p>
+          <p
+            className={clsx(
+              "mb-2 leading-relaxed",
+              isUser ? "text-blue-700" : "text-slate-700",
+            )}
+          >
+            {children}
+          </p>
         ),
         ul: ({ children }) => (
           <ul
-            className={clsx("list-disc list-inside mb-3 space-y-1 pl-6", isUser ? "text-blue-700" : "text-slate-700")}
+            className={clsx(
+              "list-disc list-inside mb-3 space-y-1 pl-6",
+              isUser ? "text-blue-700" : "text-slate-700",
+            )}
           >
             {children}
           </ul>
@@ -43,15 +81,26 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
           <ol
             className={clsx(
               "list-decimal list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700"
+              isUser ? "text-blue-700" : "text-slate-700",
             )}
           >
             {children}
           </ol>
         ),
-        li: ({ children }) => <li className={clsx(isUser ? "text-blue-700" : "text-slate-700")}>{children}</li>,
+        li: ({ children }) => (
+          <li className={clsx(isUser ? "text-blue-700" : "text-slate-700")}>
+            {children}
+          </li>
+        ),
         strong: ({ children }) => (
-          <strong className={clsx("font-semibold", isUser ? "text-blue-700" : "text-slate-800")}>{children}</strong>
+          <strong
+            className={clsx(
+              "font-semibold",
+              isUser ? "text-blue-700" : "text-slate-800",
+            )}
+          >
+            {children}
+          </strong>
         ),
         code: ({ children, className }) => {
           const isInline = !className;
@@ -60,7 +109,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
               <code
                 className={clsx(
                   "text-sm font-mono px-1.5 py-0.5 rounded-md",
-                  isUser ? "bg-gray-200 text-blue-700" : "bg-slate-200 text-slate-700"
+                  isUser
+                    ? "bg-gray-200 text-blue-700"
+                    : "bg-slate-200 text-slate-700",
                 )}
               >
                 {children}
@@ -84,7 +135,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
                   wordWrap: "break-word",
                   whiteSpace: "pre-wrap",
                 }}
-                showLineNumbers={language !== "text" && language !== "plaintext"}
+                showLineNumbers={
+                  language !== "text" && language !== "plaintext"
+                }
                 wrapLines
                 wrapLongLines
               >
@@ -97,7 +150,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
           <pre
             className={clsx(
               "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap break-words",
-              isUser ? "bg-gray-200 border border-gray-300" : "bg-slate-50 border border-slate-200"
+              isUser
+                ? "bg-gray-200 border border-gray-300"
+                : "bg-slate-50 border border-slate-200",
             )}
           >
             {children}
@@ -107,7 +162,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
           <blockquote
             className={clsx(
               "border-l-4 pl-4 italic mb-3",
-              isUser ? "border-gray-400 text-blue-700" : "border-slate-300 text-slate-600"
+              isUser
+                ? "border-gray-400 text-blue-700"
+                : "border-slate-300 text-slate-600",
             )}
           >
             {children}
@@ -120,7 +177,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
             rel="noopener noreferrer"
             className={clsx(
               "underline underline-offset-2 font-medium transition-colors duration-200",
-              isUser ? "text-blue-700 hover:text-blue-800" : "text-blue-600 hover:text-blue-700"
+              isUser
+                ? "text-blue-700 hover:text-blue-800"
+                : "text-blue-600 hover:text-blue-700",
             )}
           >
             {children}
@@ -131,7 +190,7 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
             <table
               className={clsx(
                 "min-w-full border rounded-lg overflow-hidden shadow-sm",
-                isUser ? "border-blue-500/30" : "border-slate-200"
+                isUser ? "border-blue-500/30" : "border-slate-200",
               )}
             >
               {children}
@@ -142,7 +201,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
           <th
             className={clsx(
               "border px-4 py-3 font-semibold",
-              isUser ? "border-gray-300 bg-gray-200 text-blue-700" : "border-slate-200 bg-slate-100 text-slate-700"
+              isUser
+                ? "border-gray-300 bg-gray-200 text-blue-700"
+                : "border-slate-200 bg-slate-100 text-slate-700",
             )}
           >
             {children}
@@ -152,7 +213,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
           <td
             className={clsx(
               "border px-4 py-3",
-              isUser ? "border-gray-300 text-blue-700" : "border-slate-200 text-slate-700"
+              isUser
+                ? "border-gray-300 text-blue-700"
+                : "border-slate-200 text-slate-700",
             )}
           >
             {children}
@@ -166,14 +229,23 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
 }
 
 // Plan renderer with optional logs support
-function extractPlan(raw: string): { steps: MakePlanResponse[]; logs?: string } | null {
+function extractPlan(
+  raw: string,
+): { steps: MakePlanResponse[]; logs?: string } | null {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return { steps: parsed as MakePlanResponse[] };
-    if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).steps)) {
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as any).steps)
+    ) {
       return {
         steps: (parsed as any).steps as MakePlanResponse[],
-        logs: typeof (parsed as any).logs === "string" ? (parsed as any).logs : undefined,
+        logs:
+          typeof (parsed as any).logs === "string"
+            ? (parsed as any).logs
+            : undefined,
       };
     }
   } catch {}
@@ -181,7 +253,8 @@ function extractPlan(raw: string): { steps: MakePlanResponse[]; logs?: string } 
   if (match) {
     try {
       const candidate = JSON.parse(match[0]);
-      if (Array.isArray(candidate)) return { steps: candidate as MakePlanResponse[] };
+      if (Array.isArray(candidate))
+        return { steps: candidate as MakePlanResponse[] };
     } catch {}
   }
   return null;
@@ -201,14 +274,14 @@ export function PlanRenderer({ content }: { content: string }) {
           <ChevronDownIcon
             className={clsx(
               "w-4 h-4 text-blue-600 transition-transform duration-200",
-              isExpanded ? "rotate-180" : "rotate-0"
+              isExpanded ? "rotate-180" : "rotate-0",
             )}
           />
         </button>
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
           )}
         >
           <pre className="text-sm text-blue-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
@@ -231,22 +304,27 @@ export function PlanRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-blue-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0"
+            isExpanded ? "rotate-180" : "rotate-0",
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0",
         )}
       >
         <div className="space-y-3 max-h-[600px] overflow-y-auto px-2 pb-2">
           {extracted.steps.map((step, index) => (
-            <div key={index} className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm">
+            <div
+              key={index}
+              className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm"
+            >
               <div className="flex items-start space-x-3">
                 <div className=" border border-blue-200 bg-blue-200  w-8 items-center justify-center flex py-0.5 rounded-full">
-                  <span className="text-sm  text-blue-800">{step.step_number}</span>
+                  <span className="text-sm  text-blue-800">
+                    {step.step_number}
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">
@@ -258,22 +336,30 @@ export function PlanRenderer({ content }: { content: string }) {
                         "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
                         step.status === "done"
                           ? "bg-green-100 text-green-800 border-green-200"
-                          : "bg-gray-100 text-gray-800 border-gray-200"
+                          : "bg-gray-100 text-gray-800 border-gray-200",
                       )}
                     >
-                      {step.status === "done" && <CheckSolidIcon className="w-3 h-3 mr-1" />}
-                      {step.status === "todo" && <ClockIcon className="w-3 h-3 mr-1" />}
+                      {step.status === "done" && (
+                        <CheckSolidIcon className="w-3 h-3 mr-1" />
+                      )}
+                      {step.status === "todo" && (
+                        <ClockIcon className="w-3 h-3 mr-1" />
+                      )}
                       {step.status}
                     </span>
                   </div>
-                  <p className="text-sm text-blue-900 leading-relaxed">{step.description}</p>
+                  <p className="text-sm text-blue-900 leading-relaxed">
+                    {step.description}
+                  </p>
                 </div>
               </div>
             </div>
           ))}
           {extracted.logs && (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-4">
-              <div className="text-xs font-semibold text-slate-600 mb-2">Execution Log</div>
+              <div className="text-xs font-semibold text-slate-600 mb-2">
+                Execution Log
+              </div>
               <pre className="text-xs whitespace-pre-wrap text-slate-700 max-h-64 overflow-y-auto">
                 {extracted.logs}
               </pre>
@@ -301,14 +387,14 @@ export function LogRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-amber-600 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0"
+            isExpanded ? "rotate-180" : "rotate-0",
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
         )}
       >
         <pre className="text-sm text-amber-700 whitespace-pre-wrap font-mono break-words max-h-[600px] overflow-y-auto px-2 pb-2">
@@ -331,7 +417,7 @@ function parseSources(content: string): UniqueResult[] | null {
           typeof d.document === "string" &&
           d.metadata &&
           typeof d.metadata.path === "string" &&
-          typeof d.metadata.index === "number"
+          typeof d.metadata.index === "number",
       );
     }
     return null;
@@ -357,19 +443,22 @@ export function SourceRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-emerald-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0"
+            isExpanded ? "rotate-180" : "rotate-0",
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
         )}
       >
         <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
           {sources.map((s) => (
-            <li key={s.id} className="group rounded border border-emerald-200/60 bg-white p-2 text-sm shadow-sm">
+            <li
+              key={s.id}
+              className="group rounded border border-emerald-200/60 bg-white p-2 text-sm shadow-sm"
+            >
               <div className="font-medium text-slate-800">
                 {s.document.slice(0, 200)}
                 {s.document.length > 200 ? "…" : ""}

@@ -1,7 +1,10 @@
 import log from "../../../common/log.js";
 import { GoogleGenAI } from "@google/genai";
 
-export const generalTool = async (context: string, event: any): Promise<{ output: string }> => {
+export const generalTool = async (
+  context: string,
+  event: any,
+): Promise<{ output: string }> => {
   try {
     log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
     const prompt =
@@ -40,7 +43,9 @@ export const generalTool = async (context: string, event: any): Promise<{ output
 
     return { output: fullText };
   } catch (error) {
-    log.RED(`[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+    log.RED(
+      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
     return {
       output: `# Error\n\nSorry, I encountered an error while processing your request:\n\n\`${error instanceof Error ? error.message : "Unknown error"}\`\n\nPlease try again or contact support if the issue persists.`,
     };

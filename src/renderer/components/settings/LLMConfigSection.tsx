@@ -13,7 +13,7 @@ interface LLMConfigSectionProps {
     updater: (prev: { primaryId: string; multimodalId: string }) => {
       primaryId: string;
       multimodalId: string;
-    }
+    },
   ) => void;
   models: OpenRouterModel[];
   textOnlyModels: OpenRouterModel[];

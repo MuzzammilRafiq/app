@@ -50,7 +50,7 @@ export function SearchableSelect({
   const filteredOptions = options.filter(
     (opt) =>
       opt.name.toLowerCase().includes(search.toLowerCase()) ||
-      opt.id.toLowerCase().includes(search.toLowerCase())
+      opt.id.toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleSelect = (optionId: string) => {

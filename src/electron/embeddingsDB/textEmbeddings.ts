@@ -51,7 +51,7 @@ export class TextEmbeddingStore {
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
       );
     `;
-    
+
     const createPathTrackingTable = `
       CREATE TABLE IF NOT EXISTS ${this.pathTrackingTable} (
         path TEXT PRIMARY KEY,
@@ -61,12 +61,12 @@ export class TextEmbeddingStore {
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
       );
     `;
-    
+
     const createTextPathIndex = `
       CREATE INDEX IF NOT EXISTS idx_text_path 
       ON ${this.textTable}(path);
     `;
-    
+
     const createPathTrackingFolderIndex = `
       CREATE INDEX IF NOT EXISTS idx_path_tracking_is_folder 
       ON ${this.pathTrackingTable}(is_folder);
@@ -159,28 +159,28 @@ export class TextEmbeddingStore {
 
   delete(filePath: string): boolean {
     if (!filePath) {
-      throw new Error('Path cannot be empty');
+      throw new Error("Path cannot be empty");
     }
-    
-    const isFolder = filePath.endsWith('/');
-    
+
+    const isFolder = filePath.endsWith("/");
+
     this.db.exec("BEGIN TRANSACTION");
     try {
       let result;
-      
+
       if (isFolder) {
         const folderPathWithoutSlash = filePath.slice(0, -1);
         const escapedFolder = this.escapeLike(folderPathWithoutSlash);
-        
+
         const deleteSql = `
           DELETE FROM ${this.textTable}
           WHERE path = ? 
              OR path LIKE ? ESCAPE '\\'
         `;
-        
+
         const stmt = this.db.prepare(deleteSql);
         result = stmt.run(folderPathWithoutSlash, `${escapedFolder}/%`);
-        
+
         const deleteTrackingSql = `
           DELETE FROM ${this.pathTrackingTable}
           WHERE path = ? 
@@ -199,10 +199,10 @@ export class TextEmbeddingStore {
           DELETE FROM ${this.textTable}
           WHERE path = ?
         `;
-        
+
         const stmt = this.db.prepare(deleteSql);
         result = stmt.run(filePath);
-        
+
         const deleteTrackingSql = `
           DELETE FROM ${this.pathTrackingTable}
           WHERE path = ?
@@ -216,7 +216,7 @@ export class TextEmbeddingStore {
           this.updateParentCount(parentPath);
         }
       }
-      
+
       this.db.exec("COMMIT");
       return result.changes > 0;
     } catch (error) {
@@ -227,7 +227,7 @@ export class TextEmbeddingStore {
 
   private upsertPathTracking(filePath: string, isFolder: boolean): void {
     const now = Date.now();
-    
+
     const upsertSql = `
       INSERT INTO ${this.pathTrackingTable} (path, is_folder, no_of_items, created_at, updated_at)
       VALUES (?, ?, 1, ?, ?)
@@ -237,7 +237,7 @@ export class TextEmbeddingStore {
     `;
     const stmt = this.db.prepare(upsertSql);
     stmt.run(filePath, isFolder ? 1 : 0, now, now, now);
-    
+
     if (!isFolder) {
       const parentPath = this.getParentPath(filePath);
       if (parentPath) {
@@ -256,7 +256,9 @@ export class TextEmbeddingStore {
     `;
     const countStmt = this.db.prepare(countSql);
     const escapedParent = this.escapeLike(parentPath);
-    const countResult = countStmt.get(`${escapedParent}/%`) as { count: number } | undefined;
+    const countResult = countStmt.get(`${escapedParent}/%`) as
+      | { count: number }
+      | undefined;
     const fileCount = countResult?.count || 0;
 
     const upsertParentSql = `
@@ -271,7 +273,7 @@ export class TextEmbeddingStore {
   }
 
   private getParentPath(filePath: string): string | null {
-    const lastSlash = filePath.lastIndexOf('/');
+    const lastSlash = filePath.lastIndexOf("/");
     if (lastSlash <= 0) {
       return null;
     }
@@ -295,7 +297,7 @@ export class TextEmbeddingStore {
     }>;
 
     return rows.map((row) => ({
-      type: 'text' as const,
+      type: "text" as const,
       path: row.path,
       isFolder: row.isFolder === 1,
       noOfItems: row.noOfItems,
@@ -327,7 +329,7 @@ export class TextEmbeddingStore {
     }
 
     return {
-      type: 'text' as const,
+      type: "text" as const,
       path: row.path,
       isFolder: row.isFolder === 1,
       noOfItems: row.noOfItems,
@@ -354,7 +356,7 @@ export class TextEmbeddingStore {
     }>;
 
     return rows.map((row) => ({
-      type: 'text' as const,
+      type: "text" as const,
       path: row.path,
       isFolder: true,
       noOfItems: row.noOfItems,

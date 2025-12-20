@@ -77,9 +77,7 @@ export default function Text() {
 
   return (
     <div className="bg-gray-100 px-3 py-6 rounded-xl">
-      <h2>
-        Index text files
-      </h2>
+      <h2>Index text files</h2>
 
       <div className="space-y-2 mb-3">
         {selectedFolders &&

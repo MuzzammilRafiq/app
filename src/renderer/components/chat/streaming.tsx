@@ -1,6 +1,11 @@
 import { useRef, useState } from "react";
 import type { StreamChunk } from "../../../common/types";
-import { PlanRenderer, LogRenderer, MarkdownRenderer, SourceRenderer } from "./renderers";
+import {
+  PlanRenderer,
+  LogRenderer,
+  MarkdownRenderer,
+  SourceRenderer,
+} from "./renderers";
 
 interface Segment {
   id: string;
@@ -40,10 +45,18 @@ export function useStreaming() {
           if (existingIndex >= 0) {
             const existing = updated[existingIndex];
             if (existing) {
-              updated[existingIndex] = { id: existing.id, type: existing.type, content: data.chunk };
+              updated[existingIndex] = {
+                id: existing.id,
+                type: existing.type,
+                content: data.chunk,
+              };
             }
           } else {
-            updated.push({ id: crypto.randomUUID(), type: "plan", content: data.chunk });
+            updated.push({
+              id: crypto.randomUUID(),
+              type: "plan",
+              content: data.chunk,
+            });
           }
         } else {
           const last = updated[updated.length - 1];
@@ -53,7 +66,11 @@ export function useStreaming() {
               content: last.content + data.chunk,
             };
           } else {
-            updated.push({ id: crypto.randomUUID(), type: data.type, content: data.chunk });
+            updated.push({
+              id: crypto.randomUUID(),
+              type: data.type,
+              content: data.chunk,
+            });
           }
         }
         segmentsRef.current = updated;

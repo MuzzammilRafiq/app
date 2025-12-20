@@ -14,7 +14,7 @@ export default function ChatMessage(message: ChatMessageRecord) {
             ? "bg-blue-100 rounded-xl px-2 py-2"
             : isError
               ? "bg-gradient-to-br from-red-50 to-red-100 text-red-800 border-red-200 px-4 py-2.5"
-              : "text-slate-800 px-4 py-2.5"
+              : "text-slate-800 px-4 py-2.5",
         )}
       >
         {isStreaming ? (
@@ -43,7 +43,8 @@ export default function ChatMessage(message: ChatMessageRecord) {
                       className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
                       style={{ maxWidth: "200px" }}
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).alt = "Failed to load image";
+                        (e.currentTarget as HTMLImageElement).alt =
+                          "Failed to load image";
                       }}
                     />
                   </div>
@@ -58,9 +59,19 @@ export default function ChatMessage(message: ChatMessageRecord) {
                 case "log":
                   return <LogRenderer content={message.content} />;
                 case "stream":
-                  return <MarkdownRenderer content={message.content} isUser={message.role === "user"} />;
+                  return (
+                    <MarkdownRenderer
+                      content={message.content}
+                      isUser={message.role === "user"}
+                    />
+                  );
                 case "user":
-                  return <MarkdownRenderer content={message.content} isUser={message.role === "user"} />;
+                  return (
+                    <MarkdownRenderer
+                      content={message.content}
+                      isUser={message.role === "user"}
+                    />
+                  );
                 default:
                   return <div>Can't render message, check errors</div>;
               }

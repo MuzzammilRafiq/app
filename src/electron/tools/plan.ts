@@ -85,23 +85,25 @@ Steps:
 **Always call the general_tool as the final step to give the final response to the user**
 `;
 
-export const getPlan = async (messages: ChatMessageRecord[]): Promise<{ steps: MakePlanResponse[] }> => {
+export const getPlan = async (
+  messages: ChatMessageRecord[],
+): Promise<{ steps: MakePlanResponse[] }> => {
   try {
-    const userInput = messages.map(msg => {
+    const userInput = messages.map((msg) => {
       return {
         role: msg.role === "user" ? "user" : "assistant",
         content: msg.content,
-      }
-    })
+      };
+    });
     const options = {
       temperature: 0.6,
       max_completion_tokens: 8192,
       messages: [
         {
-          role:"system",
+          role: "system",
           content: SYSTEM_PROMPT_MAKE_PLAN,
         },
-       ...userInput
+        ...userInput,
       ],
       response_format: {
         type: "json_schema",
@@ -126,7 +128,8 @@ export const getPlan = async (messages: ChatMessageRecord[]): Promise<{ steps: M
                     },
                     description: {
                       type: "string",
-                      description: "Clear description of what this step should accomplish",
+                      description:
+                        "Clear description of what this step should accomplish",
                     },
                     status: {
                       type: "string",
@@ -134,7 +137,12 @@ export const getPlan = async (messages: ChatMessageRecord[]): Promise<{ steps: M
                       description: "The status of the step",
                     },
                   },
-                  required: ["step_number", "tool_name", "description", "status"],
+                  required: [
+                    "step_number",
+                    "tool_name",
+                    "description",
+                    "status",
+                  ],
                   additionalProperties: false,
                 },
               },

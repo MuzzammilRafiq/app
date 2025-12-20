@@ -29,12 +29,12 @@ function guessMimeFromPath(filePath: string): string {
 export const preProcessMessage = async (
   lastUserMessage: ChatMessageRecord,
   event: IpcMainInvokeEvent,
-  config: any
+  config: any,
 ) => {
-      const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
- if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+  if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
     try {
       const imagePath = lastUserMessage.imagePaths[0];
       const mimeType = guessMimeFromPath(imagePath);
@@ -65,19 +65,27 @@ export const preProcessMessage = async (
         imagePaths: lastUserMessage.imagePaths,
         type: lastUserMessage.type,
         content:
-          (lastUserMessage.content || "") + "\n\n" + "<ATTACH_IMAGE_DESC>\n" + result.text + "\n</ATTACH_IMAGE_DESC>",
+          (lastUserMessage.content || "") +
+          "\n\n" +
+          "<ATTACH_IMAGE_DESC>\n" +
+          result.text +
+          "\n</ATTACH_IMAGE_DESC>",
         role: "user",
         timestamp: lastUserMessage.timestamp,
       };
     } catch (err) {
-       lastUserMessage = {
+      lastUserMessage = {
         id: lastUserMessage.id,
         sessionId: lastUserMessage.sessionId,
         isError: lastUserMessage.isError,
         imagePaths: lastUserMessage.imagePaths,
         type: lastUserMessage.type,
         content:
-          (lastUserMessage.content || "") + "\n\n" + "<ATTACH_IMAGE_DESC>\n" + "failed to generate description" + "\n</ATTACH_IMAGE_DESC>",
+          (lastUserMessage.content || "") +
+          "\n\n" +
+          "<ATTACH_IMAGE_DESC>\n" +
+          "failed to generate description" +
+          "\n</ATTACH_IMAGE_DESC>",
         role: "user",
         timestamp: lastUserMessage.timestamp,
       };
@@ -87,7 +95,11 @@ export const preProcessMessage = async (
   if (config?.rag) {
     const retreivedDocuments = await ragAnswer(event, lastUserMessage.content);
     lastUserMessage.content =
-      lastUserMessage.content + "\n" + "<RAG_RESULT>\n" + retreivedDocuments + "\n</RAG_RESULT>";
+      lastUserMessage.content +
+      "\n" +
+      "<RAG_RESULT>\n" +
+      retreivedDocuments +
+      "\n</RAG_RESULT>";
   }
   return lastUserMessage;
 };

@@ -1,10 +1,18 @@
-import { extractVideoInfoFromText, getVideoDetailsById, getVideoID, getVideoSummaryById } from "./service.js";
+import {
+  extractVideoInfoFromText,
+  getVideoDetailsById,
+  getVideoID,
+  getVideoSummaryById,
+} from "./service.js";
 import log from "../../../common/log.js";
 
-export const youtubeTool = async (context: string): Promise<{ output: string }> => {
+export const youtubeTool = async (
+  context: string,
+): Promise<{ output: string }> => {
   try {
     log.BLUE("Processing video info...");
-    const { videotitle, channelname, generate_summary } = await extractVideoInfoFromText(context);
+    const { videotitle, channelname, generate_summary } =
+      await extractVideoInfoFromText(context);
     if (!videotitle || !channelname) {
       throw new Error("Failed to extract video title and channel name");
     }
@@ -13,16 +21,22 @@ export const youtubeTool = async (context: string): Promise<{ output: string }> 
     const videoId = await getVideoID(videotitle, channelname);
     log.BLUE(`[youtubeTool] Found video ID: ${videoId}`);
     const videoDetails = await getVideoDetailsById({ videoId });
-    log.BLUE(`[youtubeTool] Video details: ${JSON.stringify(videoDetails, null, 2)}`);
+    log.BLUE(
+      `[youtubeTool] Video details: ${JSON.stringify(videoDetails, null, 2)}`,
+    );
     if (!videoId) {
       throw new Error("Video not found");
     }
     if (generate_summary) {
       log.BLUE("Getting summary...");
       const summary = await getVideoSummaryById(videoId);
-      return { output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo><summary>${summary}</summary>` };
+      return {
+        output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo><summary>${summary}</summary>`,
+      };
     } else {
-      return { output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo>` };
+      return {
+        output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo>`,
+      };
     }
   } catch (error) {
     log.RED(`[youtubeTool] Error: ${error}`);
@@ -38,7 +52,8 @@ export const youtubeToolFunctionDeclaration = {
     properties: {
       videoInfo: {
         type: "string",
-        description: "Video info extracted from screenshot of YouTube video or user context about the video",
+        description:
+          "Video info extracted from screenshot of YouTube video or user context about the video",
       },
     },
   },

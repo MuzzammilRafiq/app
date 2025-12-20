@@ -1,7 +1,20 @@
 import { type ImageData } from "../../services/imageUtils";
-import { iconClass, ImageSVG, LoadingSVG, PauseSVG, RAGSVG, RemoveSVG, SearchSVG, SendSVG } from "../icons";
+import {
+  iconClass,
+  ImageSVG,
+  LoadingSVG,
+  PauseSVG,
+  RAGSVG,
+  RemoveSVG,
+  SearchSVG,
+  SendSVG,
+} from "../icons";
 import SearchModal from "../SearchModal";
-import { handleImageUpload, handlePaste, handleImageSelect } from "../../services/chat-handlers";
+import {
+  handleImageUpload,
+  handlePaste,
+  handleImageSelect,
+} from "../../services/chat-handlers";
 import { useEffect, useRef, useState } from "react";
 
 interface ChatInputProps {
@@ -93,7 +106,14 @@ export default function ChatInput({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            onPaste={(event) => handlePaste({ event, setIsProcessingImage, selectedImage, setSelectedImage })}
+            onPaste={(event) =>
+              handlePaste({
+                event,
+                setIsProcessingImage,
+                selectedImage,
+                setSelectedImage,
+              })
+            }
             placeholder="Ask or Act"
             disabled={isLoading || isStreaming}
             className="w-full px-4 py-3 resize-none max-h-32 min-h-[48px]"
@@ -122,7 +142,9 @@ export default function ChatInput({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingImage}
-                className={iconClass + " shadow-sm bg-white border border-gray-200"}
+                className={
+                  iconClass + " shadow-sm bg-white border border-gray-200"
+                }
                 title={selectedImage ? "Replace Image" : "Upload Image"}
                 type="button"
               >
@@ -131,7 +153,9 @@ export default function ChatInput({
               <button
                 onClick={() => setIsSearchModalOpen(true)}
                 disabled={isLoading}
-                className={iconClass + " shadow-sm bg-white border border-gray-200"}
+                className={
+                  iconClass + " shadow-sm bg-white border border-gray-200"
+                }
                 title="Search Images"
                 type="button"
               >
@@ -143,7 +167,9 @@ export default function ChatInput({
                 className={
                   iconClass +
                   " shadow-sm bg-white border border-gray-200" +
-                  (isRAGEnabled ? " text-blue-600 bg-blue-50 border-blue-200" : "")
+                  (isRAGEnabled
+                    ? " text-blue-600 bg-blue-50 border-blue-200"
+                    : "")
                 }
                 title="Enable RAG"
                 type="button"
@@ -156,7 +182,9 @@ export default function ChatInput({
               <button
                 onClick={handleSendMessage}
                 disabled={
-                  (!content.trim() && !selectedImage && !(imagePaths && imagePaths.length > 0)) ||
+                  (!content.trim() &&
+                    !selectedImage &&
+                    !(imagePaths && imagePaths.length > 0)) ||
                   isLoading ||
                   isStreaming
                 }
@@ -172,7 +200,12 @@ export default function ChatInput({
           isOpen={isSearchModalOpen}
           onClose={() => setIsSearchModalOpen(false)}
           onSelectImage={(imagePath: string) =>
-            handleImageSelect({ imagePath, setIsProcessingImage, setImagePaths, setSelectedImage })
+            handleImageSelect({
+              imagePath,
+              setIsProcessingImage,
+              setImagePaths,
+              setSelectedImage,
+            })
           }
         />
       </div>

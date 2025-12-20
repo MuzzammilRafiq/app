@@ -41,7 +41,10 @@ export function setupFileOperationHandlers() {
       return { success: true };
     } catch (error) {
       console.error("Error cleaning up cache:", error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   });
 
@@ -54,7 +57,7 @@ export function setupFileOperationHandlers() {
         data: string; // base64 (no data URL prefix)
         mimeType: string; // e.g. image/png
         name?: string; // original filename
-      }
+      },
     ) => {
       if (!image || !image.data || !image.mimeType) {
         throw new Error("Invalid image payload");
@@ -71,7 +74,12 @@ export function setupFileOperationHandlers() {
         const buffer = Buffer.from(image.data, "base64");
         const out = await sharp(buffer)
           .rotate() // auto-orient
-          .resize({ width: THUMB_MAX, height: THUMB_MAX, fit: "inside", withoutEnlargement: true })
+          .resize({
+            width: THUMB_MAX,
+            height: THUMB_MAX,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
           .webp({ quality: 70 })
           .toBuffer();
         await fs.writeFile(filePath, out);
@@ -80,39 +88,47 @@ export function setupFileOperationHandlers() {
         console.error("Failed to save thumbnail:", error);
         throw error;
       }
-    }
+    },
   );
 
   // Save a thumbnail from an existing file path into media and return the new media path
-  ipcMain.handle("media:save-image-from-path", async (_event, filePath: string) => {
-    if (!filePath) throw new Error("Invalid file path");
-    const { mediaDir } = getDirs();
-    const THUMB_MAX = 512; // px
-    try {
-      let sourcePath = filePath;
-      const lower = filePath.toLowerCase();
-      if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
-        // Convert HEIC/HEIF to a cached JPEG path first
-        const converted = await heicConverter.getConvertedPath(filePath);
-        if (converted) sourcePath = converted;
+  ipcMain.handle(
+    "media:save-image-from-path",
+    async (_event, filePath: string) => {
+      if (!filePath) throw new Error("Invalid file path");
+      const { mediaDir } = getDirs();
+      const THUMB_MAX = 512; // px
+      try {
+        let sourcePath = filePath;
+        const lower = filePath.toLowerCase();
+        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+          // Convert HEIC/HEIF to a cached JPEG path first
+          const converted = await heicConverter.getConvertedPath(filePath);
+          if (converted) sourcePath = converted;
+        }
+
+        const baseNameRaw = path.basename(sourcePath).replace(/\.[^.]+$/, "");
+        const safeBase = baseNameRaw.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const outName = `${Date.now()}-${randomUUID()}-${safeBase}.webp`;
+        const outPath = path.join(mediaDir, outName);
+
+        const inputBuffer = await fs.readFile(sourcePath);
+        const outputBuffer = await sharp(inputBuffer)
+          .rotate()
+          .resize({
+            width: THUMB_MAX,
+            height: THUMB_MAX,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 70 })
+          .toBuffer();
+        await fs.writeFile(outPath, outputBuffer);
+        return outPath;
+      } catch (error) {
+        console.error("Failed to save thumbnail from path:", error);
+        throw error;
       }
-
-      const baseNameRaw = path.basename(sourcePath).replace(/\.[^.]+$/, "");
-      const safeBase = baseNameRaw.replace(/[^a-zA-Z0-9-_]/g, "_");
-      const outName = `${Date.now()}-${randomUUID()}-${safeBase}.webp`;
-      const outPath = path.join(mediaDir, outName);
-
-      const inputBuffer = await fs.readFile(sourcePath);
-      const outputBuffer = await sharp(inputBuffer)
-        .rotate()
-        .resize({ width: THUMB_MAX, height: THUMB_MAX, fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 70 })
-        .toBuffer();
-      await fs.writeFile(outPath, outputBuffer);
-      return outPath;
-    } catch (error) {
-      console.error("Failed to save thumbnail from path:", error);
-      throw error;
-    }
-  });
+    },
+  );
 }

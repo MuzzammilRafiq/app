@@ -90,37 +90,37 @@ export default function GeneralSettings() {
         <div className="text-sm font-medium text-slate-800">Preferences</div>
         <div className="space-y-2">
           {row("Dark mode", "Use a dark theme", settings.theme === "dark", () =>
-            onToggle("theme")
+            onToggle("theme"),
           )}
           {row(
             "Notifications",
             "Show desktop notifications",
             settings.notificationsEnabled,
-            () => onToggle("notificationsEnabled")
+            () => onToggle("notificationsEnabled"),
           )}
           {row(
             "Sound effects",
             "Play send and receive sounds",
             settings.soundEnabled,
-            () => onToggle("soundEnabled")
+            () => onToggle("soundEnabled"),
           )}
           {row(
             "Compact mode",
             "Condense spacing in chat",
             settings.compactMode,
-            () => onToggle("compactMode")
+            () => onToggle("compactMode"),
           )}
           {row(
             "Confirm clear chat",
             "Ask before clearing conversations",
             settings.confirmClearChat,
-            () => onToggle("confirmClearChat")
+            () => onToggle("confirmClearChat"),
           )}
           {row(
             "Launch at login",
             "Start app on system login",
             settings.autoLaunch,
-            () => onToggle("autoLaunch")
+            () => onToggle("autoLaunch"),
           )}
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function GeneralSettings() {
     title: string,
     description: string,
     enabled: boolean,
-    onClick: () => void
+    onClick: () => void,
   ) {
     return (
       <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">

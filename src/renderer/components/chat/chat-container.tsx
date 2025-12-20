@@ -17,7 +17,9 @@ import {
 } from "./chat-utils";
 
 export default function ChatContainer() {
-  const currentSession = useStore((s) => s.currentSession) as ChatSession | null;
+  const currentSession = useStore(
+    (s) => s.currentSession,
+  ) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
 
@@ -33,7 +35,8 @@ export default function ChatContainer() {
   const [autoOpenEnabled] = useState(true);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
+  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } =
+    useStreaming();
 
   const resetInputState = () => {
     setContent("");
@@ -41,7 +44,11 @@ export default function ChatContainer() {
     setSelectedImage(null);
   };
 
-  const openSidebar = (payload: { plans: ChatMessageRecord[]; logs: ChatMessageRecord[]; sources: ChatMessageRecord[] }) => {
+  const openSidebar = (payload: {
+    plans: ChatMessageRecord[];
+    logs: ChatMessageRecord[];
+    sources: ChatMessageRecord[];
+  }) => {
     setSidebarPlans(payload.plans || []);
     setSidebarLogs(payload.logs || []);
     setSidebarSources(payload.sources || []);
@@ -54,7 +61,12 @@ export default function ChatContainer() {
   const messages = (currentSession?.messages ?? []) as ChatMessageRecord[];
 
   const computeLastAssistantGroup = () => {
-    if (!messages.length) return { plans: [] as ChatMessageRecord[], logs: [] as ChatMessageRecord[], sources: [] as ChatMessageRecord[] };
+    if (!messages.length)
+      return {
+        plans: [] as ChatMessageRecord[],
+        logs: [] as ChatMessageRecord[],
+        sources: [] as ChatMessageRecord[],
+      };
     let lastUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
@@ -81,7 +93,8 @@ export default function ChatContainer() {
     const prev = prevCountRef.current as number;
     const curr = messages.length;
     const { plans, logs, sources } = computeLastAssistantGroup();
-    const hasDetails = plans.length > 0 || logs.length > 0 || sources.length > 0;
+    const hasDetails =
+      plans.length > 0 || logs.length > 0 || sources.length > 0;
 
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
@@ -102,7 +115,8 @@ export default function ChatContainer() {
 
   const handleSendMessage = async () => {
     const trimmedContent = content.trim();
-    const hasAnyImage = !!selectedImage || (imagePaths && imagePaths.length > 0);
+    const hasAnyImage =
+      !!selectedImage || (imagePaths && imagePaths.length > 0);
     if ((!trimmedContent && !hasAnyImage) || isLoading || isStreaming) {
       return;
     }
@@ -119,21 +133,33 @@ export default function ChatContainer() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession
+        createNewSession,
       );
-      const storedImagePaths = await handleImagePersistence(selectedImage, imagePaths);
-      const newMessage = await createUserMessage(session, trimmedContent || "", storedImagePaths, addMessage);
+      const storedImagePaths = await handleImagePersistence(
+        selectedImage,
+        imagePaths,
+      );
+      const newMessage = await createUserMessage(
+        session,
+        trimmedContent || "",
+        storedImagePaths,
+        addMessage,
+      );
 
       // Stream tokens directly into the current session's messages
       const handleChunk = (data: any) => {
         if (!session?.id) return;
         // Grow the visible assistant message by type
-        useStore.getState().upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
+        useStore
+          .getState()
+          .upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
       };
       setupStreaming(handleChunk);
 
       try {
-        const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
+        const existingMessages = currentSession?.messages
+          ? [...currentSession.messages]
+          : [];
         const history = existingMessages.concat([newMessage]);
 
         await window.electronAPI.streamMessageWithHistory(history, {
@@ -160,13 +186,24 @@ export default function ChatContainer() {
       {currentSession && currentSession?.messages?.length > 0 ? (
         <div className="flex-1 relative h-full">
           <div className="overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar w-[80%] mx-auto">
-            <MessageGroups messages={currentSession.messages} onOpenDetails={openSidebar} />
+            <MessageGroups
+              messages={currentSession.messages}
+              onOpenDetails={openSidebar}
+            />
           </div>
-          <MessageDetailsSidebar isOpen={sidebarOpen} onClose={closeSidebar} plans={sidebarPlans} logs={sidebarLogs} sources={sidebarSources} />
+          <MessageDetailsSidebar
+            isOpen={sidebarOpen}
+            onClose={closeSidebar}
+            plans={sidebarPlans}
+            logs={sidebarLogs}
+            sources={sidebarSources}
+          />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">
-          <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
+          <h1 className="text-2xl mb-4 text-blue-700">
+            👋 How can I help you ?
+          </h1>
         </div>
       )}
 

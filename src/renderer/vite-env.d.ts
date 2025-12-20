@@ -47,7 +47,7 @@ interface Window {
      */
     streamMessageWithHistory: (
       messages: any[],
-      config: any
+      config: any,
     ) => Promise<{ text: string; error?: string }>;
 
     /**
@@ -59,7 +59,7 @@ interface Window {
       callback: (data: {
         chunk: string;
         type: "stream" | "log" | "plan" | "source";
-      }) => void
+      }) => void,
     ) => void;
 
     /**
@@ -81,7 +81,7 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     scanFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
     /**
      * Delete a folder for images
@@ -90,7 +90,7 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     deleteFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -117,7 +117,7 @@ interface Window {
      */
     searchImagesByText: (
       query: string,
-      limit?: number
+      limit?: number,
     ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
 
     /**
@@ -173,7 +173,7 @@ interface Window {
      */
     searchTextsByText: (
       query: string,
-      limit?: number
+      limit?: number,
     ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
 
     /**
@@ -194,7 +194,7 @@ interface Window {
      * @returns Scan results
      */
     scanTextFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -203,7 +203,7 @@ interface Window {
      * @returns Deletion results
      */
     deleteTextFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -211,7 +211,7 @@ interface Window {
      */
     dbCreateSession: (
       title: string,
-      id?: string
+      id?: string,
     ) => Promise<import("../common/types").ChatSessionRecord>;
 
     /**
@@ -223,7 +223,7 @@ interface Window {
      * Database API: get a session by id
      */
     dbGetSession: (
-      id: string
+      id: string,
     ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
@@ -236,7 +236,7 @@ interface Window {
      */
     dbTouchSession: (
       id: string,
-      timestamp: number
+      timestamp: number,
     ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
@@ -248,14 +248,14 @@ interface Window {
      * Database API: add a chat message
      */
     dbAddChatMessage: (
-      message: import("../common/types").ChatMessageRecord
+      message: import("../common/types").ChatMessageRecord,
     ) => Promise<import("../common/types").ChatMessageRecord>;
 
     /**
      * Database API: get chat messages for a session
      */
     dbGetChatMessages: (
-      sessionId: string
+      sessionId: string,
     ) => Promise<import("../common/types").ChatMessageRecord[]>;
 
     /**
@@ -271,7 +271,7 @@ interface Window {
      * Database API: get all sessions with their messages, limited by number of sessions
      */
     dbGetAllSessionsWithMessages: (
-      limit: number
+      limit: number,
     ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
 
     /**
