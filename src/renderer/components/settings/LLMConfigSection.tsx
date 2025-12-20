@@ -1,4 +1,3 @@
-import Input from "../../ui/input";
 import { SearchableSelect } from "./SearchableSelect";
 import type { AppSettings } from "../../services/settingsStorage";
 import type { OpenRouterModel } from "../../../common/types";
@@ -61,7 +60,7 @@ export function LLMConfigSection({
               <label className="block text-xs font-medium text-slate-600 mb-2">
                 OpenRouter API Key
               </label>
-              <Input
+              <input
                 type="password"
                 placeholder="sk-or-v1-..."
                 value={settings.openrouterApiKey || ""}
@@ -142,7 +141,7 @@ export function LLMConfigSection({
               <label className="block text-xs font-medium text-slate-600 mb-2">
                 Ollama Model
               </label>
-              <Input
+              <input
                 type="text"
                 placeholder="e.g., llama3.1:8b"
                 value={settings.ollamaModel}

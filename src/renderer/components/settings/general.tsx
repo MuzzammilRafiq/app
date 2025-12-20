@@ -1,6 +1,5 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import Input from "../../ui/input";
 import {
   loadSettings,
   saveSettings,
@@ -37,7 +36,7 @@ export default function GeneralSettings() {
           <label className="block text-xs font-medium text-slate-600 mb-2">
             Display name
           </label>
-          <Input
+          <input
             type="text"
             placeholder="Enter your name"
             value={settings.displayName}
