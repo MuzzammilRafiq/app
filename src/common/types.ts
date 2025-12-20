@@ -79,6 +79,14 @@ interface UniqueResult {
 interface StreamMessageConfig {
   rag?: boolean;
 }
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  input_modalities: string[];
+  output_modalities: string[];
+  supported_parameters: string[];
+}
+
 export type {
   ChatMessageRecord,
   ChatRole,
@@ -93,4 +101,5 @@ export type {
   SearchResult,
   UniqueResult,
   StreamMessageConfig,
+  OpenRouterModel,
 };

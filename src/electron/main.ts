@@ -7,6 +7,7 @@ import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
 import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
+import { getOpenRouterModels } from "./ipc/get-openrouter-models.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -63,6 +64,7 @@ app.whenReady().then(() => {
   setupTextEmbeddingHandlers();
   setupFileOperationHandlers();
   setupDatabaseHandlers();
+  getOpenRouterModels();
   createWindow();
 });
 
