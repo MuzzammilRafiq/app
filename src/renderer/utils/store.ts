@@ -1,25 +1,33 @@
 import { create } from "zustand";
-import type { ChatSessionRecord, ChatSessionWithMessages, ChatMessageRecord } from "../../common/types";
+import type {
+  ChatSessionRecord,
+  ChatSessionWithMessages,
+  ChatMessageRecord,
+} from "../../common/types";
 
 // --------------chatSessions-------------------
 interface ChatSessionRecordsStore {
   chatSessionRecords: ChatSessionRecord[];
   setChatSessionRecords: (records: ChatSessionRecord[]) => void;
 }
-export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>((set) => ({
-  chatSessionRecords: [],
-  setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-}));
+export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
+  (set) => ({
+    chatSessionRecords: [],
+    setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
+  })
+);
 
 // --------------chatSessionsWithMessages-------------------
 interface ChatSessionWithMessagesStore {
   chatSessionsWithMessages: ChatSessionWithMessages[];
   setChatSessionsWithMessages: (sessions: ChatSessionWithMessages[]) => void;
 }
-export const useChatSessionWithMessagesStore = create<ChatSessionWithMessagesStore>((set) => ({
-  chatSessionsWithMessages: [],
-  setChatSessionsWithMessages: (sessions) => set({ chatSessionsWithMessages: sessions }),
-}));
+export const useChatSessionWithMessagesStore =
+  create<ChatSessionWithMessagesStore>((set) => ({
+    chatSessionsWithMessages: [],
+    setChatSessionsWithMessages: (sessions) =>
+      set({ chatSessionsWithMessages: sessions }),
+  }));
 
 // --------------currentSession-------------------
 interface CurrentSessionStore {
@@ -36,10 +44,13 @@ interface SidebarCollapsedStore {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
-export const useSidebarCollapsedStore = create<SidebarCollapsedStore>((set) => ({
-  sidebarCollapsed: false,
-  setSidebarCollapsed: (collapsed: boolean) => set({ sidebarCollapsed: collapsed }),
-}));
+export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
+  (set) => ({
+    sidebarCollapsed: false,
+    setSidebarCollapsed: (collapsed: boolean) =>
+      set({ sidebarCollapsed: collapsed }),
+  })
+);
 
 // --------------currentView-------------------
 interface CurrentViewStore {
@@ -47,7 +58,7 @@ interface CurrentViewStore {
   setCurrentView: (view: "chat" | "settings") => void;
 }
 export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
-  currentView: "chat",
+  currentView: "settings",
   setCurrentView: (view) => set({ currentView: view }),
 }));
 
@@ -57,9 +68,16 @@ interface Store {
   createNewSession: (newSession: ChatSessionRecord) => void;
   populateSessions: (sessions: ChatSessionWithMessages[]) => void;
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
-  addMessage: (message: ChatMessageRecord, updatedSession: ChatSessionRecord) => void;
+  addMessage: (
+    message: ChatMessageRecord,
+    updatedSession: ChatSessionRecord
+  ) => void;
   // Streaming helpers
-  upsertStreamingAssistantMessage: (sessionId: string, type: ChatMessageRecord["type"], chunk: string) => void;
+  upsertStreamingAssistantMessage: (
+    sessionId: string,
+    type: ChatMessageRecord["type"],
+    chunk: string
+  ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
 }
 interface ChatTitleStore {
@@ -78,7 +96,10 @@ export const useStore = create<Store>((set) => ({
       // Add new session at the beginning since it's the most recent
       const newSessionWithMessages = { ...newSession, messages: [] };
       return {
-        chatSessionsWithMessages: [newSessionWithMessages, ...state.chatSessionsWithMessages],
+        chatSessionsWithMessages: [
+          newSessionWithMessages,
+          ...state.chatSessionsWithMessages,
+        ],
         currentSession: newSessionWithMessages,
       };
     });
@@ -90,7 +111,8 @@ export const useStore = create<Store>((set) => ({
 
       return {
         chatSessionsWithMessages: sortedSessions,
-        currentSession: sortedSessions.length > 0 ? sortedSessions[0] : undefined,
+        currentSession:
+          sortedSessions.length > 0 ? sortedSessions[0] : undefined,
       };
     });
   },
@@ -102,19 +124,27 @@ export const useStore = create<Store>((set) => ({
       // Update the session with the new message
       const updatedSessions = state.chatSessionsWithMessages.map((session) => {
         if (session.id === updatedSession.id) {
-          return { ...updatedSession, messages: [...session.messages, message] };
+          return {
+            ...updatedSession,
+            messages: [...session.messages, message],
+          };
         }
         return session;
       });
 
       // Sort sessions by updatedAt descending (most recent first)
-      const sortedSessions = updatedSessions.sort((a, b) => b.updatedAt - a.updatedAt);
+      const sortedSessions = updatedSessions.sort(
+        (a, b) => b.updatedAt - a.updatedAt
+      );
 
       return {
         chatSessionsWithMessages: sortedSessions,
         currentSession:
           state.currentSession && state.currentSession.id === updatedSession.id
-            ? { ...updatedSession, messages: [...state.currentSession.messages, message] }
+            ? {
+                ...updatedSession,
+                messages: [...state.currentSession.messages, message],
+              }
             : state.currentSession,
       };
     });
@@ -128,7 +158,12 @@ export const useStore = create<Store>((set) => ({
         // Try to find last assistant message of this type that is not marked error
         const msgs = [...session.messages];
         const last = msgs[msgs.length - 1];
-        if (last && last.role === "assistant" && last.type === type && !last.isError) {
+        if (
+          last &&
+          last.role === "assistant" &&
+          last.type === type &&
+          !last.isError
+        ) {
           const merged: ChatMessageRecord = {
             ...last,
             content: last.content + chunk,
@@ -159,7 +194,10 @@ export const useStore = create<Store>((set) => ({
         if (sessionIdx >= 0) newCurrent = updatedSessions[sessionIdx];
       }
 
-      return { chatSessionsWithMessages: updatedSessions, currentSession: newCurrent };
+      return {
+        chatSessionsWithMessages: updatedSessions,
+        currentSession: newCurrent,
+      };
     });
   },
   resetStreamingAssistantState: (_sessionId) => {

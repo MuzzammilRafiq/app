@@ -11,15 +11,16 @@ const openRouter = new OpenRouter({
 export const getModels = async () => {
   try {
     log.GREEN("Fetching OpenRouter models...");
-    const models = (await openRouter.models.list()).data;
-    const updatedModels = models.map((model) => ({
-      id: model.id,
-      name: model.name,
-      input_modalities: model.architecture.inputModalities,
-      output_modalities: model.architecture.outputModalities,
-      supported_parameters: model.supportedParameters,
-    }));
-    return updatedModels;
+    const models = (await openRouter.models.list()).data
+      .filter((m) => "tools" in m.supportedParameters)
+      .map((model) => ({
+        id: model.id,
+        name: model.name,
+        input_modalities: model.architecture.inputModalities,
+        output_modalities: model.architecture.outputModalities,
+        supported_parameters: model.supportedParameters,
+      }));
+    return models;
   } catch (error) {
     console.error("Failed to fetch OpenRouter models:", error);
     return [];

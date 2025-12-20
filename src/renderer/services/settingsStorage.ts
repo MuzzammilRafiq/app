@@ -1,18 +1,37 @@
 export interface AppSettings {
   theme: "light" | "dark";
-  apiKey?: string;
-  model: string;
-  maxTokens: number;
-  temperature: number;
+  llmProvider: "openrouter" | "ollama";
+  openrouterApiKey?: string;
+  openrouterModel: string;
+  openrouterMultimodalModel: string;
+  ollamaModel: string;
   folders: string[];
+  displayName: string;
+  notificationsEnabled: boolean;
+  soundEnabled: boolean;
+  compactMode: boolean;
+  confirmClearChat: boolean;
+  autoLaunch: boolean;
+  preferredLanguage: string;
+  preferredLanguageCustomInfo: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
-  model: "gemini-pro",
-  maxTokens: 4096,
-  temperature: 0.7,
+  llmProvider: "openrouter",
+  openrouterApiKey: "",
+  openrouterModel: "openai/gpt-4o-mini",
+  openrouterMultimodalModel: "",
+  ollamaModel: "llama3.1:8b",
   folders: [],
+  displayName: "",
+  notificationsEnabled: true,
+  soundEnabled: true,
+  compactMode: false,
+  confirmClearChat: true,
+  autoLaunch: false,
+  preferredLanguage: "english",
+  preferredLanguageCustomInfo: "",
 };
 
 const SETTINGS_KEY = "app-settings";

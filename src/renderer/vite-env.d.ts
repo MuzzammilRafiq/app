@@ -45,14 +45,22 @@ interface Window {
      * @param {any[]} messages - Array of message objects with role and content
      * @returns {Promise<{text: string, error?: string}>} Response from Gemini AI or error message
      */
-    streamMessageWithHistory: (messages: any[], config: any) => Promise<{ text: string; error?: string }>;
+    streamMessageWithHistory: (
+      messages: any[],
+      config: any
+    ) => Promise<{ text: string; error?: string }>;
 
     /**
      * Sets up a listener for streaming chunks from Gemini AI
      *
      * @param {Function} callback - Callback function to handle stream chunks
      */
-    onStreamChunk: (callback: (data: { chunk: string; type: "stream" | "log" | "plan" | "source" }) => void) => void;
+    onStreamChunk: (
+      callback: (data: {
+        chunk: string;
+        type: "stream" | "log" | "plan" | "source";
+      }) => void
+    ) => void;
 
     /**
      * Removes all stream chunk listeners
@@ -72,14 +80,18 @@ interface Window {
      * @param {string} folder - The path to the folder to scan
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
-    scanFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+    scanFolder: (
+      folder: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
     /**
      * Delete a folder for images
      *
      * @param {string} folder - The path to the folder to delete
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
-    deleteFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+    deleteFolder: (
+      folder: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
      * Adds an image folder to be indexed for search
@@ -129,7 +141,10 @@ interface Window {
      *
      * @returns {Promise<{fileCount: number, totalSizeMB: number}>} Cache statistics
      */
-    getHeicCacheStats: () => Promise<{ fileCount: number; totalSizeMB: number }>;
+    getHeicCacheStats: () => Promise<{
+      fileCount: number;
+      totalSizeMB: number;
+    }>;
 
     /**
      * Cleans up old HEIC cache files
@@ -143,7 +158,11 @@ interface Window {
      * @param image base64 data (no data URL), mimeType and optional original name
      * @returns absolute filesystem path of the stored image
      */
-    saveImageToMedia: (image: { data: string; mimeType: string; name?: string }) => Promise<string>;
+    saveImageToMedia: (image: {
+      data: string;
+      mimeType: string;
+      name?: string;
+    }) => Promise<string>;
     saveImageFromPathToMedia: (filePath: string) => Promise<string>;
 
     /**
@@ -174,19 +193,26 @@ interface Window {
      * @param folder The path to the folder to scan
      * @returns Scan results
      */
-    scanTextFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+    scanTextFolder: (
+      folder: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
      * Text embeddings API: deletes a text folder from the index
      * @param folder The path to the folder to delete
      * @returns Deletion results
      */
-    deleteTextFolder: (folder: string) => Promise<{ success: boolean; error: string | null; results: any }>;
+    deleteTextFolder: (
+      folder: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
      * Database API: create a new chat session
      */
-    dbCreateSession: (title: string, id?: string) => Promise<import("../common/types").ChatSessionRecord>;
+    dbCreateSession: (
+      title: string,
+      id?: string
+    ) => Promise<import("../common/types").ChatSessionRecord>;
 
     /**
      * Database API: list sessions ordered by recently updated
@@ -196,7 +222,9 @@ interface Window {
     /**
      * Database API: get a session by id
      */
-    dbGetSession: (id: string) => Promise<import("../common/types").ChatSessionRecord | null>;
+    dbGetSession: (
+      id: string
+    ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
      * Database API: update a session title
@@ -206,7 +234,10 @@ interface Window {
     /**
      * Database API: touch a session to bump updatedAt
      */
-    dbTouchSession: (id: string, timestamp: number) => Promise<import("../common/types").ChatSessionRecord | null>;
+    dbTouchSession: (
+      id: string,
+      timestamp: number
+    ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
      * Database API: delete a session (cascades messages)
@@ -223,7 +254,9 @@ interface Window {
     /**
      * Database API: get chat messages for a session
      */
-    dbGetChatMessages: (sessionId: string) => Promise<import("../common/types").ChatMessageRecord[]>;
+    dbGetChatMessages: (
+      sessionId: string
+    ) => Promise<import("../common/types").ChatMessageRecord[]>;
 
     /**
      * Database API: delete a single chat message by id
@@ -237,6 +270,15 @@ interface Window {
     /**
      * Database API: get all sessions with their messages, limited by number of sessions
      */
-    dbGetAllSessionsWithMessages: (limit: number) => Promise<import("../common/types").ChatSessionWithMessages[]>;
+    dbGetAllSessionsWithMessages: (
+      limit: number
+    ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
+
+    /**
+     * OpenRouter API: get available models from OpenRouter
+     */
+    getOpenRouterModels: () => Promise<
+      import("../common/types").OpenRouterModel[]
+    >;
   };
 }
