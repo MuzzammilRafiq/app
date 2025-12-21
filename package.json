@@ -28,9 +28,9 @@
     "lancedb:example": "bun run lancedb-example.ts"
   },
   "dependencies": {
-    "@ai-sdk/groq": "^2.0.5",
     "@electron/rebuild": "^4.0.1",
     "@google/genai": "^1.6.0",
+    "@openrouter/ai-sdk-provider": "^1.5.4",
     "@openrouter/sdk": "^0.3.10",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-slot": "^1.2.3",
