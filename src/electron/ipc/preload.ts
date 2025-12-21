@@ -74,5 +74,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db:get-all-sessions-with-messages", limit),
 
   //-------------------------openrouter---------------------------
-  getOpenRouterModels: () => ipcRenderer.invoke("get-openrouter-models"),
+  getOpenRouterModels: (apiKey?: string) =>
+    ipcRenderer.invoke("get-openrouter-models", apiKey),
 });

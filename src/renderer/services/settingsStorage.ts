@@ -6,32 +6,16 @@ export interface AppSettings {
   openrouterMultimodalModel: string;
   ollamaModel: string;
   folders: string[];
-  displayName: string;
-  notificationsEnabled: boolean;
-  soundEnabled: boolean;
-  compactMode: boolean;
-  confirmClearChat: boolean;
-  autoLaunch: boolean;
-  preferredLanguage: string;
-  preferredLanguageCustomInfo: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
   llmProvider: "openrouter",
   openrouterApiKey: "",
-  openrouterModel: "openai/gpt-4o-mini",
+  openrouterModel: "qwen/qwen3-vl-235b-a22b-instruct",
   openrouterMultimodalModel: "",
-  ollamaModel: "llama3.1:8b",
+  ollamaModel: "qwen3-vl:8b",
   folders: [],
-  displayName: "",
-  notificationsEnabled: true,
-  soundEnabled: true,
-  compactMode: false,
-  confirmClearChat: true,
-  autoLaunch: false,
-  preferredLanguage: "english",
-  preferredLanguageCustomInfo: "",
 };
 
 const SETTINGS_KEY = "app-settings";

@@ -277,7 +277,7 @@ interface Window {
     /**
      * OpenRouter API: get available models from OpenRouter
      */
-    getOpenRouterModels: () => Promise<
+    getOpenRouterModels: (apiKey?: string) => Promise<
       import("../common/types").OpenRouterModel[]
     >;
   };

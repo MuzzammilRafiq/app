@@ -21,9 +21,10 @@ export default function AdvancedSettings() {
   }));
 
   const query = useQuery({
-    queryKey: ["openrouter_models"],
-    queryFn: () => window.electronAPI?.getOpenRouterModels(),
-    refetchInterval: 60 * 60 * 1000, // 1 hr
+    queryKey: ["openrouter_models", settings.openrouterApiKey],
+    queryFn: () =>
+      window.electronAPI?.getOpenRouterModels(settings.openrouterApiKey || ""),
+    refetchInterval: 60 * 60 * 1000,
     enabled: settings.llmProvider === "openrouter",
   });
   const models = (query.data || []) as OpenRouterModel[];
