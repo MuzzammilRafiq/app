@@ -232,3 +232,51 @@ export class LLM {
     });
   }
 }
+
+if (require.main === module) {
+  const llm = LLM.getInstance();
+  // run as => bun file.ts 2
+  const args = process.argv;
+  const test = args[2] as "1" | "2" | "3" | "4";
+
+  switch (test) {
+    case "1":
+      const textRes = await llm.chatText(
+        process.env.OPENROUTER_API_KEY!,
+        "moonshotai/kimi-k2-0905",
+        [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: "hello" },
+        ]
+      );
+      console.log(textRes.text);
+      break;
+    case "2":
+      const stream = llm.streamText(
+        process.env.OPENROUTER_API_KEY!,
+        "moonshotai/kimi-k2-0905",
+        [{ role: "user", content: "hello" }]
+      );
+      for await (const delta of stream.textStream) {
+        process.stdout.write(delta);
+      }
+      break;
+    case "3":
+      const imageRes = await llm.chatImage(
+        process.env.OPENROUTER_API_KEY!,
+        "qwen/qwen3-vl-32b-instruct",
+        "/Users/malikmuzzammilrafiq/Downloads/hui.jpg"
+      );
+      console.log(imageRes.text);
+      break;
+    default:
+      const imageStream = await llm.streamImage(
+        process.env.OPENROUTER_API_KEY!,
+        "qwen/qwen3-vl-32b-instruct",
+        "/Users/malikmuzzammilrafiq/Downloads/hui.jpg"
+      );
+      for await (const delta of imageStream.textStream) {
+        process.stdout.write(delta);
+      }
+  }
+}
