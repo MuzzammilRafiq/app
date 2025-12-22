@@ -1,7 +1,8 @@
 ---
-alwaysApply: false
+alwaysApply: true
 ---
 
+In all interactions be extremely concise and sacrifice grammar for the sake of concision.
 use bun instead of npm
 dont write test files
 this is electron with react at frontend
