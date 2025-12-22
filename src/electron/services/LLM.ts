@@ -73,14 +73,14 @@ async function processImageData(
   return { type: "image", image: imageData };
 }
 
-export class LLM {
-  private static instance: LLM;
+export class Llm {
+  private static instance: Llm;
   private openrouter: ReturnType<typeof createOpenRouter> | null = null;
 
   private constructor() {}
 
-  public static getInstance(): LLM {
-    return LLM.instance || (LLM.instance = new LLM());
+  public static getInstance(): Llm {
+    return Llm.instance || (Llm.instance = new Llm());
   }
 
   /**
@@ -234,7 +234,7 @@ export class LLM {
 }
 
 if (require.main === module) {
-  const llm = LLM.getInstance();
+  const llm = Llm.getInstance();
   // run as => bun file.ts 2
   const args = process.argv;
   const test = args[2] as "1" | "2" | "3" | "4";
