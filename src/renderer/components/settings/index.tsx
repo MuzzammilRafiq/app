@@ -28,7 +28,7 @@ export default function Settings() {
         currentSection={currentSection}
         onSectionChange={setCurrentSection}
       />
-      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-6">
+      <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-slate-800 capitalize">
             {currentSection}
