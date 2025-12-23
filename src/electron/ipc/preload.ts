@@ -4,8 +4,8 @@ export interface StreamChunk {
   type: "stream" | "log" | "plan" | "source";
 }
 contextBridge.exposeInMainWorld("electronAPI", {
-  streamMessageWithHistory: (messages: any[], config: any) =>
-    ipcRenderer.invoke("stream-message-with-history", messages, config),
+  streamMessageWithHistory: (messages: any[], config: any, apiKey: string) =>
+    ipcRenderer.invoke("stream-message-with-history", messages, config, apiKey),
   onStreamChunk: (callback: (data: StreamChunk) => void) => {
     ipcRenderer.on("stream-chunk", (event, data) => callback(data));
   },
@@ -74,6 +74,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db:get-all-sessions-with-messages", limit),
 
   //-------------------------openrouter---------------------------
-  getOpenRouterModels: (apiKey?: string) =>
+  getOpenRouterModels: (apiKey: string) =>
     ipcRenderer.invoke("get-openrouter-models", apiKey),
 });
