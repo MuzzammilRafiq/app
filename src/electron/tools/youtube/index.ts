@@ -8,11 +8,13 @@ import log from "../../../common/log.js";
 
 export const youtubeTool = async (
   context: string,
+  event: any,
+  apiKey: string
 ): Promise<{ output: string }> => {
   try {
     log.BLUE("Processing video info...");
     const { videotitle, channelname, generate_summary } =
-      await extractVideoInfoFromText(context);
+      await extractVideoInfoFromText(context, event, apiKey);
     if (!videotitle || !channelname) {
       throw new Error("Failed to extract video title and channel name");
     }
@@ -22,14 +24,14 @@ export const youtubeTool = async (
     log.BLUE(`[youtubeTool] Found video ID: ${videoId}`);
     const videoDetails = await getVideoDetailsById({ videoId });
     log.BLUE(
-      `[youtubeTool] Video details: ${JSON.stringify(videoDetails, null, 2)}`,
+      `[youtubeTool] Video details: ${JSON.stringify(videoDetails, null, 2)}`
     );
     if (!videoId) {
       throw new Error("Video not found");
     }
     if (generate_summary) {
       log.BLUE("Getting summary...");
-      const summary = await getVideoSummaryById(videoId);
+      const summary = await getVideoSummaryById(videoId, event, apiKey);
       return {
         output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo><summary>${summary}</summary>`,
       };

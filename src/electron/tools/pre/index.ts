@@ -29,10 +29,11 @@ function guessMimeFromPath(filePath: string): string {
 export const preProcessMessage = async (
   lastUserMessage: ChatMessageRecord,
   event: IpcMainInvokeEvent,
-  config: any,
+  apiKey: string,
+  config: any
 ) => {
   const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
+    apiKey,
   });
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
     try {
@@ -93,7 +94,11 @@ export const preProcessMessage = async (
     }
   }
   if (config?.rag) {
-    const retreivedDocuments = await ragAnswer(event, lastUserMessage.content);
+    const retreivedDocuments = await ragAnswer(
+      event,
+      apiKey,
+      lastUserMessage.content
+    );
     lastUserMessage.content =
       lastUserMessage.content +
       "\n" +

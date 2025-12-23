@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
-import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
+import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
 const execAsync = promisify(exec);
 
 // Security: List of dangerous commands that should be blocked
@@ -177,7 +177,7 @@ BULK READ EXAMPLE (WHAT NOT TO DO):
 Remember: Understand what the user wants to achieve and preserve the information they need to see. Context should serve the user's intent, not just track technical progress.
 `;
 const checkCommandSecurity = (
-  command: string,
+  command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 
@@ -210,7 +210,7 @@ const checkCommandSecurity = (
 export const terminalTool = async (
   event: any,
   command: string,
-  confirm = true,
+  confirm = true
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -264,8 +264,9 @@ export const terminalTool = async (
 // Terminal Agent Function
 export const terminalStep = async (
   event: any,
+  apiKey: string,
   context: string,
-  index: number,
+  index: number
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -276,15 +277,11 @@ export const terminalStep = async (
     log.BLUE(`Terminal Agent Iteration ${index}`);
     // console.log(chalk.dim(context.substring(0, 1000) + (context.length > 1000 ? "..." : "")));
 
-    const prompt = PROMPT(context);
-
+    const M: ChatMessage[] = [{ role: "user", content: PROMPT(context) }];
     const options = {
-      temperature: 0.5,
-      max_completion_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
-      response_format: {
+      responseFormat: {
         type: "json_schema",
-        json_schema: {
+        jsonSchema: {
           name: "terminal_agent_response",
           schema: {
             type: "object",
@@ -305,28 +302,37 @@ export const terminalStep = async (
           },
         },
       },
-      stream: false,
     };
-    const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
-
-    if (!content) {
+    const response = ASK_TEXT(apiKey, M, options);
+    if (!response) {
       throw new Error("No response content received from LLM");
     }
-
-    const response: {
+    let c = "";
+    for await (const { content, reasoning } of response) {
+      if (content) {
+        c += content;
+      }
+      if (reasoning) {
+        event.sender.send("stream-chunk", {
+          chunk: reasoning,
+          type: "log",
+        });
+      }
+    }
+    const r: {
       updated_context: string;
       command: string;
-    } = JSON.parse(content);
+    } = JSON.parse(c);
 
-    log.MAGENTA(response.command, response.updated_context);
+    log.MAGENTA(r.command, r.updated_context);
     event.sender.send("stream-chunk", {
-      chunk: `RAN COMMAND: "${response.command}"\n`,
+      chunk: `RAN COMMAND: "${r.command}"\n`,
       type: "log",
     });
 
     return {
-      updatedContext: response.updated_context,
-      command: response.command,
+      updatedContext: r.updated_context,
+      command: r.command,
       success: true,
     };
   } catch (error: any) {
@@ -344,7 +350,8 @@ export const terminalStep = async (
 export const terminalAgent = async (
   initialContext: string,
   event: any,
-  maxIterations: number = 40,
+  apiKey: string,
+  maxIterations: number = 40
 ): Promise<{ output: string }> => {
   log.WHITE("terminal agent started");
   log.BG_BRIGHT_RED(JSON.stringify(initialContext, null, 2));
@@ -358,10 +365,15 @@ export const terminalAgent = async (
   }> = [];
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    const agentResponse = await terminalStep(event, currentContext, iteration);
+    const agentResponse = await terminalStep(
+      event,
+      apiKey,
+      currentContext,
+      iteration
+    );
     if (!agentResponse.success) {
       log.RED(
-        "terminal agent failed:" + agentResponse.error || "Unknown error",
+        "terminal agent failed:" + agentResponse.error || "Unknown error"
       );
       executionLog.push({
         iteration,
@@ -415,7 +427,7 @@ export const terminalAgent = async (
 
   log.RED("max iterations reached");
   log.YELLOW(
-    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
+    "task may not be fully completed. consider increasing maxIterations or checking the plan."
   );
 
   return { output: currentContext };

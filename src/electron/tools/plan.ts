@@ -1,8 +1,8 @@
-import { groq } from "../services/groq.js";
 import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
+import { ChatMessage, ASK_TEXT } from "../services/llm.js";
 
 export const tools = {
   terminal_tool: {
@@ -86,28 +86,28 @@ Steps:
 `;
 
 export const getPlan = async (
+  event: any,
   messages: ChatMessageRecord[],
+  apiKey: string
 ): Promise<{ steps: MakePlanResponse[] }> => {
   try {
-    const userInput = messages.map((msg) => {
+    const userInput: ChatMessage[] = messages.map((msg) => {
       return {
         role: msg.role === "user" ? "user" : "assistant",
         content: msg.content,
       };
     });
+    const M = [
+      {
+        role: "system",
+        content: SYSTEM_PROMPT_MAKE_PLAN,
+      } as ChatMessage,
+      ...userInput,
+    ];
     const options = {
-      temperature: 0.6,
-      max_completion_tokens: 8192,
-      messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT_MAKE_PLAN,
-        },
-        ...userInput,
-      ],
-      response_format: {
+      responseFormat: {
         type: "json_schema",
-        json_schema: {
+        jsonSchema: {
           name: "plan",
           schema: {
             type: "object",
@@ -152,15 +152,26 @@ export const getPlan = async (
           },
         },
       },
-      stream: false,
     };
-    const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
-    if (!content) {
-      throw new Error("No response content received from Groq");
+    const response = ASK_TEXT(apiKey, M, options);
+    if (!response) {
+      throw new Error("No response content received from LLM");
+    }
+    let c = "";
+    for await (const { content, reasoning } of response) {
+      if (content) {
+        c += content;
+      }
+      if (reasoning) {
+        event.sender.send("stream-chunk", {
+          chunk: reasoning,
+          type: "log",
+        });
+      }
     }
     const planData: {
       steps: MakePlanResponse[];
-    } = JSON.parse(content);
+    } = JSON.parse(c);
     return { steps: planData.steps };
   } catch (error) {
     console.log(error);

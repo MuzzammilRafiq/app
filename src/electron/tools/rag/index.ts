@@ -1,10 +1,14 @@
 import { IpcMainInvokeEvent } from "electron";
 
-import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
+import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
 
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
-async function generateSearchQueries(userQuery: string): Promise<string[]> {
+async function generateSearchQueries(
+  event: any,
+  apiKey: string,
+  userQuery: string
+): Promise<string[]> {
   const prompt = `
 You are a search assistant for a similarity search system. 
 Given a user query, generate 3 alternative search queries that capture 
@@ -13,19 +17,16 @@ similarity search to find relevant documents.
 
 User query: "${userQuery}"
 `;
-
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: prompt,
+    },
+  ];
   const options = {
-    temperature: 0.6,
-    max_completion_tokens: 8192,
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    response_format: {
+    responseFormat: {
       type: "json_schema",
-      json_schema: {
+      jsonSchema: {
         name: "search_queries",
         schema: {
           type: "object",
@@ -46,13 +47,24 @@ User query: "${userQuery}"
     },
     stream: false,
   };
-
-  const content = await groq.chat("moonshotai/kimi-k2-instruct", options);
-  if (!content) {
-    throw new Error("No response content received from Groq");
+  const response = ASK_TEXT(apiKey, messages, options);
+  if (!response) {
+    throw new Error("No response content received from LLM");
+  }
+  let c = "";
+  for await (const { content, reasoning } of response) {
+    if (content) {
+      c += content;
+    }
+    if (reasoning) {
+      event.sender.send("stream-chunk", {
+        chunk: reasoning,
+        type: "log",
+      });
+    }
   }
   try {
-    const parsedResponse = JSON.parse(content);
+    const parsedResponse = JSON.parse(c);
     return parsedResponse.queries;
   } catch (error) {
     console.error("Error parsing search queries response:", error);
@@ -84,14 +96,15 @@ async function searchLocalAPI(query: string, limit: number = 3) {
 
 export async function ragAnswer(
   event: IpcMainInvokeEvent,
+  apiKey: string,
   userQuery: string,
-  limit = 3,
+  limit = 3
 ): Promise<string> {
   log.BG_BRIGHT_GREEN("RAG enabled, performing retrieval...", {
     userQuery,
     limit,
   });
-  const queries = await generateSearchQueries(userQuery);
+  const queries = await generateSearchQueries(event, apiKey, userQuery);
   const results: any[] = [];
   for (const q of queries) {
     try {

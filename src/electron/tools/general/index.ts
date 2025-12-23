@@ -1,50 +1,45 @@
 import log from "../../../common/log.js";
-import { GoogleGenAI } from "@google/genai";
+import { ASK_TEXT } from "../../services/llm.js";
 
 export const generalTool = async (
   context: string,
   event: any,
+  apiKey: string
 ): Promise<{ output: string }> => {
   try {
     log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
     const prompt =
       "You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a nicely formatted markdown response dont add ```markdown ``` around the response it is redundant";
 
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
-
-    const result = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
-      contents: [
-        { role: "user", parts: [{ text: prompt }] },
-        { role: "user", parts: [{ text: context }] },
-      ],
-      config: {
-        thinkingConfig: {
-          thinkingBudget: 0,
-        },
-      },
-    });
-
-    let fullText = "";
-    for await (const chunk of result) {
-      const chunkText = chunk.text;
-      if (chunkText) {
+    const response = ASK_TEXT(apiKey, [{ role: "user", content: prompt }]);
+    if (!response) {
+      throw new Error("No response content received from LLM");
+    }
+    let c = "";
+    for await (const { content, reasoning } of response) {
+      if (content) {
+        c += content;
+      }
+      if (reasoning) {
         event.sender.send("stream-chunk", {
-          chunk: chunkText,
+          chunk: reasoning,
+          type: "log",
+        });
+      }
+      if (content) {
+        event.sender.send("stream-chunk", {
+          chunk: content,
           type: "stream",
         });
-        fullText += chunkText;
       }
     }
-    log.BG_BLUE(fullText);
+    log.BG_BLUE(c);
     // Streaming complete - no need to send final chunk
 
-    return { output: fullText };
+    return { output: c };
   } catch (error) {
     log.RED(
-      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );
     return {
       output: `# Error\n\nSorry, I encountered an error while processing your request:\n\n\`${error instanceof Error ? error.message : "Unknown error"}\`\n\nPlease try again or contact support if the issue persists.`,

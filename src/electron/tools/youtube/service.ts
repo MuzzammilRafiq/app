@@ -5,14 +5,16 @@ import {
   VideoParams,
 } from "../../../common/types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
-import { groq } from "../../services/groq.js";
 import log from "../../../common/log.js";
 
 import dotenv from "dotenv";
+import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
 dotenv.config();
 
 export const extractVideoInfoFromText = async (
   context: string,
+  event: any,
+  apiKey: string
 ): Promise<VideoInfoResult> => {
   log.BG_BLUE("___________extractVideoInfoFromText___________");
   const PROMPT = `Extract the video title, channel name, and determine if the user wants a summary from the following context.
@@ -27,13 +29,11 @@ Your task is to:
 3. Determine if the user explicity wants a summary based on the context and user's intent dont assume anything default should be false
 
 Return the values in JSON format with generate_summary as a boolean.`;
+  const M: ChatMessage[] = [{ role: "user", content: PROMPT }];
   const options = {
-    temperature: 0.5,
-    max_completion_tokens: 1024,
-    messages: [{ role: "user", content: PROMPT }],
-    response_format: {
+    responseFormat: {
       type: "json_schema",
-      json_schema: {
+      jsonSchema: {
         name: "video_info_extractor_response",
         schema: {
           type: "object",
@@ -56,30 +56,47 @@ Return the values in JSON format with generate_summary as a boolean.`;
         },
       },
     },
-    stream: false,
   };
 
-  const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
-  log.CYAN(response);
-  const { videotitle, channelname, generate_summary } = JSON.parse(response!);
+  const response = ASK_TEXT(apiKey, M, options);
+  if (!response) {
+    throw new Error("No response content received from LLM");
+  }
+  let c = "";
+  for await (const { content, reasoning } of response) {
+    if (content) {
+      c += content;
+    }
+    if (reasoning) {
+      event.sender.send("stream-chunk", {
+        chunk: reasoning,
+        type: "log",
+      });
+    }
+  }
+
+  log.CYAN(c);
+  const { videotitle, channelname, generate_summary } = JSON.parse(c);
   log.GREEN(
-    `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`,
+    `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`
   );
   return { videotitle, channelname, generate_summary };
 };
 
-export const getVideoSummaryById = async (videoId: string): Promise<string> => {
+export const getVideoSummaryById = async (
+  videoId: string,
+  event: any,
+  apiKey: string
+): Promise<string> => {
   const transcript = (await getSubtitlesByVideoId(videoId)).slice(0, 80_000);
   const tokenCount = Math.ceil((1.33 * transcript.length) / 5.7);
   if (tokenCount <= 3_000) return transcript;
   const PROMPT = `summarise below transcript in 3000 words or less and give me only summary <transcript>${transcript} </transcript>`;
+  const M: ChatMessage[] = [{ role: "user", content: PROMPT }];
   const options = {
-    temperature: 0.5,
-    max_completion_tokens: 8192,
-    messages: [{ role: "user", content: PROMPT }],
-    response_format: {
+    responseFormat: {
       type: "string",
-      json_schema: {
+      jsonSchema: {
         name: "video_summary_response",
         schema: {
           type: "object",
@@ -96,8 +113,24 @@ export const getVideoSummaryById = async (videoId: string): Promise<string> => {
     },
     stream: false,
   };
-  const response = await groq.chat("moonshotai/kimi-k2-instruct", options);
-  const { summary } = JSON.parse(response!);
+
+  const response = ASK_TEXT(apiKey, M, options);
+  if (!response) {
+    throw new Error("No response content received from LLM");
+  }
+  let c = "";
+  for await (const { content, reasoning } of response) {
+    if (content) {
+      c += content;
+    }
+    if (reasoning) {
+      event.sender.send("stream-chunk", {
+        chunk: reasoning,
+        type: "log",
+      });
+    }
+  }
+  const { summary } = JSON.parse(c);
   return summary;
 };
 
@@ -131,7 +164,7 @@ export const getVideoDetailsById = async ({
 
 export const getVideoID = async (
   videotitle: string,
-  channelname: string,
+  channelname: string
 ): Promise<string> => {
   const searchQuery = `${videotitle} channel:${channelname}`;
   const encodedQuery = encodeURIComponent(searchQuery);

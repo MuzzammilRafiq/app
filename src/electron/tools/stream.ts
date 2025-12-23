@@ -9,9 +9,10 @@ const router = async (
   plan: MakePlanResponse[],
   context: string,
   event: IpcMainInvokeEvent,
+  apiKey: string
 ): Promise<string> => {
   log.BLUE(
-    `router called with plan: ${JSON.stringify(plan)} and context: ${context}`,
+    `router called with plan: ${JSON.stringify(plan)} and context: ${context}`
   );
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
@@ -24,9 +25,13 @@ const router = async (
     });
 
     if (tool_name === "general_tool") {
-      result = await toolFunction(description + "\n" + result.output, event);
+      result = await toolFunction(
+        description + "\n" + result.output,
+        event,
+        apiKey
+      );
     } else {
-      result = await toolFunction(description, event);
+      result = await toolFunction(description, event, apiKey);
     }
 
     updatedPlan.push({ step_number, description, status: "done", tool_name });
@@ -34,8 +39,8 @@ const router = async (
       JSON.stringify(
         { step_number, description, status: "done", tool_name },
         null,
-        2,
-      ),
+        2
+      )
     );
   }
   return result.output;
@@ -46,23 +51,25 @@ export const stream = async (
   event: any,
   messages: ChatMessageRecord[],
   config: any,
+  apiKey: string
 ) => {
   try {
     const filteredMessages = messages.filter(
-      (msg) => msg.type === "user" || msg.type === "stream",
+      (msg) => msg.type === "user" || msg.type === "stream"
     );
 
     const lastUserMessage = await preProcessMessage(
       filteredMessages.pop()!,
       event,
-      config,
+      apiKey,
+      config
     );
     const updatedMessages = [
       ...filteredMessages.slice(0, filteredMessages.length - 1),
       lastUserMessage,
     ];
 
-    const plan = await getPlan(updatedMessages);
+    const plan = await getPlan(event, updatedMessages, apiKey);
 
     event.sender.send("stream-chunk", {
       chunk: JSON.stringify(plan.steps, null, 2),
@@ -74,6 +81,7 @@ export const stream = async (
       plan.steps,
       lastUserMessage.content,
       event,
+      apiKey
     );
 
     // Return final assistant text so renderer can know streaming is complete
