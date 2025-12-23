@@ -1,20 +1,12 @@
 export interface AppSettings {
   theme: "light" | "dark";
-  llmProvider: "openrouter" | "ollama";
   openrouterApiKey?: string;
-  openrouterModel: string;
-  openrouterMultimodalModel: string;
-  ollamaModel: string;
   folders: string[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
-  llmProvider: "openrouter",
   openrouterApiKey: "",
-  openrouterModel: "qwen/qwen3-vl-235b-a22b-instruct",
-  openrouterMultimodalModel: "",
-  ollamaModel: "qwen3-vl:8b",
   folders: [],
 };
 
