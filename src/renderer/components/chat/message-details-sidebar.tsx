@@ -21,25 +21,20 @@ export default function MessageDetailsSidebar({
     (plans?.length ?? 0) + (logs?.length ?? 0) + (sources?.length ?? 0) > 0;
 
   return (
-    <>
-      {/* Backdrop */}
+    <aside
+      className={clsx(
+        "h-full bg-white border-l border-slate-200 flex-shrink-0 overflow-hidden",
+        "transition-all duration-300 ease-in-out",
+        isOpen ? "w-[320px] sm:w-[360px]" : "w-0"
+      )}
+      aria-hidden={!isOpen}
+    >
       <div
         className={clsx(
-          "fixed inset-0 bg-black/20 transition-opacity z-40",
-          isOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none",
+          "h-full flex flex-col min-w-[320px] sm:min-w-[360px]",
+          "transition-opacity duration-200",
+          isOpen ? "opacity-100" : "opacity-0"
         )}
-        onClick={onClose}
-      />
-      {/* Panel */}
-      <aside
-        className={clsx(
-          "fixed right-0 top-0 h-full w-[380px] sm:w-[420px] bg-white shadow-2xl border-l border-slate-200 z-50",
-          "transition-transform duration-300 ease-in-out",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        )}
-        aria-hidden={!isOpen}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <h3 className="text-sm font-semibold text-slate-800">Details</h3>
@@ -51,9 +46,9 @@ export default function MessageDetailsSidebar({
             ✕
           </button>
         </div>
-        <div className="h-[calc(100%-49px)] overflow-y-auto p-3 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 hide-scrollbar">
           {!hasAny && (
-            <div className="text-sm text-slate-600">No content available.</div>
+            <div className="text-xs text-slate-600">No content available.</div>
           )}
 
           {plans && plans.length > 0 && (
@@ -76,7 +71,7 @@ export default function MessageDetailsSidebar({
               <div className="text-xs font-semibold text-amber-700 mb-1">
                 Log
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 text-xs">
                 {logs.map((m) => (
                   <div key={m.id}>
                     <LogRenderer content={m.content} />
@@ -101,7 +96,7 @@ export default function MessageDetailsSidebar({
             </section>
           )}
         </div>
-      </aside>
-    </>
+      </div>
+    </aside>
   );
 }

@@ -35,7 +35,6 @@ export default function App() {
               }
             })()}
           </div>
-          <div className="w-14 h-full"></div>
         </div>
       </div>
     </QueryClientProvider>

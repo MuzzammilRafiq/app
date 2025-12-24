@@ -31,7 +31,7 @@ export function MarkdownRenderer({
           <h1
             className={clsx(
               "text-xl font-bold mb-3 mt-6",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -41,7 +41,7 @@ export function MarkdownRenderer({
           <h2
             className={clsx(
               "text-lg font-bold mb-2 mt-5",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -51,7 +51,7 @@ export function MarkdownRenderer({
           <h3
             className={clsx(
               "text-base font-bold mb-2 mt-4",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -61,7 +61,7 @@ export function MarkdownRenderer({
           <p
             className={clsx(
               "mb-2 leading-relaxed",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -71,7 +71,7 @@ export function MarkdownRenderer({
           <ul
             className={clsx(
               "list-disc list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -81,7 +81,7 @@ export function MarkdownRenderer({
           <ol
             className={clsx(
               "list-decimal list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -96,7 +96,7 @@ export function MarkdownRenderer({
           <strong
             className={clsx(
               "font-semibold",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -111,7 +111,7 @@ export function MarkdownRenderer({
                   "text-sm font-mono px-1.5 py-0.5 rounded-md",
                   isUser
                     ? "bg-gray-200 text-blue-700"
-                    : "bg-slate-200 text-slate-700",
+                    : "bg-slate-200 text-slate-700"
                 )}
               >
                 {children}
@@ -152,7 +152,7 @@ export function MarkdownRenderer({
               "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap break-words",
               isUser
                 ? "bg-gray-200 border border-gray-300"
-                : "bg-slate-50 border border-slate-200",
+                : "bg-slate-50 border border-slate-200"
             )}
           >
             {children}
@@ -164,7 +164,7 @@ export function MarkdownRenderer({
               "border-l-4 pl-4 italic mb-3",
               isUser
                 ? "border-gray-400 text-blue-700"
-                : "border-slate-300 text-slate-600",
+                : "border-slate-300 text-slate-600"
             )}
           >
             {children}
@@ -179,7 +179,7 @@ export function MarkdownRenderer({
               "underline underline-offset-2 font-medium transition-colors duration-200",
               isUser
                 ? "text-blue-700 hover:text-blue-800"
-                : "text-blue-600 hover:text-blue-700",
+                : "text-blue-600 hover:text-blue-700"
             )}
           >
             {children}
@@ -190,7 +190,7 @@ export function MarkdownRenderer({
             <table
               className={clsx(
                 "min-w-full border rounded-lg overflow-hidden shadow-sm",
-                isUser ? "border-blue-500/30" : "border-slate-200",
+                isUser ? "border-blue-500/30" : "border-slate-200"
               )}
             >
               {children}
@@ -203,7 +203,7 @@ export function MarkdownRenderer({
               "border px-4 py-3 font-semibold",
               isUser
                 ? "border-gray-300 bg-gray-200 text-blue-700"
-                : "border-slate-200 bg-slate-100 text-slate-700",
+                : "border-slate-200 bg-slate-100 text-slate-700"
             )}
           >
             {children}
@@ -215,7 +215,7 @@ export function MarkdownRenderer({
               "border px-4 py-3",
               isUser
                 ? "border-gray-300 text-blue-700"
-                : "border-slate-200 text-slate-700",
+                : "border-slate-200 text-slate-700"
             )}
           >
             {children}
@@ -230,7 +230,7 @@ export function MarkdownRenderer({
 
 // Plan renderer with optional logs support
 function extractPlan(
-  raw: string,
+  raw: string
 ): { steps: MakePlanResponse[]; logs?: string } | null {
   try {
     const parsed = JSON.parse(raw);
@@ -274,14 +274,14 @@ export function PlanRenderer({ content }: { content: string }) {
           <ChevronDownIcon
             className={clsx(
               "w-4 h-4 text-blue-600 transition-transform duration-200",
-              isExpanded ? "rotate-180" : "rotate-0",
+              isExpanded ? "rotate-180" : "rotate-0"
             )}
           />
         </button>
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
+            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
           <pre className="text-sm text-blue-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
@@ -304,14 +304,14 @@ export function PlanRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-blue-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0",
+          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
         )}
       >
         <div className="space-y-3 max-h-[600px] overflow-y-auto px-2 pb-2">
@@ -336,7 +336,7 @@ export function PlanRenderer({ content }: { content: string }) {
                         "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
                         step.status === "done"
                           ? "bg-green-100 text-green-800 border-green-200"
-                          : "bg-gray-100 text-gray-800 border-gray-200",
+                          : "bg-gray-100 text-gray-800 border-gray-200"
                       )}
                     >
                       {step.status === "done" && (
@@ -387,17 +387,17 @@ export function LogRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-amber-600 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
+          isExpanded ? "opacity-100 mt-2" : "max-h-0 opacity-0"
         )}
       >
-        <pre className="text-sm text-amber-700 whitespace-pre-wrap font-mono break-words max-h-[600px] overflow-y-auto px-2 pb-2">
+        <pre className="text-xs text-amber-700 whitespace-pre-wrap font-mono break-words px-2 pb-2">
           {content}
         </pre>
       </div>
@@ -417,7 +417,7 @@ function parseSources(content: string): UniqueResult[] | null {
           typeof d.document === "string" &&
           d.metadata &&
           typeof d.metadata.path === "string" &&
-          typeof d.metadata.index === "number",
+          typeof d.metadata.index === "number"
       );
     }
     return null;
@@ -443,14 +443,14 @@ export function SourceRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-emerald-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
+          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
         )}
       >
         <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">

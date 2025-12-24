@@ -192,44 +192,49 @@ export default function ChatContainer() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      {currentSession && currentSession?.messages?.length > 0 ? (
-        <div className="flex-1 relative h-full">
-          <div className="overflow-hidden h-full overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar w-[80%] mx-auto">
+    <div className="flex-1 flex h-full overflow-hidden">
+      {/* Left column: messages + input */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {currentSession && currentSession?.messages?.length > 0 ? (
+          <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar">
             <MessageGroups
               messages={currentSession.messages}
               onOpenDetails={openSidebar}
             />
           </div>
-          <MessageDetailsSidebar
-            isOpen={sidebarOpen}
-            onClose={closeSidebar}
-            plans={sidebarPlans}
-            logs={sidebarLogs}
-            sources={sidebarSources}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <h1 className="text-2xl mb-4 text-blue-700">
-            👋 How can I help you ?
-          </h1>
-        </div>
-      )}
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <h1 className="text-2xl mb-4 text-blue-700">
+              👋 How can I help you ?
+            </h1>
+          </div>
+        )}
 
-      <ChatInput
-        selectedImage={selectedImage}
-        setSelectedImage={setSelectedImage}
-        imagePaths={imagePaths}
-        setImagePaths={setImagePaths}
-        content={content}
-        setContent={setContent}
-        isLoading={isLoading}
-        isStreaming={isStreaming}
-        handleSendMessage={handleSendMessage}
-        isRAGEnabled={isRAGEnabled}
-        setIsRAGEnabled={setIsRAGEnabled}
-      />
+        <ChatInput
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
+          imagePaths={imagePaths}
+          setImagePaths={setImagePaths}
+          content={content}
+          setContent={setContent}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          handleSendMessage={handleSendMessage}
+          isRAGEnabled={isRAGEnabled}
+          setIsRAGEnabled={setIsRAGEnabled}
+        />
+      </div>
+
+      {/* Right column: sidebar */}
+      {currentSession && currentSession?.messages?.length > 0 && (
+        <MessageDetailsSidebar
+          isOpen={sidebarOpen}
+          onClose={closeSidebar}
+          plans={sidebarPlans}
+          logs={sidebarLogs}
+          sources={sidebarSources}
+        />
+      )}
     </div>
   );
 }
