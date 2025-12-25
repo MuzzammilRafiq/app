@@ -5,7 +5,7 @@ const TAG = "general";
 export const generalTool = async (
   context: string,
   event: any,
-  apiKey: string,
+  apiKey: string
 ): Promise<{ output: string }> => {
   try {
     LOG(TAG).INFO(JSON_PRINT(context));
@@ -42,7 +42,7 @@ export const generalTool = async (
     return { output: c };
   } catch (error) {
     LOG(TAG).ERROR(
-      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );
     return {
       output: `# Error\n\nSorry, I encountered an error while processing your request:\n\n\`${error instanceof Error ? error.message : "Unknown error"}\`\n\nPlease try again or contact support if the issue persists.`,
