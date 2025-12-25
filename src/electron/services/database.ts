@@ -75,7 +75,7 @@ export class DatabaseService {
     // Ensure chat_messages table exists with updated CHECK including 'source'
     try {
       const getTableSql = this.db.prepare(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'"
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'",
       );
       const row = getTableSql.get() as { sql: string } | undefined;
 
@@ -107,19 +107,19 @@ export class DatabaseService {
               images TEXT DEFAULT NULL,
               type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            );`
+            );`,
           );
 
           // Copy data
           this.db.exec(
             `INSERT INTO chat_messages_new (id, session_id, content, role, timestamp, is_error, images, type)
-             SELECT id, session_id, content, role, timestamp, is_error, images, type FROM chat_messages;`
+             SELECT id, session_id, content, role, timestamp, is_error, images, type FROM chat_messages;`,
           );
 
           // Drop old and rename new
           this.db.exec(`DROP TABLE chat_messages;`);
           this.db.exec(
-            `ALTER TABLE chat_messages_new RENAME TO chat_messages;`
+            `ALTER TABLE chat_messages_new RENAME TO chat_messages;`,
           );
 
           // Recreate indexes
@@ -150,7 +150,7 @@ export class DatabaseService {
   private validateInput(
     value: any,
     name: string,
-    allowEmpty: boolean = false
+    allowEmpty: boolean = false,
   ): void {
     if (value === null || value === undefined) {
       throw new Error(`${name} cannot be null or undefined`);
@@ -166,7 +166,7 @@ export class DatabaseService {
 
     const now = Date.now();
     const stmt = this.db.prepare(
-      `INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`
+      `INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
     );
     const record: ChatSessionRecord = {
       id,
@@ -187,7 +187,7 @@ export class DatabaseService {
   getSessions(): ChatSessionRecord[] {
     try {
       const stmt = this.db.prepare(
-        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions ORDER BY updated_at DESC`
+        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions ORDER BY updated_at DESC`,
       );
       const rows = stmt.all() as Array<{
         id: string;
@@ -212,7 +212,7 @@ export class DatabaseService {
 
     try {
       const stmt = this.db.prepare(
-        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`
+        `SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM sessions WHERE id = ?`,
       );
       const row = stmt.get(id) as ChatSessionRecord | undefined;
       return row ?? null;
@@ -247,7 +247,7 @@ export class DatabaseService {
     try {
       const updatedAt = Date.now();
       const stmt = this.db.prepare(
-        `UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`
+        `UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`,
       );
       const result = stmt.run(title, updatedAt, id);
       return result.changes > 0;
@@ -265,7 +265,7 @@ export class DatabaseService {
 
     try {
       const stmt = this.db.prepare(
-        `UPDATE sessions SET updated_at = ? WHERE id = ?`
+        `UPDATE sessions SET updated_at = ? WHERE id = ?`,
       );
       const result = stmt.run(timestamp, id);
       if (result.changes === 0) {
@@ -313,13 +313,13 @@ export class DatabaseService {
 
     if (!validRoles.includes(message.role)) {
       throw new Error(
-        `Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`
+        `Invalid role: ${message.role}. Must be one of: ${validRoles.join(", ")}`,
       );
     }
 
     if (!validTypes.includes(message.type)) {
       throw new Error(
-        `Invalid type: ${message.type}. Must be one of: ${validTypes.join(", ")}`
+        `Invalid type: ${message.type}. Must be one of: ${validTypes.join(", ")}`,
       );
     }
 
@@ -328,7 +328,7 @@ export class DatabaseService {
       : null;
     const insertStmt = this.db.prepare(
       `INSERT INTO chat_messages (id, session_id, content, role, timestamp, is_error, images, type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     );
 
     try {
@@ -342,7 +342,7 @@ export class DatabaseService {
         message.timestamp,
         message.isError || "",
         serializedImages,
-        message.type
+        message.type,
       );
 
       // Update session timestamp to keep it sorted by recency
@@ -383,7 +383,7 @@ export class DatabaseService {
                 type
          FROM chat_messages
          WHERE session_id = ?
-         ORDER BY timestamp ASC`
+         ORDER BY timestamp ASC`,
       );
 
       const rows = stmt.all(sessionId) as Array<{
@@ -520,7 +520,7 @@ export class DatabaseService {
 
     try {
       const stmt = this.db.prepare(
-        `DELETE FROM chat_messages WHERE session_id = ?`
+        `DELETE FROM chat_messages WHERE session_id = ?`,
       );
       const result = stmt.run(sessionId);
       return Number(result.changes);

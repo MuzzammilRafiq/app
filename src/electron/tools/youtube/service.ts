@@ -14,7 +14,7 @@ dotenv.config();
 export const extractVideoInfoFromText = async (
   context: string,
   event: any,
-  apiKey: string
+  apiKey: string,
 ): Promise<VideoInfoResult> => {
   LOG(TAG).INFO("extractVideoInfoFromText....");
   const PROMPT = `Extract the video title, channel name, and determine if the user wants a summary from the following context.
@@ -83,7 +83,7 @@ Return the values in JSON format with generate_summary as a boolean.`;
 export const getVideoSummaryById = async (
   videoId: string,
   event: any,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> => {
   const transcript = (await getSubtitlesByVideoId(videoId)).slice(0, 80_000);
   const tokenCount = Math.ceil((1.33 * transcript.length) / 5.7);
@@ -161,7 +161,7 @@ export const getVideoDetailsById = async ({
 
 export const getVideoID = async (
   videotitle: string,
-  channelname: string
+  channelname: string,
 ): Promise<string> => {
   const searchQuery = `${videotitle} channel:${channelname}`;
   const encodedQuery = encodeURIComponent(searchQuery);
