@@ -69,6 +69,13 @@ const SYSTEM_MODIFY_PATTERNS = [
 const PROMPT = (context: string) => `
 You are a terminal command agent designed to achieve complex goals through sequential terminal operations.
 
+OPERATING SYSTEM: macOS
+- Use macOS-compatible commands and paths
+- Home directory is at /Users/<username> or use ~
+- Example paths: ~/Downloads, ~/Documents, ~/Desktop, /Applications
+- Do NOT use Linux paths like /home/user (these do not exist on macOS)
+- Common macOS commands: open, pbcopy, pbpaste, brew, mdfind, etc.
+
 CONTEXT: ${context}
 
 Your task is to analyze the current context and determine the next terminal command needed to progress toward the goal.
@@ -178,7 +185,7 @@ BULK READ EXAMPLE (WHAT NOT TO DO):
 Remember: Understand what the user wants to achieve and preserve the information they need to see. Context should serve the user's intent, not just track technical progress.
 `;
 const checkCommandSecurity = (
-  command: string,
+  command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 
@@ -211,7 +218,7 @@ const checkCommandSecurity = (
 export const terminalTool = async (
   event: any,
   command: string,
-  confirm = true,
+  confirm = true
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -267,7 +274,7 @@ export const terminalStep = async (
   event: any,
   apiKey: string,
   context: string,
-  index: number,
+  index: number
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -320,10 +327,24 @@ export const terminalStep = async (
         });
       }
     }
+
+    // Clean the JSON string by removing/escaping control characters
+    const cleanedJson = c
+      .replace(/[\x00-\x1F\x7F]/g, (char) => {
+        // Preserve valid JSON escape characters like \n, \t, etc.
+        const escapeMap: { [key: string]: string } = {
+          "\n": "\\n",
+          "\r": "\\r",
+          "\t": "\\t",
+        };
+        return escapeMap[char] || "";
+      })
+      .trim();
+
     const r: {
       updated_context: string;
       command: string;
-    } = JSON.parse(c);
+    } = JSON.parse(cleanedJson);
 
     LOG(TAG).INFO(r.command, r.updated_context);
     event.sender.send("stream-chunk", {
@@ -352,7 +373,7 @@ export const terminalAgent = async (
   initialContext: string,
   event: any,
   apiKey: string,
-  maxIterations: number = 40,
+  maxIterations: number = 40
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
@@ -369,11 +390,11 @@ export const terminalAgent = async (
       event,
       apiKey,
       currentContext,
-      iteration,
+      iteration
     );
     if (!agentResponse.success) {
       LOG(TAG).ERROR(
-        "terminal agent failed:" + agentResponse.error || "Unknown error",
+        "terminal agent failed:" + agentResponse.error || "Unknown error"
       );
       executionLog.push({
         iteration,
@@ -396,8 +417,16 @@ export const terminalAgent = async (
       return { output: agentResponse.updatedContext };
     }
 
-    LOG(TAG).INFO("executing:" + agentResponse.command);
-    const commandResult = await terminalTool(event, agentResponse.command);
+    // Validate command is not empty before execution
+    const commandToExecute = agentResponse.command.trim();
+    if (!commandToExecute) {
+      LOG(TAG).WARN("Empty command received from LLM, skipping execution");
+      currentContext = `${agentResponse.updatedContext}\n\nError: Empty command received. Continuing to next iteration.`;
+      continue;
+    }
+
+    LOG(TAG).INFO("executing:" + commandToExecute);
+    const commandResult = await terminalTool(event, commandToExecute);
 
     // Send command output to UI
     event.sender.send("stream-chunk", {
@@ -427,7 +456,7 @@ export const terminalAgent = async (
 
   LOG(TAG).WARN("max iterations reached");
   LOG(TAG).WARN(
-    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
+    "task may not be fully completed. consider increasing maxIterations or checking the plan."
   );
 
   return { output: currentContext };
