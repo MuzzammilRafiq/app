@@ -24,65 +24,45 @@ export const tools = {
 
 // TODO: add agent responses also in the context history
 const SYSTEM_PROMPT_MAKE_PLAN = `
-# Task Planning Assistant (Modular Agent Approach)
+Task Planning (Modular Agents)
 
-## Context Analysis
-Before creating a plan, analyze:
-- Current user request and its requirements
-- Previous conversation history for context, dependencies, and state
-- Any incomplete tasks, follow-ups, or referenced items from earlier messages
-- Files, data, or outputs that may have been created in previous steps
-- User preferences or constraints mentioned earlier in the conversation
+Context:
+- Consider current request, history, incomplete tasks, prior outputs, user constraints
 
-## Available Agents
-You can orchestrate the following autonomous agents:
+Agents:
 ${Object.values(tools)
   .map((agent) => `${agent.name}: ${agent.desc}`)
   .join("\n\n")}
 
-## Planning Directives
-- Use tool-level steps only
-- Provide ONLY a short step description (what to do)
-- Keep the plan minimal and outcome-oriented
-- Consider conversation history when determining dependencies and prerequisites
-- If the current request builds on previous work, reference or utilize existing outputs
-- If previous tasks are incomplete, factor that into the current plan
-- The terminal_tool is now an intelligent agent that can handle complex multi-step operations autonomously, so you can assign it broad goals rather than individual commands
-- Do not give entire description of what to do each step - the plan is passed through router and the router handles all the details
+Rules:
+- Output JSON only; match the provided schema strictly
+- Create 1–5 tool-level steps; outcome-focused
+- Start step_number at 1 and increment by 1 (no gaps)
+- Use tool_name only from the listed agents
+- Keep description short (≤15 words), no low-level commands
+- Set status to "todo" for all steps
+- Always end with a general_tool step for the final user response
+- If greeting/unclear, return a single general_tool step
 
-## History-Aware Planning
-- **Continuation Tasks**: If this request continues a previous task, build upon existing work
-- **Reference Previous Outputs**: Use files, data, or results created in earlier conversation turns
-- **State Awareness**: Consider the current state of the system/files based on previous actions
-- **Context Dependencies**: Account for user preferences, constraints, or requirements mentioned earlier
-- **Follow-up Actions**: If previous messages indicated next steps, incorporate them appropriately
+History Awareness:
+- Build on previous work, reuse prior outputs, respect current state and user prefs
 
-## Examples
-
-Example 1: Save time to file in desktop folder
+Examples
+1) Save time to file
 Steps:
-1. terminal_tool: get current timestamp and save it to a file in desktop folder (todo)
-2. general_tool: provide final response about task completion (todo)
+1. terminal_tool: write current timestamp to Desktop file (todo)
+2. general_tool: report completion (todo)
 
-Example 2: Convert all Python files to JavaScript (with history context)
-Previous context: User mentioned they prefer ES6 syntax and have a specific project structure
+2) Convert Python to JS (ES6)
 Steps:
-1. terminal_tool: find all Python files in Documents folder and convert them to JavaScript using ES6 syntax, maintaining existing project structure (todo)
-2. general_tool: provide final response about conversion results (todo)
+1. terminal_tool: convert all .py in Documents to ES6 JS, keep structure (todo)
+2. general_tool: summarize results (todo)
 
-Example 3: YouTube analysis to file (building on previous analysis)
-Previous context: User previously analyzed a different video and wanted comparison
+3) YouTube analysis + compare
 Steps:
-1. youtube_tool: analyze provided video screenshot and extract video details and summary (todo)
-2. terminal_tool: save the video analysis results to a file and compare with previous analysis if exists (todo)
-3. general_tool: provide final response about task completion and comparison results (todo)
-
-Example 4: Follow-up question after previous research
-Previous context: User asked about Saturn's moons yesterday, now asking for more details
-Steps:
-1. general_tool: provide detailed information about Saturn's moons, building on previous discussion context (todo)
-
-**Always call the general_tool as the final step to give the final response to the user**
+1. youtube_tool: extract details from provided screenshot (todo)
+2. terminal_tool: save results and compare with previous if exists (todo)
+3. general_tool: deliver comparison (todo)
 `;
 
 export const getPlan = async (
@@ -109,11 +89,13 @@ export const getPlan = async (
         type: "json_schema",
         jsonSchema: {
           name: "plan",
+          strict: true,
           schema: {
             type: "object",
             properties: {
               steps: {
                 type: "array",
+                minItems: 1,
                 items: {
                   type: "object",
                   properties: {
@@ -172,6 +154,16 @@ export const getPlan = async (
     const planData: {
       steps: MakePlanResponse[];
     } = JSON.parse(c);
+    if (!planData.steps || planData.steps.length === 0) {
+      const fallback: MakePlanResponse = {
+        step_number: 1,
+        tool_name: "general_tool",
+        description:
+          "Respond to the user's message and ask what goal they want to achieve",
+        status: "todo",
+      };
+      return { steps: [fallback] };
+    }
     return { steps: planData.steps };
   } catch (error) {
     console.log(error);
