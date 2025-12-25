@@ -43,20 +43,20 @@ function createWindow(): BrowserWindow {
     );
   }
 
-  if (process.env.NODE_ENV === "development") {
-    mainWindow.webContents.openDevTools();
-    mainWindow.webContents.on(
-      "console-message",
-      (event, level, message, line, sourceId) => {
-        if (
-          message.includes("Autofill.enable") ||
-          message.includes("Autofill.setAddresses")
-        ) {
-          return;
-        }
-      }
-    );
-  }
+  // if (process.env.NODE_ENV === "development") {
+  //   mainWindow.webContents.openDevTools();
+  //   mainWindow.webContents.on(
+  //     "console-message",
+  //     (event, level, message, line, sourceId) => {
+  //       if (
+  //         message.includes("Autofill.enable") ||
+  //         message.includes("Autofill.setAddresses")
+  //       ) {
+  //         return;
+  //       }
+  //     }
+  //   );
+  // }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
