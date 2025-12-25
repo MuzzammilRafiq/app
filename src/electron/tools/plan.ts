@@ -68,8 +68,8 @@ Steps:
 export const getPlan = async (
   event: any,
   messages: ChatMessageRecord[],
-  apiKey: string,
-): Promise<{ steps: MakePlanResponse[] }> => {
+  apiKey: string
+): Promise<{ steps: MakePlanResponse[]; error?: string }> => {
   try {
     const userInput: ChatMessage[] = messages.map((msg) => {
       return {
@@ -168,7 +168,10 @@ export const getPlan = async (
     }
     return { steps: planData.steps };
   } catch (error) {
-    console.log(error);
-    return { steps: [] };
+    LOG(TAG).ERROR("Failed to generate plan:", error);
+    return {
+      steps: [],
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
   }
 };

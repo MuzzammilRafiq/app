@@ -14,7 +14,7 @@ export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
   (set) => ({
     chatSessionRecords: [],
     setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-  }),
+  })
 );
 
 // --------------chatSessionsWithMessages-------------------
@@ -49,7 +49,7 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
     sidebarCollapsed: false,
     setSidebarCollapsed: (collapsed: boolean) =>
       set({ sidebarCollapsed: collapsed }),
-  }),
+  })
 );
 
 // --------------currentView-------------------
@@ -70,15 +70,24 @@ interface Store {
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (
     message: ChatMessageRecord,
-    updatedSession: ChatSessionRecord,
+    updatedSession: ChatSessionRecord
   ) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (
     sessionId: string,
     type: ChatMessageRecord["type"],
-    chunk: string,
+    chunk: string
   ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
+  /**
+   * FIX #5: Replace ephemeral streaming messages with persisted records.
+   * Called after persistStreamingSegments to avoid duplicates.
+   */
+  replaceStreamingMessages: (
+    sessionId: string,
+    persistedMessages: ChatMessageRecord[],
+    ephemeralMessageCount: number
+  ) => void;
 }
 interface ChatTitleStore {
   chatTitle: string;
@@ -134,7 +143,7 @@ export const useStore = create<Store>((set) => ({
 
       // Sort sessions by updatedAt descending (most recent first)
       const sortedSessions = updatedSessions.sort(
-        (a, b) => b.updatedAt - a.updatedAt,
+        (a, b) => b.updatedAt - a.updatedAt
       );
 
       return {
@@ -158,11 +167,12 @@ export const useStore = create<Store>((set) => ({
         // Try to find last assistant message of this type that is not marked error
         const msgs = [...session.messages];
         const last = msgs[msgs.length - 1];
+        // FIX #6: Use explicit string comparison for isError
         if (
           last &&
           last.role === "assistant" &&
           last.type === type &&
-          !last.isError
+          last.isError === ""
         ) {
           const merged: ChatMessageRecord = {
             ...last,
@@ -202,5 +212,44 @@ export const useStore = create<Store>((set) => ({
   },
   resetStreamingAssistantState: (_sessionId) => {
     // No-op for now; ephemeral messages are part of session messages until persisted
+  },
+
+  /**
+   * FIX #5: Replace ephemeral streaming messages with persisted records.
+   * This removes the last N ephemeral assistant messages and replaces them
+   * with the persisted records from the database.
+   */
+  replaceStreamingMessages: (
+    sessionId,
+    persistedMessages,
+    ephemeralMessageCount
+  ) => {
+    set((state) => {
+      const updatedSessions = state.chatSessionsWithMessages.map((session) => {
+        if (session.id !== sessionId) return session;
+
+        // Remove the last N ephemeral messages (created during streaming)
+        const msgs = [...session.messages];
+        const baseMessages = msgs.slice(0, msgs.length - ephemeralMessageCount);
+
+        // Add the persisted messages
+        return {
+          ...session,
+          messages: [...baseMessages, ...persistedMessages],
+        };
+      });
+
+      // Keep currentSession in sync
+      let newCurrent = state.currentSession;
+      if (state.currentSession && state.currentSession.id === sessionId) {
+        const sessionIdx = updatedSessions.findIndex((s) => s.id === sessionId);
+        if (sessionIdx >= 0) newCurrent = updatedSessions[sessionIdx];
+      }
+
+      return {
+        chatSessionsWithMessages: updatedSessions,
+        currentSession: newCurrent,
+      };
+    });
   },
 }));

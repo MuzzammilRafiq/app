@@ -21,7 +21,7 @@ export interface StreamingOptions {
  */
 export async function handleImagePersistence(
   selectedImage: ImageData | null,
-  imagePaths: string[] | null,
+  imagePaths: string[] | null
 ): Promise<string[] | null> {
   if (selectedImage) {
     try {
@@ -48,7 +48,7 @@ export async function handleImagePersistence(
 export async function ensureSession(
   currentSession: ChatSession | null,
   contentPreview: string,
-  createNewSession: MessageHandlers["createNewSession"],
+  createNewSession: MessageHandlers["createNewSession"]
 ): Promise<ChatSession> {
   if (currentSession) {
     return currentSession;
@@ -56,7 +56,7 @@ export async function ensureSession(
 
   try {
     const newSessionRecord = await window.electronAPI.dbCreateSession(
-      contentPreview.slice(0, 50) + "...",
+      contentPreview.slice(0, 50) + "..."
     );
     createNewSession(newSessionRecord);
     return { ...newSessionRecord, messages: [] } as ChatSession;
@@ -73,7 +73,7 @@ export async function createUserMessage(
   session: ChatSession,
   messageContent: string,
   storedImagePaths: string[] | null,
-  addMessage: MessageHandlers["addMessage"],
+  addMessage: MessageHandlers["addMessage"]
 ): Promise<ChatMessageRecord> {
   const messageRecord: ChatMessageRecord = {
     id: String(crypto.randomUUID()),
@@ -89,7 +89,7 @@ export async function createUserMessage(
   const newMessage = await window.electronAPI.dbAddChatMessage(messageRecord);
   const updatedSession = await window.electronAPI.dbTouchSession(
     session.id,
-    Date.now(),
+    Date.now()
   );
 
   if (!updatedSession) {
@@ -101,12 +101,13 @@ export async function createUserMessage(
 }
 
 /**
- * Persists streaming segments to the database
+ * Persists streaming segments to the database.
+ * FIX #5: Does NOT call addMessage anymore - caller should use
+ * store.replaceStreamingMessages() to swap ephemeral messages with persisted ones.
  */
 export async function persistStreamingSegments(
   segments: Array<{ id: string; type: string; content: string }>,
-  session: ChatSession,
-  addMessage?: MessageHandlers["addMessage"],
+  session: ChatSession
 ): Promise<ChatMessageRecord[]> {
   const savedRecords: ChatMessageRecord[] = [];
   for (const seg of segments) {
@@ -131,7 +132,7 @@ export async function persistStreamingSegments(
     }
 
     const record: ChatMessageRecord = {
-      id: String(crypto.randomUUID()),
+      id: seg.id, // Keep the same ID from streaming segment
       sessionId: session.id,
       content: contentToSave.trim(),
       role: "assistant",
@@ -142,14 +143,7 @@ export async function persistStreamingSegments(
     };
 
     const saved = await window.electronAPI.dbAddChatMessage(record);
-    const touched = await window.electronAPI.dbTouchSession(
-      session.id,
-      Date.now(),
-    );
-    if (touched && addMessage) {
-      // In the new flow, we already streamed into the store. Optionally, we could reconcile IDs here.
-      addMessage(saved, touched);
-    }
+    await window.electronAPI.dbTouchSession(session.id, Date.now());
     savedRecords.push(saved);
   }
   return savedRecords;
