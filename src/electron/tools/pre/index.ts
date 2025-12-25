@@ -30,7 +30,7 @@ export const preProcessMessage = async (
   lastUserMessage: ChatMessageRecord,
   event: IpcMainInvokeEvent,
   apiKey: string,
-  config: any
+  config: any,
 ) => {
   const ai = new GoogleGenAI({
     apiKey,
@@ -97,7 +97,7 @@ export const preProcessMessage = async (
     const retreivedDocuments = await ragAnswer(
       event,
       apiKey,
-      lastUserMessage.content
+      lastUserMessage.content,
     );
     lastUserMessage.content =
       lastUserMessage.content +

@@ -9,7 +9,7 @@ const TAG = "youtube";
 export const youtubeTool = async (
   context: string,
   event: any,
-  apiKey: string
+  apiKey: string,
 ): Promise<{ output: string }> => {
   try {
     LOG(TAG).INFO("Processing video info...");

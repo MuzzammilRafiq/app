@@ -336,12 +336,13 @@ export const BadgeCheckIcon = ({
   </svg>
 );
 
-export const EyeIcon = ({
-  className = "w-4 h-4",
-}: {
-  className?: string;
-}) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+export const EyeIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -362,7 +363,12 @@ export const EyeOffIcon = ({
 }: {
   className?: string;
 }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
     <path
       strokeLinecap="round"
       strokeLinejoin="round"

@@ -14,7 +14,7 @@ export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
   (set) => ({
     chatSessionRecords: [],
     setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-  }),
+  })
 );
 
 // --------------chatSessionsWithMessages-------------------
@@ -49,7 +49,7 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
     sidebarCollapsed: false,
     setSidebarCollapsed: (collapsed: boolean) =>
       set({ sidebarCollapsed: collapsed }),
-  }),
+  })
 );
 
 // --------------currentView-------------------
@@ -58,7 +58,7 @@ interface CurrentViewStore {
   setCurrentView: (view: "chat" | "settings") => void;
 }
 export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
-  currentView: "settings",
+  currentView: "chat",
   setCurrentView: (view) => set({ currentView: view }),
 }));
 
@@ -70,13 +70,13 @@ interface Store {
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (
     message: ChatMessageRecord,
-    updatedSession: ChatSessionRecord,
+    updatedSession: ChatSessionRecord
   ) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (
     sessionId: string,
     type: ChatMessageRecord["type"],
-    chunk: string,
+    chunk: string
   ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
 }
@@ -134,7 +134,7 @@ export const useStore = create<Store>((set) => ({
 
       // Sort sessions by updatedAt descending (most recent first)
       const sortedSessions = updatedSessions.sort(
-        (a, b) => b.updatedAt - a.updatedAt,
+        (a, b) => b.updatedAt - a.updatedAt
       );
 
       return {

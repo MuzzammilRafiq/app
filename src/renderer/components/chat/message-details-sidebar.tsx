@@ -25,7 +25,7 @@ export default function MessageDetailsSidebar({
       className={clsx(
         "h-full bg-white border-l border-slate-200 flex-shrink-0 overflow-hidden",
         "transition-all duration-300 ease-in-out",
-        isOpen ? "w-[320px] sm:w-[360px]" : "w-0"
+        isOpen ? "w-[320px] sm:w-[360px]" : "w-0",
       )}
       aria-hidden={!isOpen}
     >
@@ -33,7 +33,7 @@ export default function MessageDetailsSidebar({
         className={clsx(
           "h-full flex flex-col min-w-[320px] sm:min-w-[360px]",
           "transition-opacity duration-200",
-          isOpen ? "opacity-100" : "opacity-0"
+          isOpen ? "opacity-100" : "opacity-0",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">

@@ -8,13 +8,13 @@ const router = async (
   plan: MakePlanResponse[],
   context: string,
   event: IpcMainInvokeEvent,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> => {
   LOG(TAG).INFO(
     "router called with plan",
     JSON_PRINT(plan),
     "and context:",
-    context
+    context,
   );
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
@@ -30,7 +30,7 @@ const router = async (
       result = await toolFunction(
         description + "\n" + result.output,
         event,
-        apiKey
+        apiKey,
       );
     } else {
       result = await toolFunction(description, event, apiKey);
@@ -41,7 +41,7 @@ const router = async (
       "updatedPlan",
       JSON_PRINT(updatedPlan),
       "result",
-      JSON_PRINT(result)
+      JSON_PRINT(result),
     );
   }
   return result.output;
@@ -52,18 +52,18 @@ export const stream = async (
   event: any,
   messages: ChatMessageRecord[],
   config: any,
-  apiKey: string
+  apiKey: string,
 ) => {
   try {
     const filteredMessages = messages.filter(
-      (msg) => msg.type === "user" || msg.type === "stream"
+      (msg) => msg.type === "user" || msg.type === "stream",
     );
 
     const lastUserMessage = await preProcessMessage(
       filteredMessages.pop()!,
       event,
       apiKey,
-      config
+      config,
     );
     const updatedMessages = [
       ...filteredMessages.slice(0, filteredMessages.length - 1),
@@ -81,7 +81,7 @@ export const stream = async (
       plan.steps,
       lastUserMessage.content,
       event,
-      apiKey
+      apiKey,
     );
 
     // Return final assistant text so renderer can know streaming is complete

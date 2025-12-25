@@ -19,7 +19,7 @@ import { loadSettings } from "../../services/settingsStorage";
 
 export default function ChatContainer() {
   const currentSession = useStore(
-    (s) => s.currentSession
+    (s) => s.currentSession,
   ) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
@@ -138,17 +138,17 @@ export default function ChatContainer() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession
+        createNewSession,
       );
       const storedImagePaths = await handleImagePersistence(
         selectedImage,
-        imagePaths
+        imagePaths,
       );
       const newMessage = await createUserMessage(
         session,
         trimmedContent || "",
         storedImagePaths,
-        addMessage
+        addMessage,
       );
 
       // Stream tokens directly into the current session's messages
@@ -172,7 +172,7 @@ export default function ChatContainer() {
           {
             rag: isRAGEnabled,
           },
-          settings.openrouterApiKey
+          settings.openrouterApiKey,
         );
         // Persist what we received into DB so it's not ephemeral
         await persistStreamingSegments(segmentsRef.current, session);

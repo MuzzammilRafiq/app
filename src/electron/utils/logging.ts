@@ -12,7 +12,7 @@ export const LOG = (TAG: string) => {
         chalk.bgBlue("INFO"),
         "    ",
         chalk.bgGray(TAG),
-        ...args.map((arg) => chalk.blue(arg))
+        ...args.map((arg) => chalk.blue(arg)),
       );
     },
     SUCCESS: (...args: any[]) => {
@@ -21,7 +21,7 @@ export const LOG = (TAG: string) => {
         chalk.bgGreen("SUCCESS"),
         "    ",
         chalk.bgGray(TAG),
-        ...args.map((arg) => chalk.green(arg))
+        ...args.map((arg) => chalk.green(arg)),
       );
     },
     WARN: (...args: any[]) => {
@@ -30,7 +30,7 @@ export const LOG = (TAG: string) => {
         chalk.bgYellow("WARN"),
         "    ",
         chalk.bgGray(TAG),
-        ...args.map((arg) => chalk.yellow(arg))
+        ...args.map((arg) => chalk.yellow(arg)),
       );
     },
     ERROR: (...args: any[]) => {
@@ -39,7 +39,7 @@ export const LOG = (TAG: string) => {
         chalk.bgRed("ERROR"),
         "    ",
         chalk.bgGray(TAG),
-        ...args.map((arg) => chalk.red(arg))
+        ...args.map((arg) => chalk.red(arg)),
       );
     },
   };

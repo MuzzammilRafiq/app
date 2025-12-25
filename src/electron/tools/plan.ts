@@ -69,7 +69,7 @@ Steps:
 export const getPlan = async (
   event: any,
   messages: ChatMessageRecord[],
-  apiKey: string
+  apiKey: string,
 ): Promise<{ steps: MakePlanResponse[] }> => {
   try {
     const userInput: ChatMessage[] = messages.map((msg) => {

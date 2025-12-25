@@ -7,7 +7,7 @@ export type ChatMessage = {
 export const ASK_TEXT = async function* (
   apiKey: string,
   messages: ChatMessage[],
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>,
 ) {
   const openrouter = new OpenRouter({ apiKey });
 
@@ -33,7 +33,7 @@ export const ASK_TEXT = async function* (
 export const ASK_IMAGE = async function* (
   apiKey: string,
   messages: ChatMessage[],
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>,
 ) {
   const openrouter = new OpenRouter({ apiKey });
   const { stream: _ignored, provider: __ignored, ...opts } = options ?? {};
