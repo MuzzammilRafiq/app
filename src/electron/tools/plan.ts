@@ -1,6 +1,5 @@
 import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
-import { youtubeTool } from "./youtube/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { type ChatMessage, ASK_TEXT } from "../services/llm.js";
 import { LOG, JSON_PRINT } from "../utils/logging.js";
@@ -11,11 +10,7 @@ export const tools = {
     desc: "this is an intelligent terminal agent that can execute complex multi-step terminal operations autonomously. It breaks down complex goals into sequential commands, handles failures gracefully with adaptive retry logic, and maintains execution context across multiple iterations. Features security checks, command validation, and can achieve goals like file conversions, system operations, data processing, and file management. Defaults to ~/Documents folder if no path specified. perform calculations,give date time",
     function: terminalAgent,
   },
-  youtube_tool: {
-    name: "youtube_tool",
-    desc: "this agent can get the details of a youtube video by providing the video info extracted from screenshot of youtube video",
-    function: youtubeTool,
-  },
+
   general_tool: {
     name: "general_tool",
     desc: "this is used when u need to do simple llm query it does not have any tool to call its usally used to give final formatted markdown response  to the user based on the plan and the results of the tools",
@@ -59,17 +54,13 @@ Steps:
 1. terminal_tool: convert all .py in Documents to ES6 JS, keep structure (todo)
 2. general_tool: summarize results (todo)
 
-3) YouTube analysis + compare
-Steps:
-1. youtube_tool: extract details from provided screenshot (todo)
-2. terminal_tool: save results and compare with previous if exists (todo)
-3. general_tool: deliver comparison (todo)
+
 `;
 
 export const getPlan = async (
   event: any,
   messages: ChatMessageRecord[],
-  apiKey: string,
+  apiKey: string
 ): Promise<{ steps: MakePlanResponse[] }> => {
   try {
     const userInput: ChatMessage[] = messages.map((msg) => {
