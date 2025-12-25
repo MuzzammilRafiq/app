@@ -67,7 +67,7 @@ export default function ChatInput({
 
   return (
     <div className="flex-shrink-0 px-4 pb-4">
-      <div className=" px-2 pt-2 chat-input rounded-b-3xl rounded-t-3xl min-w-3xl border-1 border-gray-300 shadow-lg">
+      <div className="mx-auto px-2 pt-2 chat-input rounded-b-3xl rounded-t-3xl max-w-3xl border-1 border-gray-300 shadow-lg">
         {/* Selected image preview above textarea */}
         {(selectedImage || (imagePaths && imagePaths.length > 0)) && (
           <div className="w-full flex justify-start mb-2">

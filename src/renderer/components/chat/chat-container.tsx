@@ -103,7 +103,6 @@ export default function ChatContainer() {
       setSidebarPlans(plans);
       setSidebarLogs(logs);
       setSidebarSources(sources);
-      setSidebarOpen(true);
       setHasAutoOpened(true);
     } else if (hasDetails && sidebarOpen) {
       // Keep sidebar content in sync if it's already open
