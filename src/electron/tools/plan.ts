@@ -23,7 +23,9 @@ const SYSTEM_PROMPT_MAKE_PLAN = `
 Task Planning (Modular Agents)
 
 Context:
-- Consider current request, history, incomplete tasks, prior outputs, user constraints
+- Consider current request, FULL conversation history, incomplete tasks, prior outputs, user constraints
+- For follow-up questions, always refer back to previous messages to understand what the user is referring to
+- If the user asks about "it", "this", "that", etc., look at previous messages to understand the reference
 
 Agents:
 ${Object.values(tools)
@@ -40,7 +42,10 @@ Rules:
 - Always end with a general_tool step for the final user response
 - If greeting/unclear, return a single general_tool step
 
-History Awareness:
+History Awareness (CRITICAL):
+- ALWAYS consider the full conversation history when planning
+- For follow-up questions, the plan description MUST reference the relevant context from previous messages
+- Example: If user previously asked about an image, and now asks "when will it release", include the context in the description like "Answer when Samsung Galaxy S26 Ultra will release based on the previously discussed image"
 - Build on previous work, reuse prior outputs, respect current state and user prefs
 
 Examples
@@ -54,13 +59,16 @@ Steps:
 1. terminal_tool: convert all .py in Documents to ES6 JS, keep structure (todo)
 2. general_tool: summarize results (todo)
 
+3) Follow-up question "when will it release" after discussing Samsung Galaxy S26 Ultra image
+Steps:
+1. general_tool: Answer release date for Samsung Galaxy S26 Ultra from previous conversation context (todo)
 
 `;
 
 export const getPlan = async (
   event: any,
   messages: ChatMessageRecord[],
-  apiKey: string
+  apiKey: string,
 ): Promise<{ steps: MakePlanResponse[] }> => {
   try {
     const userInput: ChatMessage[] = messages.map((msg) => {

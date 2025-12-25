@@ -9,7 +9,7 @@ export const preProcessMessage = async (
   lastUserMessage: ChatMessageRecord,
   event: IpcMainInvokeEvent,
   apiKey: string,
-  config: any
+  config: any,
 ) => {
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
@@ -24,7 +24,7 @@ export const preProcessMessage = async (
       const response = ASK_IMAGE(
         apiKey,
         "Describe this image in detail and extract any text visible in it.",
-        lastUserMessage.imagePaths
+        lastUserMessage.imagePaths,
       );
 
       let description = "";
@@ -79,7 +79,7 @@ export const preProcessMessage = async (
     const retreivedDocuments = await ragAnswer(
       event,
       apiKey,
-      lastUserMessage.content
+      lastUserMessage.content,
     );
     lastUserMessage.content =
       lastUserMessage.content +

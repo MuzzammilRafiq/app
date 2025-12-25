@@ -1,4 +1,6 @@
 import { tools, getPlan } from "./plan.js";
+import { generalTool } from "./general/index.js";
+import { terminalAgent } from "./terminal/index.js";
 import { preProcessMessage } from "./pre/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
@@ -6,34 +8,38 @@ import { LOG, JSON_PRINT } from "../utils/logging.js";
 const TAG = "stream";
 const router = async (
   plan: MakePlanResponse[],
-  context: string,
+  messages: ChatMessageRecord[],
   event: IpcMainInvokeEvent,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> => {
   LOG(TAG).INFO(
     "router called with plan",
     JSON_PRINT(plan),
-    "and context:",
-    context
+    "and messages count:",
+    messages.length,
   );
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
   for (let i = 0; i < plan.length; i++) {
     const { step_number, description, status, tool_name } = plan[i];
-    const toolFunction = tools[tool_name as keyof typeof tools].function;
     event.sender.send("stream-chunk", {
       chunk: `Processing plan step ${step_number}: ${description}\n\n`,
       type: "log",
     });
 
     if (tool_name === "general_tool") {
-      result = await toolFunction(
-        description + "\n" + result.output,
+      result = await generalTool(
+        messages,
+        description +
+          (result.output ? "\n\nPrevious step result: " + result.output : ""),
         event,
-        apiKey
+        apiKey,
       );
+    } else if (tool_name === "terminal_tool") {
+      result = await terminalAgent(description, event, apiKey);
     } else {
-      result = await toolFunction(description, event, apiKey);
+      // Fallback for any unknown tool
+      result = { output: `Unknown tool: ${tool_name}` };
     }
 
     updatedPlan.push({ step_number, description, status: "done", tool_name });
@@ -41,7 +47,7 @@ const router = async (
       "updatedPlan",
       JSON_PRINT(updatedPlan),
       "result",
-      JSON_PRINT(result)
+      JSON_PRINT(result),
     );
   }
   return result.output;
@@ -52,18 +58,18 @@ export const stream = async (
   event: any,
   messages: ChatMessageRecord[],
   config: any,
-  apiKey: string
+  apiKey: string,
 ) => {
   try {
     const filteredMessages = messages.filter(
-      (msg) => msg.type === "user" || msg.type === "stream"
+      (msg) => msg.type === "user" || msg.type === "stream",
     );
 
     const lastUserMessage = await preProcessMessage(
       filteredMessages.pop()!,
       event,
       apiKey,
-      config
+      config,
     );
     const updatedMessages = [
       ...filteredMessages.slice(0, filteredMessages.length - 1),
@@ -79,9 +85,9 @@ export const stream = async (
     LOG(TAG).INFO("plan", JSON_PRINT(plan.steps));
     const finalResponse = await router(
       plan.steps,
-      lastUserMessage.content,
+      updatedMessages,
       event,
-      apiKey
+      apiKey,
     );
 
     // Return final assistant text so renderer can know streaming is complete
