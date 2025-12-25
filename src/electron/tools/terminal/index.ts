@@ -1,7 +1,8 @@
 import { exec } from "child_process";
 import { promisify } from "util";
-import log from "../../../common/log.js";
 import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
+const TAG = "terminal";
 const execAsync = promisify(exec);
 
 // Security: List of dangerous commands that should be blocked
@@ -274,7 +275,7 @@ export const terminalStep = async (
   error?: string;
 }> => {
   try {
-    log.BLUE(`Terminal Agent Iteration ${index}`);
+    LOG(TAG).INFO(`Terminal Agent Iteration ${index}`);
     // console.log(chalk.dim(context.substring(0, 1000) + (context.length > 1000 ? "..." : "")));
 
     const M: ChatMessage[] = [{ role: "user", content: PROMPT(context) }];
@@ -324,7 +325,7 @@ export const terminalStep = async (
       command: string;
     } = JSON.parse(c);
 
-    log.MAGENTA(r.command, r.updated_context);
+    LOG(TAG).INFO(r.command, r.updated_context);
     event.sender.send("stream-chunk", {
       chunk: `RAN COMMAND: "${r.command}"\n`,
       type: "log",
@@ -336,7 +337,7 @@ export const terminalStep = async (
       success: true,
     };
   } catch (error: any) {
-    log.RED("❌ Terminal Agent Error:" + error.message);
+    LOG(TAG).ERROR("Terminal Agent Error:" + error.message);
     return {
       updatedContext: context,
       command: "DONE",
@@ -353,8 +354,7 @@ export const terminalAgent = async (
   apiKey: string,
   maxIterations: number = 40
 ): Promise<{ output: string }> => {
-  log.WHITE("terminal agent started");
-  log.BG_BRIGHT_RED(JSON.stringify(initialContext, null, 2));
+  LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
   const executionLog: Array<{
     iteration: number;
@@ -372,7 +372,7 @@ export const terminalAgent = async (
       iteration
     );
     if (!agentResponse.success) {
-      log.RED(
+      LOG(TAG).ERROR(
         "terminal agent failed:" + agentResponse.error || "Unknown error"
       );
       executionLog.push({
@@ -396,7 +396,7 @@ export const terminalAgent = async (
       return { output: agentResponse.updatedContext };
     }
 
-    log.BLUE("executing:" + agentResponse.command);
+    LOG(TAG).INFO("executing:" + agentResponse.command);
     const commandResult = await terminalTool(event, agentResponse.command);
 
     // Send command output to UI
@@ -425,8 +425,8 @@ export const terminalAgent = async (
     }
   }
 
-  log.RED("max iterations reached");
-  log.YELLOW(
+  LOG(TAG).WARN("max iterations reached");
+  LOG(TAG).WARN(
     "task may not be fully completed. consider increasing maxIterations or checking the plan."
   );
 

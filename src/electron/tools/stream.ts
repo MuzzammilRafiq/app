@@ -1,18 +1,20 @@
-import chalk from "chalk";
 import { tools, getPlan } from "./plan.js";
-import log from "../../common/log.js";
 import { preProcessMessage } from "./pre/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
-
+import { LOG, JSON_PRINT } from "../utils/logging.js";
+const TAG = "stream";
 const router = async (
   plan: MakePlanResponse[],
   context: string,
   event: IpcMainInvokeEvent,
   apiKey: string
 ): Promise<string> => {
-  log.BLUE(
-    `router called with plan: ${JSON.stringify(plan)} and context: ${context}`
+  LOG(TAG).INFO(
+    "router called with plan",
+    JSON_PRINT(plan),
+    "and context:",
+    context
   );
   const updatedPlan: MakePlanResponse[] = [];
   let result: { output: string } = { output: "" };
@@ -35,12 +37,11 @@ const router = async (
     }
 
     updatedPlan.push({ step_number, description, status: "done", tool_name });
-    log.BLUE(
-      JSON.stringify(
-        { step_number, description, status: "done", tool_name },
-        null,
-        2
-      )
+    LOG(TAG).INFO(
+      "updatedPlan",
+      JSON_PRINT(updatedPlan),
+      "result",
+      JSON_PRINT(result)
     );
   }
   return result.output;
@@ -75,8 +76,7 @@ export const stream = async (
       chunk: JSON.stringify(plan.steps, null, 2),
       type: "plan",
     });
-
-    log.BLUE(`plan: ${JSON.stringify(plan, null, 2)}`);
+    LOG(TAG).INFO("plan", JSON_PRINT(plan.steps));
     const finalResponse = await router(
       plan.steps,
       lastUserMessage.content,
@@ -87,7 +87,7 @@ export const stream = async (
     // Return final assistant text so renderer can know streaming is complete
     return { text: finalResponse };
   } catch (error) {
-    console.log(chalk.red("Error calling Gemini API with streaming:", error));
+    LOG(TAG).ERROR("error in stream", error);
     return {
       text: "",
       error: error instanceof Error ? error.message : "Unknown error occurred",

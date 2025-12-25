@@ -1,17 +1,20 @@
-import log from "../../../common/log.js";
 import { ASK_TEXT } from "../../services/llm.js";
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
 
+const TAG = "general";
 export const generalTool = async (
   context: string,
   event: any,
   apiKey: string
 ): Promise<{ output: string }> => {
   try {
-    log.BG_BRIGHT_GREEN(JSON.stringify(context, null, 2));
-    const prompt =
-      "You are a helpful AI assistant that provides clear, well-formatted markdown responses.  Based on the following context/request, provide a nicely formatted markdown response dont add ```markdown ``` around the response it is redundant";
-
-    const response = ASK_TEXT(apiKey, [{ role: "user", content: prompt }]);
+    LOG(TAG).INFO(JSON_PRINT(context));
+    const system =
+      "You are a helpful AI assistant. Provide a clear, concise, well-formatted markdown response. Do not wrap the output in ```markdown```.";
+    const response = ASK_TEXT(apiKey, [
+      { role: "system", content: system },
+      { role: "user", content: context },
+    ]);
     if (!response) {
       throw new Error("No response content received from LLM");
     }
@@ -33,12 +36,12 @@ export const generalTool = async (
         });
       }
     }
-    log.BG_BLUE(c);
+    LOG(TAG).INFO(JSON_PRINT(c));
     // Streaming complete - no need to send final chunk
 
     return { output: c };
   } catch (error) {
-    log.RED(
+    LOG(TAG).ERROR(
       `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );
     return {

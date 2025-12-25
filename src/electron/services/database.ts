@@ -7,9 +7,11 @@ import {
   ChatType,
   ChatSessionWithMessages,
 } from "../../common/types.js";
-import log from "../../common/log.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
+import { LOG } from "../utils/logging.js";
+
+const TAG = "database";
 
 export class DatabaseService {
   private static instance: DatabaseService | null = null;
@@ -66,7 +68,7 @@ export class DatabaseService {
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
-      log.RED(`Failed to initialize sessions schema: ${error}`);
+      LOG(TAG).ERROR("Failed to initialize sessions schema: " + error);
       throw error;
     }
 
@@ -86,8 +88,8 @@ export class DatabaseService {
         this.db.exec("COMMIT");
       } else if (!row.sql.includes("'source'")) {
         // Migrate table to include 'source' in CHECK constraint
-        log.YELLOW(
-          "Migrating chat_messages schema to include 'source' type...",
+        LOG(TAG).WARN(
+          "Migrating chat_messages schema to include 'source' type..."
         );
         try {
           this.db.exec("PRAGMA foreign_keys = OFF");
@@ -127,7 +129,7 @@ export class DatabaseService {
           this.db.exec("COMMIT");
         } catch (err) {
           this.db.exec("ROLLBACK");
-          log.RED(`Failed to migrate chat_messages schema: ${err}`);
+          LOG(TAG).ERROR(`Failed to migrate chat_messages schema: ${err}`);
           throw err;
         } finally {
           this.db.exec("PRAGMA foreign_keys = ON");
@@ -140,7 +142,7 @@ export class DatabaseService {
         this.db.exec("COMMIT");
       }
     } catch (error) {
-      log.RED(`Failed to ensure chat_messages schema: ${error}`);
+      LOG(TAG).ERROR(`Failed to ensure chat_messages schema: ${error}`);
       throw error;
     }
   }
@@ -177,7 +179,7 @@ export class DatabaseService {
       stmt.run(record.id, record.title, record.createdAt, record.updatedAt);
       return record;
     } catch (error) {
-      log.RED(`Failed to create session: ${error}`);
+      LOG(TAG).ERROR(`Failed to create session: ${error}`);
       throw new Error(`Failed to create session: ${error}`);
     }
   }
@@ -200,7 +202,7 @@ export class DatabaseService {
         updatedAt: row.updatedAt,
       }));
     } catch (error) {
-      log.RED(`Failed to get sessions: ${error}`);
+      LOG(TAG).ERROR(`Failed to get sessions: ${error}`);
       throw new Error(`Failed to get sessions: ${error}`);
     }
   }
@@ -215,7 +217,7 @@ export class DatabaseService {
       const row = stmt.get(id) as ChatSessionRecord | undefined;
       return row ?? null;
     } catch (error) {
-      log.RED(`Failed to get session by id: ${error}`);
+      LOG(TAG).ERROR(`Failed to get session by id: ${error}`);
       throw new Error(`Failed to get session by id: ${error}`);
     }
   }
@@ -233,7 +235,7 @@ export class DatabaseService {
       const messages = this.getChatMessagesBySession(sessionId);
       return { ...session, messages };
     } catch (error) {
-      log.RED(`Failed to get session with messages: ${error}`);
+      LOG(TAG).ERROR(`Failed to get session with messages: ${error}`);
       throw new Error(`Failed to get session with messages: ${error}`);
     }
   }
@@ -250,7 +252,7 @@ export class DatabaseService {
       const result = stmt.run(title, updatedAt, id);
       return result.changes > 0;
     } catch (error) {
-      log.RED(`Failed to update session title: ${error}`);
+      LOG(TAG).ERROR(`Failed to update session title: ${error}`);
       throw new Error(`Failed to update session title: ${error}`);
     }
   }
@@ -275,7 +277,7 @@ export class DatabaseService {
       }
       return session;
     } catch (error) {
-      log.RED(`Failed to touch session: ${error}`);
+      LOG(TAG).ERROR(`Failed to touch session: ${error}`);
       throw new Error(`Failed to touch session: ${error}`);
     }
   }
@@ -288,7 +290,7 @@ export class DatabaseService {
       const result = stmt.run(id);
       return result.changes > 0;
     } catch (error) {
-      log.RED(`Failed to delete session: ${error}`);
+      LOG(TAG).ERROR(`Failed to delete session: ${error}`);
       throw new Error(`Failed to delete session: ${error}`);
     }
   }
@@ -361,7 +363,7 @@ export class DatabaseService {
       };
     } catch (error) {
       this.db.exec("ROLLBACK");
-      log.RED(`Failed to add chat message: ${error}`);
+      LOG(TAG).ERROR(`Failed to add chat message: ${error}`);
       throw new Error(`Failed to add chat message: ${error}`);
     }
   }
@@ -406,7 +408,7 @@ export class DatabaseService {
         type: row.type,
       }));
     } catch (error) {
-      log.RED(`Failed to get chat messages by session: ${error}`);
+      LOG(TAG).ERROR(`Failed to get chat messages by session: ${error}`);
       throw new Error(`Failed to get chat messages by session: ${error}`);
     }
   }
@@ -495,7 +497,7 @@ export class DatabaseService {
 
       return Array.from(sessionsMap.values());
     } catch (error) {
-      log.RED(`Failed to get all sessions with messages: ${error}`);
+      LOG(TAG).ERROR(`Failed to get all sessions with messages: ${error}`);
       throw new Error(`Failed to get all sessions with messages: ${error}`);
     }
   }
@@ -508,7 +510,7 @@ export class DatabaseService {
       const result = stmt.run(id);
       return result.changes > 0;
     } catch (error) {
-      log.RED(`Failed to delete chat message: ${error}`);
+      LOG(TAG).ERROR(`Failed to delete chat message: ${error}`);
       throw new Error(`Failed to delete chat message: ${error}`);
     }
   }
@@ -523,7 +525,7 @@ export class DatabaseService {
       const result = stmt.run(sessionId);
       return Number(result.changes);
     } catch (error) {
-      log.RED(`Failed to delete chat messages by session: ${error}`);
+      LOG(TAG).ERROR(`Failed to delete chat messages by session: ${error}`);
       throw new Error(`Failed to delete chat messages by session: ${error}`);
     }
   }
@@ -535,7 +537,7 @@ export class DatabaseService {
         this.db.close();
       }
     } catch (error) {
-      log.RED(`Failed to close database: ${error}`);
+      LOG(TAG).ERROR(`Failed to close database: ${error}`);
     }
   }
 }

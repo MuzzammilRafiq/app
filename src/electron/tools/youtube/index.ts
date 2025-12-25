@@ -4,33 +4,31 @@ import {
   getVideoID,
   getVideoSummaryById,
 } from "./service.js";
-import log from "../../../common/log.js";
-
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
+const TAG = "youtube";
 export const youtubeTool = async (
   context: string,
   event: any,
   apiKey: string
 ): Promise<{ output: string }> => {
   try {
-    log.BLUE("Processing video info...");
+    LOG(TAG).INFO("Processing video info...");
     const { videotitle, channelname, generate_summary } =
       await extractVideoInfoFromText(context, event, apiKey);
     if (!videotitle || !channelname) {
       throw new Error("Failed to extract video title and channel name");
     }
 
-    log.BLUE("Searching for video....");
+    LOG(TAG).INFO("Searching for video....");
     const videoId = await getVideoID(videotitle, channelname);
-    log.BLUE(`[youtubeTool] Found video ID: ${videoId}`);
+    LOG(TAG).INFO(`[youtubeTool] Found video ID: ${videoId}`);
     const videoDetails = await getVideoDetailsById({ videoId });
-    log.BLUE(
-      `[youtubeTool] Video details: ${JSON.stringify(videoDetails, null, 2)}`
-    );
+    LOG(TAG).INFO("[youtubeTool] Video details:", JSON_PRINT(videoDetails));
     if (!videoId) {
       throw new Error("Video not found");
     }
     if (generate_summary) {
-      log.BLUE("Getting summary...");
+      LOG(TAG).INFO("Getting summary...");
       const summary = await getVideoSummaryById(videoId, event, apiKey);
       return {
         output: `<videoInfo>${JSON.stringify(videoDetails, null, 2)}</videoInfo><summary>${summary}</summary>`,
@@ -41,7 +39,7 @@ export const youtubeTool = async (
       };
     }
   } catch (error) {
-    log.RED(`[youtubeTool] Error: ${error}`);
+    LOG(TAG).ERROR(`[youtubeTool] Error: ${error}`);
     return { output: "" };
   }
 };

@@ -3,7 +3,8 @@ import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { ChatMessage, ASK_TEXT } from "../services/llm.js";
-
+import { LOG, JSON_PRINT } from "../utils/logging.js";
+const TAG = "plan";
 export const tools = {
   terminal_tool: {
     name: "terminal_tool",
@@ -151,6 +152,8 @@ export const getPlan = async (
         });
       }
     }
+    LOG(TAG).INFO(JSON_PRINT(JSON.parse(c)));
+    LOG(TAG).INFO(JSON_PRINT(messages));
     const planData: {
       steps: MakePlanResponse[];
     } = JSON.parse(c);

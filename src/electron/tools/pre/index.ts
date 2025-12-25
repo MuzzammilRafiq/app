@@ -1,11 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
-import log from "../../../common/log.js";
 import { ragAnswer } from "../rag/index.js";
 import { IpcMainInvokeEvent } from "electron";
 import { promises as fs } from "fs";
 import path from "node:path";
 import { ChatMessageRecord } from "../../../common/types.js";
-
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
+const TAG = "pre";
 function guessMimeFromPath(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
@@ -41,7 +41,7 @@ export const preProcessMessage = async (
       const mimeType = guessMimeFromPath(imagePath);
       const buffer = await fs.readFile(imagePath);
       const imageBase64 = buffer.toString("base64");
-      log.BLUE("generating image description (from path)");
+      LOG(TAG).INFO("generating image description (from path)");
       const result = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
@@ -54,7 +54,7 @@ export const preProcessMessage = async (
           { text: "Describe this image and extract text" },
         ],
       });
-      log.GREEN("image description generated");
+      LOG(TAG).SUCCESS("image description generated");
       event.sender.send("stream-chunk", {
         chunk: `*Extracted Image description:*`,
         type: "log",
@@ -90,7 +90,7 @@ export const preProcessMessage = async (
         role: "user",
         timestamp: lastUserMessage.timestamp,
       };
-      log.RED(`Failed to read/process image at path: ${err}`);
+      LOG(TAG).ERROR(`Failed to read/process image at path: ${err}`);
     }
   }
   if (config?.rag) {

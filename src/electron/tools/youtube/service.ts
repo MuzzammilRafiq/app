@@ -5,10 +5,10 @@ import {
   VideoParams,
 } from "../../../common/types.js";
 import { getSubtitlesByVideoId } from "./yt-dlp.js";
-import log from "../../../common/log.js";
-
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
 import dotenv from "dotenv";
 import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
+const TAG = "youtube-service";
 dotenv.config();
 
 export const extractVideoInfoFromText = async (
@@ -16,7 +16,7 @@ export const extractVideoInfoFromText = async (
   event: any,
   apiKey: string
 ): Promise<VideoInfoResult> => {
-  log.BG_BLUE("___________extractVideoInfoFromText___________");
+  LOG(TAG).INFO("extractVideoInfoFromText....");
   const PROMPT = `Extract the video title, channel name, and determine if the user wants a summary from the following context.
 
 <context>
@@ -75,11 +75,8 @@ Return the values in JSON format with generate_summary as a boolean.`;
     }
   }
 
-  log.CYAN(c);
+  LOG(TAG).INFO("extractVideoInfoFromText response", JSON_PRINT(c));
   const { videotitle, channelname, generate_summary } = JSON.parse(c);
-  log.GREEN(
-    `[extractVideoInfoFromText]\nvideotitle:${videotitle}\nchannelname:${channelname}\ngenerate_summary:${generate_summary}\n`
-  );
   return { videotitle, channelname, generate_summary };
 };
 

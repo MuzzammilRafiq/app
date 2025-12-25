@@ -1,8 +1,8 @@
 import { IpcMainInvokeEvent } from "electron";
 
-import log from "../../../common/log.js";
 import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
-
+import { LOG, JSON_PRINT } from "../../utils/logging.js";
+const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
   event: any,
@@ -100,7 +100,7 @@ export async function ragAnswer(
   userQuery: string,
   limit = 3
 ): Promise<string> {
-  log.BG_BRIGHT_GREEN("RAG enabled, performing retrieval...", {
+  LOG(TAG).INFO("RAG enabled, performing retrieval...", {
     userQuery,
     limit,
   });
@@ -133,7 +133,7 @@ export async function ragAnswer(
       }
     }
   }
-  log.BG_BRIGHT_GREEN("uniqueResults", uniqueResults);
+  LOG(TAG).INFO("uniqueResults", JSON_PRINT(uniqueResults));
   event.sender.send("stream-chunk", {
     chunk: JSON.stringify(uniqueResults),
     type: "source",
