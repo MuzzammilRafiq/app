@@ -1,13 +1,13 @@
 import { IpcMainInvokeEvent } from "electron";
 
-import { ASK_TEXT, ChatMessage } from "../../services/llm.js";
+import { ASK_TEXT, type ChatMessage } from "../../services/llm.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
 const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
   event: any,
   apiKey: string,
-  userQuery: string,
+  userQuery: string
 ): Promise<string[]> {
   const prompt = `
 You are a search assistant for a similarity search system. 
@@ -98,7 +98,7 @@ export async function ragAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
-  limit = 3,
+  limit = 3
 ): Promise<string> {
   LOG(TAG).INFO("RAG enabled, performing retrieval...", {
     userQuery,

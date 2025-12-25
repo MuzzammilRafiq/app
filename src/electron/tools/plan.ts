@@ -2,7 +2,7 @@ import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
 import { youtubeTool } from "./youtube/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
-import { ChatMessage, ASK_TEXT } from "../services/llm.js";
+import { type ChatMessage, ASK_TEXT } from "../services/llm.js";
 import { LOG, JSON_PRINT } from "../utils/logging.js";
 const TAG = "plan";
 export const tools = {
@@ -69,7 +69,7 @@ Steps:
 export const getPlan = async (
   event: any,
   messages: ChatMessageRecord[],
-  apiKey: string,
+  apiKey: string
 ): Promise<{ steps: MakePlanResponse[] }> => {
   try {
     const userInput: ChatMessage[] = messages.map((msg) => {
