@@ -166,12 +166,12 @@ export default function ChatInput({
                 disabled={isLoading}
                 className={
                   iconClass +
-                  " shadow-sm bg-white border border-gray-200" +
+                  " shadow-sm border " +
                   (isRAGEnabled
-                    ? " text-blue-600 bg-blue-50 border-blue-200"
-                    : "")
+                    ? "text-blue-600 bg-blue-100 border-blue-400"
+                    : "bg-white border-gray-200 text-gray-500")
                 }
-                title="Enable RAG"
+                title={isRAGEnabled ? "Disable RAG" : "Enable RAG"}
                 type="button"
               >
                 {RAGSVG}
