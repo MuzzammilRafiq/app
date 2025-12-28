@@ -47,7 +47,7 @@ function guessMimeFromPath(filePath: string): string {
 export const ASK_TEXT = async function* (
   apiKey: string,
   messages: ChatMessage[],
-  options?: Record<string, unknown>,
+  options?: Record<string, unknown>
 ) {
   const openrouter = new OpenRouter({ apiKey });
 
@@ -74,7 +74,7 @@ export const ASK_IMAGE = async function* (
   apiKey: string,
   textContent: string,
   imagePaths: string[],
-  options?: Record<string, unknown>,
+  options?: Record<string, unknown>
 ) {
   const openrouter = new OpenRouter({ apiKey });
   const { stream: _ignored, provider: __ignored, ...opts } = options ?? {};
@@ -131,4 +131,49 @@ export const ASK_IMAGE = async function* (
       };
     }
   }
+};
+
+export const EXTRACT_WEB_SEARCH = async function (
+  apiKey: string,
+  query: string,
+  webPageContent: string
+): Promise<string | null | undefined> {
+  const openrouter = new OpenRouter({ apiKey });
+
+  const results = await openrouter.chat.send({
+    model: "google/gemini-2.0-flash-lite-001",
+    messages: [
+      {
+        role: "system",
+        content:
+          "u are web page info extractor. user will provide you a query and the extracted info from crawled wep page results. you have to answer only with the extracted info from crawled wep page results.",
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: query,
+          },
+          {
+            type: "text",
+            text: webPageContent,
+          },
+        ],
+      },
+    ],
+  });
+
+  const content = results.choices?.[0]?.message?.content;
+  
+  // Handle case where content might be an array of content items
+  if (Array.isArray(content)) {
+    // Extract text from all text content items
+    return content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("");
+  }
+  
+  return content;
 };

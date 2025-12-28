@@ -1,6 +1,6 @@
 import { IpcMainInvokeEvent } from "electron";
 
-import { ASK_TEXT, type ChatMessage } from "../../services/llm.js";
+import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
 const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";

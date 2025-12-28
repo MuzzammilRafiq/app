@@ -38,9 +38,7 @@ function createWindow(): BrowserWindow {
   if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://localhost:5173");
   } else {
-    mainWindow.loadFile(
-      path.join(app.getAppPath(), "dist-renderer/index.html"),
-    );
+    mainWindow.loadFile(path.join(app.getAppPath(), "dist-renderer/index.html"));
   }
 
   // if (process.env.NODE_ENV === "development") {

@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
-import { ASK_TEXT, type ChatMessage } from "../../services/llm.js";
+import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
 const TAG = "terminal";
 const execAsync = promisify(exec);
@@ -185,7 +185,7 @@ BULK READ EXAMPLE (WHAT NOT TO DO):
 Remember: Understand what the user wants to achieve and preserve the information they need to see. Context should serve the user's intent, not just track technical progress.
 `;
 const checkCommandSecurity = (
-  command: string,
+  command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 

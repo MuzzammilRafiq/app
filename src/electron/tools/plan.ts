@@ -1,7 +1,7 @@
 import { generalTool } from "./general/index.js";
 import { terminalAgent } from "./terminal/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
-import { type ChatMessage, ASK_TEXT } from "../services/llm.js";
+import { type ChatMessage, ASK_TEXT } from "../services/model.js";
 import { LOG, JSON_PRINT } from "../utils/logging.js";
 const TAG = "plan";
 export const tools = {

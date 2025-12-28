@@ -51,7 +51,7 @@ export function MarkdownRenderer({
           <h3
             className={clsx(
               "text-base font-bold mb-2 mt-4",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -61,7 +61,7 @@ export function MarkdownRenderer({
           <p
             className={clsx(
               "mb-2 leading-relaxed",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -71,7 +71,7 @@ export function MarkdownRenderer({
           <ul
             className={clsx(
               "list-disc list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -81,7 +81,7 @@ export function MarkdownRenderer({
           <ol
             className={clsx(
               "list-decimal list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700",
+              isUser ? "text-blue-700" : "text-slate-700"
             )}
           >
             {children}
@@ -96,7 +96,7 @@ export function MarkdownRenderer({
           <strong
             className={clsx(
               "font-semibold",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -111,7 +111,7 @@ export function MarkdownRenderer({
                   "text-sm font-mono px-1.5 py-0.5 rounded-md",
                   isUser
                     ? "bg-gray-200 text-blue-700"
-                    : "bg-slate-200 text-slate-700",
+                    : "bg-slate-200 text-slate-700"
                 )}
               >
                 {children}
@@ -152,7 +152,7 @@ export function MarkdownRenderer({
               "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap break-words",
               isUser
                 ? "bg-gray-200 border border-gray-300"
-                : "bg-slate-50 border border-slate-200",
+                : "bg-slate-50 border border-slate-200"
             )}
           >
             {children}
@@ -164,7 +164,7 @@ export function MarkdownRenderer({
               "border-l-4 pl-4 italic mb-3",
               isUser
                 ? "border-gray-400 text-blue-700"
-                : "border-slate-300 text-slate-600",
+                : "border-slate-300 text-slate-600"
             )}
           >
             {children}
@@ -179,7 +179,7 @@ export function MarkdownRenderer({
               "underline underline-offset-2 font-medium transition-colors duration-200",
               isUser
                 ? "text-blue-700 hover:text-blue-800"
-                : "text-blue-600 hover:text-blue-700",
+                : "text-blue-600 hover:text-blue-700"
             )}
           >
             {children}
@@ -190,7 +190,7 @@ export function MarkdownRenderer({
             <table
               className={clsx(
                 "min-w-full border rounded-lg overflow-hidden shadow-sm",
-                isUser ? "border-blue-500/30" : "border-slate-200",
+                isUser ? "border-blue-500/30" : "border-slate-200"
               )}
             >
               {children}
@@ -203,7 +203,7 @@ export function MarkdownRenderer({
               "border px-4 py-3 font-semibold",
               isUser
                 ? "border-gray-300 bg-gray-200 text-blue-700"
-                : "border-slate-200 bg-slate-100 text-slate-700",
+                : "border-slate-200 bg-slate-100 text-slate-700"
             )}
           >
             {children}
@@ -215,7 +215,7 @@ export function MarkdownRenderer({
               "border px-4 py-3",
               isUser
                 ? "border-gray-300 text-blue-700"
-                : "border-slate-200 text-slate-700",
+                : "border-slate-200 text-slate-700"
             )}
           >
             {children}
@@ -230,7 +230,7 @@ export function MarkdownRenderer({
 
 // Plan renderer with optional logs support
 function extractPlan(
-  raw: string,
+  raw: string
 ): { steps: MakePlanResponse[]; logs?: string } | null {
   try {
     const parsed = JSON.parse(raw);
@@ -274,14 +274,14 @@ export function PlanRenderer({ content }: { content: string }) {
           <ChevronDownIcon
             className={clsx(
               "w-4 h-4 text-blue-600 transition-transform duration-200",
-              isExpanded ? "rotate-180" : "rotate-0",
+              isExpanded ? "rotate-180" : "rotate-0"
             )}
           />
         </button>
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
+            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
           <pre className="text-sm text-blue-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
@@ -304,14 +304,14 @@ export function PlanRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-blue-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0",
+          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
         )}
       >
         <div className="space-y-3 max-h-[600px] overflow-y-auto px-2 pb-2">
@@ -336,7 +336,7 @@ export function PlanRenderer({ content }: { content: string }) {
                         "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
                         step.status === "done"
                           ? "bg-green-100 text-green-800 border-green-200"
-                          : "bg-gray-100 text-gray-800 border-gray-200",
+                          : "bg-gray-100 text-gray-800 border-gray-200"
                       )}
                     >
                       {step.status === "done" && (
@@ -387,14 +387,14 @@ export function LogRenderer({ content }: { content: string }) {
         <ChevronDownIcon
           className={clsx(
             "w-3 h-3 text-amber-600 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "opacity-100 mt-2" : "max-h-0 opacity-0",
+          isExpanded ? "opacity-100 mt-2" : "max-h-0 opacity-0"
         )}
       >
         <pre className="text-xs text-amber-700 whitespace-pre-wrap font-mono break-words px-2 pb-2">
@@ -406,6 +406,11 @@ export function LogRenderer({ content }: { content: string }) {
 }
 
 // Sources renderer
+interface WebSource {
+  url: string;
+  title: string;
+}
+
 function parseSources(content: string): UniqueResult[] | null {
   try {
     const data = JSON.parse(content);
@@ -417,8 +422,24 @@ function parseSources(content: string): UniqueResult[] | null {
           typeof d.document === "string" &&
           d.metadata &&
           typeof d.metadata.path === "string" &&
-          typeof d.metadata.index === "number",
+          typeof d.metadata.index === "number"
       );
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function parseWebSources(content: string): WebSource[] | null {
+  try {
+    const data = JSON.parse(content);
+    if (Array.isArray(data)) {
+      const webSources = data.filter(
+        (d: any) =>
+          d && typeof d.url === "string" && typeof d.title === "string"
+      );
+      return webSources.length > 0 ? webSources : null;
     }
     return null;
   } catch {
@@ -428,50 +449,137 @@ function parseSources(content: string): UniqueResult[] | null {
 
 export function SourceRenderer({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const sources = parseSources(content);
-  if (!sources || sources.length === 0) return null;
-  return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50/60">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between text-left px-2 py-1"
-      >
-        <div className="text-xs font-semibold text-emerald-700 flex items-center">
-          {FileSVG}
-          Source ({sources.length})
-        </div>
-        <ChevronDownIcon
+
+  // Try parsing as RAG sources first
+  const ragSources = parseSources(content);
+  // Try parsing as web sources
+  const webSources = parseWebSources(content);
+
+  // Render RAG sources if present
+  if (ragSources && ragSources.length > 0) {
+    return (
+      <div className="rounded-md border border-emerald-200 bg-emerald-50/60">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between text-left px-2 py-1"
+        >
+          <div className="text-xs font-semibold text-emerald-700 flex items-center">
+            {FileSVG}
+            Source ({ragSources.length})
+          </div>
+          <ChevronDownIcon
+            className={clsx(
+              "w-3 h-3 text-emerald-700 transition-transform duration-200",
+              isExpanded ? "rotate-180" : "rotate-0"
+            )}
+          />
+        </button>
+        <div
           className={clsx(
-            "w-3 h-3 text-emerald-700 transition-transform duration-200",
-            isExpanded ? "rotate-180" : "rotate-0",
+            "overflow-hidden transition-all duration-300 ease-in-out",
+            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
-        />
-      </button>
-      <div
-        className={clsx(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0",
-        )}
-      >
-        <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
-          {sources.map((s) => (
-            <li
-              key={s.id}
-              className="group rounded border border-emerald-200/60 bg-white p-2 text-sm shadow-sm"
-            >
-              <div className="font-medium text-slate-800">
-                {s.document.slice(0, 200)}
-                {s.document.length > 200 ? "…" : ""}
-              </div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
-                <span className="truncate">{s.metadata.path}</span>
-                <span className="h-1 w-1 rounded-full bg-slate-400" />
-                <span>Index: {s.metadata.index}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        >
+          <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
+            {ragSources.map((s) => (
+              <li
+                key={s.id}
+                className="group rounded border border-emerald-200/60 bg-white p-2 text-sm shadow-sm"
+              >
+                <div className="font-medium text-slate-800">
+                  {s.document.slice(0, 200)}
+                  {s.document.length > 200 ? "…" : ""}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
+                  <span className="truncate">{s.metadata.path}</span>
+                  <span className="h-1 w-1 rounded-full bg-slate-400" />
+                  <span>Index: {s.metadata.index}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Render web sources if present
+  if (webSources && webSources.length > 0) {
+    return (
+      <div className="rounded-md border border-blue-200 bg-blue-50/60">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between text-left px-2 py-1"
+        >
+          <div className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="12" cy="12" r="10" strokeWidth={1.5} />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+              />
+            </svg>
+            Web Sources ({webSources.length})
+          </div>
+          <ChevronDownIcon
+            className={clsx(
+              "w-3 h-3 text-blue-700 transition-transform duration-200",
+              isExpanded ? "rotate-180" : "rotate-0"
+            )}
+          />
+        </button>
+        <div
+          className={clsx(
+            "overflow-hidden transition-all duration-300 ease-in-out",
+            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+          )}
+        >
+          <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
+            {webSources.map((s, index) => (
+              <li
+                key={`${s.url}-${index}`}
+                className="group rounded border border-blue-200/60 bg-white p-2 text-sm shadow-sm hover:border-blue-300 transition-colors"
+              >
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <div className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1">
+                    {s.title || "Untitled"}
+                    <svg
+                      className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </div>
+                  <div className="mt-1 text-xs text-blue-600/80 truncate">
+                    {s.url}
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

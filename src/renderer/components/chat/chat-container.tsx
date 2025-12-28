@@ -18,9 +18,7 @@ import {
 import { loadSettings } from "../../services/settingsStorage";
 
 export default function ChatContainer() {
-  const currentSession = useStore(
-    (s) => s.currentSession
-  ) as ChatSession | null;
+  const currentSession = useStore((s) => s.currentSession) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
 
@@ -29,6 +27,7 @@ export default function ChatContainer() {
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isRAGEnabled, setIsRAGEnabled] = useState(false);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarPlans, setSidebarPlans] = useState<ChatMessageRecord[]>([]);
   const [sidebarLogs, setSidebarLogs] = useState<ChatMessageRecord[]>([]);
@@ -36,8 +35,7 @@ export default function ChatContainer() {
   const [autoOpenEnabled] = useState(true);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } =
-    useStreaming();
+  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
 
   const resetInputState = () => {
     setContent("");
@@ -94,8 +92,7 @@ export default function ChatContainer() {
     const prev = prevCountRef.current as number;
     const curr = messages.length;
     const { plans, logs, sources } = computeLastAssistantGroup();
-    const hasDetails =
-      plans.length > 0 || logs.length > 0 || sources.length > 0;
+    const hasDetails = plans.length > 0 || logs.length > 0 || sources.length > 0;
 
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
@@ -120,8 +117,7 @@ export default function ChatContainer() {
       return;
     }
     const trimmedContent = content.trim();
-    const hasAnyImage =
-      !!selectedImage || (imagePaths && imagePaths.length > 0);
+    const hasAnyImage = !!selectedImage || (imagePaths && imagePaths.length > 0);
     if ((!trimmedContent && !hasAnyImage) || isLoading || isStreaming) {
       return;
     }
@@ -138,59 +134,46 @@ export default function ChatContainer() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession
+        createNewSession,
       );
-      const storedImagePaths = await handleImagePersistence(
-        selectedImage,
-        imagePaths
-      );
+      const storedImagePaths = await handleImagePersistence(selectedImage, imagePaths);
       const newMessage = await createUserMessage(
         session,
         trimmedContent || "",
         storedImagePaths,
-        addMessage
+        addMessage,
       );
 
       // Stream tokens directly into the current session's messages
       const handleChunk = (data: any) => {
         if (!session?.id) return;
         // Grow the visible assistant message by type
-        useStore
-          .getState()
-          .upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
+        useStore.getState().upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
       };
       setupStreaming(handleChunk);
 
       try {
-        const existingMessages = currentSession?.messages
-          ? [...currentSession.messages]
-          : [];
+        const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
         const history = existingMessages.concat([newMessage]);
 
         await window.electronAPI.streamMessageWithHistory(
           history,
           {
             rag: isRAGEnabled,
+            webSearch: isWebSearchEnabled,
           },
-          settings.openrouterApiKey
+          settings.openrouterApiKey,
         );
 
         // FIX #5: Persist streaming segments and replace ephemeral messages
         const ephemeralCount = segmentsRef.current.length;
-        const persistedRecords = await persistStreamingSegments(
-          segmentsRef.current,
-          session
-        );
+        const persistedRecords = await persistStreamingSegments(segmentsRef.current, session);
 
         // Replace ephemeral messages in store with persisted records
         if (persistedRecords.length > 0 && session?.id) {
           useStore
             .getState()
-            .replaceStreamingMessages(
-              session.id,
-              persistedRecords,
-              ephemeralCount
-            );
+            .replaceStreamingMessages(session.id, persistedRecords, ephemeralCount);
         }
       } catch (streamErr) {
         console.error("Streaming error:", streamErr);
@@ -212,16 +195,11 @@ export default function ChatContainer() {
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {currentSession && currentSession?.messages?.length > 0 ? (
           <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar">
-            <MessageGroups
-              messages={currentSession.messages}
-              onOpenDetails={openSidebar}
-            />
+            <MessageGroups messages={currentSession.messages} onOpenDetails={openSidebar} />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-2xl mb-4 text-blue-700">
-              👋 How can I help you ?
-            </h1>
+            <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
           </div>
         )}
 
@@ -237,6 +215,8 @@ export default function ChatContainer() {
           handleSendMessage={handleSendMessage}
           isRAGEnabled={isRAGEnabled}
           setIsRAGEnabled={setIsRAGEnabled}
+          isWebSearchEnabled={isWebSearchEnabled}
+          setIsWebSearchEnabled={setIsWebSearchEnabled}
         />
       </div>
 

@@ -9,19 +9,13 @@ interface SearchModalProps {
   onSelectImage?: (imagePath: string) => void;
 }
 
-export default function SearchModal({
-  isOpen,
-  onClose,
-  onSelectImage,
-}: SearchModalProps) {
+export default function SearchModal({ isOpen, onClose, onSelectImage }: SearchModalProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
-  const [convertedImages, setConvertedImages] = useState<Map<string, string>>(
-    new Map(),
-  );
+  const [convertedImages, setConvertedImages] = useState<Map<string, string>>(new Map());
   const [convertingHeic, setConvertingHeic] = useState<Set<string>>(new Set());
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,11 +38,7 @@ export default function SearchModal({
     };
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(e.target as Node) &&
-        isOpen
-      ) {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node) && isOpen) {
         onClose();
       }
     };
@@ -73,16 +63,11 @@ export default function SearchModal({
 
   // Helper function to check if a file is HEIC
   const isHeicFile = (filePath: string): boolean => {
-    return (
-      filePath.toLowerCase().endsWith(".heic") ||
-      filePath.toLowerCase().endsWith(".heif")
-    );
+    return filePath.toLowerCase().endsWith(".heic") || filePath.toLowerCase().endsWith(".heif");
   };
 
   // Get converted HEIC path using fast native conversion
-  const getConvertedHeicPath = async (
-    filePath: string,
-  ): Promise<string | null> => {
+  const getConvertedHeicPath = async (filePath: string): Promise<string | null> => {
     try {
       if (!window.electronAPI?.getConvertedHeicPath) {
         console.error("electronAPI.getConvertedHeicPath not available");
@@ -152,10 +137,7 @@ export default function SearchModal({
     setServiceUnavailable(false);
 
     try {
-      const response = await window.electronAPI?.searchImagesByText(
-        searchQuery.trim(),
-        10,
-      );
+      const response = await window.electronAPI?.searchImagesByText(searchQuery.trim(), 10);
 
       if (response?.success && response.results) {
         const searchResults: SearchResult[] = response.results.filter(
@@ -258,17 +240,13 @@ export default function SearchModal({
               <div className="text-center">
                 {serviceUnavailable ? (
                   <>
-                    <p className="text-sm text-red-600">
-                      ⚠️ Search service unavailable
-                    </p>
+                    <p className="text-sm text-red-600">⚠️ Search service unavailable</p>
                     <p className="text-xs text-gray-400 mt-1">
                       Please start the embedding service and try again
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
                       Run:{" "}
-                      <code className="bg-gray-100 px-1 rounded">
-                        python src/python/main.py
-                      </code>
+                      <code className="bg-gray-100 px-1 rounded">python src/python/main.py</code>
                     </p>
                   </>
                 ) : (
@@ -297,12 +275,8 @@ export default function SearchModal({
                         convertingHeic.has(result) ? (
                           <div className="w-full h-full flex items-center justify-center bg-gray-200">
                             <div className="text-center">
-                              <div className="text-gray-400 mb-1">
-                                {LoadingSVG}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Converting...
-                              </div>
+                              <div className="text-gray-400 mb-1">{LoadingSVG}</div>
+                              <div className="text-xs text-gray-500">Converting...</div>
                             </div>
                           </div>
                         ) : convertedImages.has(result) ? (
@@ -319,9 +293,7 @@ export default function SearchModal({
                           <div className="w-full h-full flex items-center justify-center bg-gray-200">
                             <div className="text-center">
                               <div className="text-gray-400 mb-1">⚠️</div>
-                              <div className="text-xs text-gray-500">
-                                Failed to convert
-                              </div>
+                              <div className="text-xs text-gray-500">Failed to convert</div>
                             </div>
                           </div>
                         )
@@ -341,9 +313,7 @@ export default function SearchModal({
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {result?.split("/").pop() || "Unknown file"}
                       </p>
-                      <p className="text-xs text-gray-500 truncate mt-1">
-                        {result || "No path"}
-                      </p>
+                      <p className="text-xs text-gray-500 truncate mt-1">{result || "No path"}</p>
                     </div>
                   </div>
                 ))}

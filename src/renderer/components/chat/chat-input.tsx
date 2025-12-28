@@ -8,6 +8,7 @@ import {
   RemoveSVG,
   SearchSVG,
   SendSVG,
+  WebSearchSVG,
 } from "../icons";
 import SearchModal from "../SearchModal";
 import {
@@ -29,6 +30,8 @@ interface ChatInputProps {
   handleSendMessage: () => void;
   isRAGEnabled: boolean;
   setIsRAGEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  isWebSearchEnabled: boolean;
+  setIsWebSearchEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ChatInput({
@@ -43,6 +46,8 @@ export default function ChatInput({
   handleSendMessage,
   isRAGEnabled,
   setIsRAGEnabled,
+  isWebSearchEnabled,
+  setIsWebSearchEnabled,
 }: ChatInputProps) {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -142,9 +147,7 @@ export default function ChatInput({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingImage}
-                className={
-                  iconClass + " shadow-sm bg-white border border-gray-200"
-                }
+                className={iconClass + " shadow-sm bg-white border border-gray-200"}
                 title={selectedImage ? "Replace Image" : "Upload Image"}
                 type="button"
               >
@@ -153,9 +156,7 @@ export default function ChatInput({
               <button
                 onClick={() => setIsSearchModalOpen(true)}
                 disabled={isLoading}
-                className={
-                  iconClass + " shadow-sm bg-white border border-gray-200"
-                }
+                className={iconClass + " shadow-sm bg-white border border-gray-200"}
                 title="Search Images"
                 type="button"
               >
@@ -175,6 +176,25 @@ export default function ChatInput({
                 type="button"
               >
                 {RAGSVG}
+              </button>
+              <button
+                onClick={() => setIsWebSearchEnabled((prev) => !prev)}
+                disabled={isLoading}
+                className={
+                  iconClass +
+                  " shadow-sm border " +
+                  (isWebSearchEnabled
+                    ? "text-blue-600 bg-blue-100 border-blue-400"
+                    : "bg-white border-gray-200 text-gray-500")
+                }
+                title={
+                  isWebSearchEnabled
+                    ? "Disable Web Search"
+                    : "Enable Web Search"
+                }
+                type="button"
+              >
+                {WebSearchSVG}
               </button>
             </div>
             {/* Right group: send button */}
