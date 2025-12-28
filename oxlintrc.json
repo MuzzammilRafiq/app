@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "typescript/no-explicit-any": "off",
+    "typescript/no-unused-vars": "warn"
+  },
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "pedantic": "off"
+  }
+}

@@ -1,0 +1,7 @@
+dist
+dist-electron
+dist-renderer
+node_modules
+.git
+user_data
+python
