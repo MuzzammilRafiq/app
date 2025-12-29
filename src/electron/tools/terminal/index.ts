@@ -2,6 +2,8 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
+import path from "node:path";
+import os from "node:os";
 const TAG = "terminal";
 const execAsync = promisify(exec);
 
@@ -44,6 +46,13 @@ const DANGEROUS_COMMANDS = [
   "perl -e",
   "ruby -e",
   "php -r",
+  "rm -rf",
+  "rm -r",
+  "diskutil",
+  "brew uninstall",
+  "find -delete",
+  "sed -i",
+  "truncate",
 ];
 
 // Security: Commands that can modify system files or settings
@@ -65,129 +74,99 @@ const SYSTEM_MODIFY_PATTERNS = [
   />.*\/etc\//,
   />.*\/usr\//,
   />.*\/bin\//,
+  /rm\s+-rf/,
+  /rm\s+-r/,
+  /diskutil/,
+  /find\s+.*-delete/,
+  /sed\s+-i/,
+  /truncate/,
 ];
+// Allowlist: safe base commands for read-only/introspection
+const ALLOWED_BASE_COMMANDS = [
+  "ls",
+  "pwd",
+  "echo",
+  "cat",
+  "head",
+  "tail",
+  "wc",
+  "du",
+  "df",
+  "date",
+  "which",
+  "stat",
+  "basename",
+  "dirname",
+  "printf",
+  // navigation handled via special cd logic
+  "DONE",
+];
+const MULTI_COMMAND_PATTERN = /(\||;|&&)/;
+const extractBase = (command: string) => {
+  const trimmed = command.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("cd ")) return "cd";
+  const first = trimmed.split(/\s+/)[0];
+  return first;
+};
 const PROMPT = (context: string) => `
-You are a terminal command agent designed to achieve complex goals through sequential terminal operations.
+You are a macOS terminal agent. Produce only a single JSON object matching the schema:
+{"updated_context":"string","command":"string"}
 
-OPERATING SYSTEM: macOS
-- Use macOS-compatible commands and paths
-- Home directory is at /Users/<username> or use ~
-- Example paths: ~/Downloads, ~/Documents, ~/Desktop, /Applications
-- Do NOT use Linux paths like /home/user (these do not exist on macOS)
-- Common macOS commands: open, pbcopy, pbpaste, brew, mdfind, etc.
+Rules:
+- macOS paths/commands only
+- Non‑interactive, idempotent, safe operations
+- Prefer absolute or verified relative paths
+- Use ls/pwd/which to verify before acting
+- No network/destructive/system modifications
+- Single command only (no pipes/semicolons/&&). Use only allowed commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
+- Output "DONE" when goal achieved
+- If a command would be blocked by safety rules, propose a safe alternative instead
 
-CONTEXT: ${context}
+Context:
+${context}
 
-Your task is to analyze the current context and determine the next terminal command needed to progress toward the goal.
-
-RESPONSE FORMAT:
-You must respond with exactly 2 parts:
-
-1. updated_context: An updated context string that includes:
-   - The original goal and what the user specifically wants to see/achieve
-   - Progress made so far
-   - Key information discovered that's relevant to the goal
-   - Any failures encountered and how you're adapting
-   - What still needs to be done
-   - IMPORTANT: Preserve information that the user explicitly or implicitly wants to see in the final result
-
-2. command: The next terminal command to execute, OR "DONE" if the goal is fully achieved
-
-CONTEXT MANAGEMENT GUIDELINES:
-- Analyze the user's goal to understand what information they want preserved vs. what's just intermediate
-- If the goal involves "showing", "displaying", "viewing" content - preserve that content in context
-- If the goal involves analysis, comparisons, or reporting - keep the data needed for the final output
-- If the goal is about execution/modification - focus on tracking progress and results
-- IMPORTANT: Don't save content of files that are just being read for operational purposes (e.g., reading 10 config files to find a setting, reading multiple files to count something)
-- Only preserve file contents when the user specifically wants to see them or when they're needed for the final result
-- For bulk operations, summarize progress instead of storing all intermediate data
-- When in doubt, ask: "Does the user want to see this specific information, or do they just want the task completed?"
-
-OPERATIONAL GUIDELINES:
-- Break complex tasks into logical sequential steps
-- Gather information before acting (use ls, find, cat to explore first)
-- Use efficient commands (wildcards, pipes, etc.)
-- When goal is achieved, return "DONE" as the command
-- Consider using commands that both execute and save output when the user wants to see results
-
-FAILURE HANDLING:
-- If a command fails, analyze the error and adapt your approach
-- Try alternative commands or paths to achieve the same goal
-- Use diagnostic commands to understand why something failed (ls, pwd, which, etc.)
-- Consider permission issues, missing files, or wrong paths
-- If one approach doesn't work, try a different method
-- Don't repeat the same failing command - learn from errors
-
-EXAMPLES:
-
-Goal: "Show me the content of config.py and run it to see the output"
-Loop 1:
-updated_context: Goal: Show content of config.py and run it to see output. User wants both the code content and execution results. First need to find and read config.py.
-command: find . -name "config.py" -type f
-
-Loop 2:
-updated_context: Goal: Show content of config.py and run it to see output. Found config.py at ./config.py. Reading content to preserve for user.
-command: cat ./config.py
-
-Loop 3:
-updated_context: Goal: Show content of config.py and run it to see output. Config.py content: [content here]. Now running the file to get execution output.
-command: python ./config.py
-
-Loop 4:
-updated_context: Goal: Show content of config.py and run it to see output. Config.py content: [content]. Execution output: [output]. Both code and results obtained as requested.
-command: DONE
-
-Goal: "Convert all Python files to JavaScript in ~/Documents"
-Loop 1:
-updated_context: Goal: Convert all Python files to JavaScript in ~/Documents. Need to first identify all .py files.
-command: find ~/Documents -name "*.py" -type f
-
-Loop 2:
-updated_context: Goal: Convert all Python files to JavaScript in ~/Documents. Found files: main.py, utils.py, config.py. Starting with main.py - need to read its content for conversion.
-command: cat ~/Documents/main.py
-
-Loop 3:
-updated_context: Goal: Convert all Python files to JavaScript in ~/Documents. Converting main.py (contains basic functions). Remaining: utils.py, config.py.
-command: echo "// Converted from main.py\nfunction main() {\n  console.log('Hello World');\n}" > ~/Documents/main.js
-
-ANALYSIS EXAMPLE:
-Goal: "Compare file sizes in /src and /dist directories and save the comparison"
-Loop 1:
-updated_context: Goal: Compare file sizes in /src and /dist directories and save comparison. User wants the comparison results preserved. Getting /src sizes first.
-command: du -sh /src/*
-
-Loop 2:
-updated_context: Goal: Compare file sizes in /src and /dist directories and save comparison. /src sizes: [sizes]. Now getting /dist sizes.
-command: du -sh /dist/*
-
-Loop 3:
-updated_context: Goal: Compare file sizes in /src and /dist directories and save comparison. /src: [sizes], /dist: [sizes]. Creating comparison report.
-command: echo "Size Comparison:\n/src: [data]\n/dist: [data]" > size_comparison.txt
-
-BULK OPERATION EXAMPLE:
-Goal: "Find all JavaScript files with TODO comments and count them"
-Loop 1:
-updated_context: Goal: Count JavaScript files with TODO comments. User wants the final count, not the content of each file. Searching for .js files first.
-command: find . -name "*.js" -type f
-
-Loop 2:
-updated_context: Goal: Count JavaScript files with TODO comments. Found 15 .js files. Now checking each for TODO comments. Progress: 0/15 processed.
-command: grep -l "TODO" *.js
-
-Loop 3:
-updated_context: Goal: Count JavaScript files with TODO comments. Found TODO comments in: app.js, utils.js, config.js. Total: 3 files with TODOs out of 15 JavaScript files.
-command: DONE
-
-BULK READ EXAMPLE (WHAT NOT TO DO):
-❌ BAD: updated_context: Goal: Count lines in all config files. Read config1.js: [entire file content], config2.js: [entire file content]...
-✅ GOOD: updated_context: Goal: Count lines in all config files. Processed 8/12 config files. Current total: 2,847 lines.
-
-Remember: Understand what the user wants to achieve and preserve the information they need to see. Context should serve the user's intent, not just track technical progress.
+Examples:
+{"updated_context":"Goal: list app dir. Verified cwd. Next: list src.","command":"ls -la"}
+{"updated_context":"Goal completed. Collected sizes for src/dist.","command":"DONE"}
+`;
+const SYSTEM_PROMPT = `
+You are a macOS terminal agent. Output only a single JSON object with keys: updated_context, command. No extra text.
+- Non‑interactive, macOS‑compatible, idempotent commands
+- Avoid network and destructive/system ops
+- Prefer absolute or verified relative paths
+- Verify with ls/pwd before acting
+- Use "DONE" when the goal is achieved
+- Minimal steps: never run exploratory commands once the requested result is obtained
+- Decide using context: if last output satisfies the user’s goal, set command to "DONE"
+- For single-output goals like “show”, “print”, “get”, use exactly one command then "DONE"
+- updated_context must preserve the specific STDOUT needed to satisfy the user’s goal (e.g., the time string for "get current time")
+- Strict constraints:
+- - Use only one command per step (no pipes/semicolons/&&)
+- - Use only allowed base commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
+- - If a needed action is disallowed, choose a read-only alternative or set command to "DONE" if goal satisfied
 `;
 const checkCommandSecurity = (
   command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
+
+  // Disallow multi-command chaining or piping
+  if (MULTI_COMMAND_PATTERN.test(normalizedCommand)) {
+    return {
+      needConformation: true,
+      reason: "Multiple commands/pipes detected. Single safe command required",
+    };
+  }
+
+  // Allow cd for navigation; all other commands must be on the allowlist
+  const base = extractBase(normalizedCommand);
+  if (base && base !== "cd" && !ALLOWED_BASE_COMMANDS.includes(base)) {
+    return {
+      needConformation: true,
+      reason: `Command not allowed: "${base}". Allowed: ${ALLOWED_BASE_COMMANDS.join(", ")}`,
+    };
+  }
 
   // Check for dangerous commands
   for (const dangerous of DANGEROUS_COMMANDS) {
@@ -218,7 +197,8 @@ const checkCommandSecurity = (
 export const terminalTool = async (
   event: any,
   command: string,
-  confirm = true,
+  confirm = false,
+  cwd?: string,
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -235,6 +215,7 @@ export const terminalTool = async (
     const { stdout, stderr } = await execAsync(command, {
       timeout: 30000,
       maxBuffer: 1024 * 1024, // 1MB max output
+      cwd,
     });
 
     let output = "";
@@ -283,14 +264,16 @@ export const terminalStep = async (
 }> => {
   try {
     LOG(TAG).INFO(`Terminal Agent Iteration ${index}`);
-    // console.log(chalk.dim(context.substring(0, 1000) + (context.length > 1000 ? "..." : "")));
-
-    const M: ChatMessage[] = [{ role: "user", content: PROMPT(context) }];
+    const M: ChatMessage[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: context },
+    ];
     const options = {
       responseFormat: {
         type: "json_schema",
         jsonSchema: {
           name: "terminal_agent_response",
+          strict: true,
           schema: {
             type: "object",
             properties: {
@@ -310,51 +293,72 @@ export const terminalStep = async (
           },
         },
       },
+      temperature: 0.2,
     };
-    const response = ASK_TEXT(apiKey, M, options);
-    if (!response) {
-      throw new Error("No response content received from LLM");
-    }
-    let c = "";
-    for await (const { content, reasoning } of response) {
-      if (content) {
-        c += content;
+    let parsed: { updated_context: string; command: string } | null = null;
+    let tries = 0;
+    while (!parsed && tries < 2) {
+      const response = ASK_TEXT(apiKey, M, options);
+      if (!response) {
+        throw new Error("No response content received from LLM");
       }
-      if (reasoning) {
-        event.sender.send("stream-chunk", {
-          chunk: reasoning,
-          type: "log",
-        });
+      let c = "";
+      for await (const { content, reasoning } of response) {
+        if (content) {
+          c += content;
+        }
+        if (reasoning) {
+          event.sender.send("stream-chunk", {
+            chunk: reasoning,
+            type: "log",
+          });
+        }
       }
+      let cleaned = c
+        .replace(/[\x00-\x1F\x7F]/g, (char) => {
+          const map: { [key: string]: string } = {
+            "\n": "\\n",
+            "\r": "\\r",
+            "\t": "\\t",
+          };
+          return map[char] || "";
+        })
+        .trim();
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
+        if (start >= 0 && end > start) {
+          const slice = cleaned.slice(start, end + 1);
+          try {
+            parsed = JSON.parse(slice);
+          } catch {
+            parsed = null;
+          }
+        }
+      }
+      tries++;
+    }
+    if (!parsed) {
+      throw new Error("Failed to parse JSON response from LLM");
+    }
+    if (
+      typeof parsed.updated_context !== "string" ||
+      typeof parsed.command !== "string"
+    ) {
+      throw new Error("Invalid response schema from LLM");
     }
 
-    // Clean the JSON string by removing/escaping control characters
-    const cleanedJson = c
-      .replace(/[\x00-\x1F\x7F]/g, (char) => {
-        // Preserve valid JSON escape characters like \n, \t, etc.
-        const escapeMap: { [key: string]: string } = {
-          "\n": "\\n",
-          "\r": "\\r",
-          "\t": "\\t",
-        };
-        return escapeMap[char] || "";
-      })
-      .trim();
-
-    const r: {
-      updated_context: string;
-      command: string;
-    } = JSON.parse(cleanedJson);
-
-    LOG(TAG).INFO(r.command, r.updated_context);
+    LOG(TAG).INFO(parsed.command, parsed.updated_context);
     event.sender.send("stream-chunk", {
-      chunk: `RAN COMMAND: "${r.command}"\n`,
+      chunk: `RAN COMMAND: "${parsed.command}"\n`,
       type: "log",
     });
 
     return {
-      updatedContext: r.updated_context,
-      command: r.command,
+      updatedContext: parsed.updated_context,
+      command: parsed.command,
       success: true,
     };
   } catch (error: any) {
@@ -373,10 +377,14 @@ export const terminalAgent = async (
   initialContext: string,
   event: any,
   apiKey: string,
-  maxIterations: number = 40,
+  maxIterations: number = 20,
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
+  let currentCwd = process.cwd();
+  let lastCommand = "";
+  let lastOutputSnippet = "";
+  let blockedCount = 0;
   const executionLog: Array<{
     iteration: number;
     context: string;
@@ -384,6 +392,38 @@ export const terminalAgent = async (
     output: string;
     success: boolean;
   }> = [];
+
+  const home = os.homedir();
+  const resolveCwd = (base: string, p: string) => {
+    const expanded =
+      p.startsWith("~") ? path.join(home, p.slice(1)) : p;
+    return path.isAbsolute(expanded)
+      ? expanded
+      : path.resolve(base, expanded);
+  };
+  const applyCd = (cmd: string) => {
+    const trimmed = cmd.trim();
+    if (trimmed.startsWith("cd ")) {
+      const rest = trimmed.slice(3).trim();
+      const parts = rest.split(/\s*(?:&&|;)\s*/);
+      const target = parts[0];
+      currentCwd = resolveCwd(currentCwd, target);
+      const remaining = parts.slice(1).join(" && ").trim();
+      return remaining || "pwd";
+    }
+    const match = trimmed.match(/^cd\s+([^\s]+)\s+&&\s+(.+)$/);
+    if (match) {
+      currentCwd = resolveCwd(currentCwd, match[1]);
+      return match[2].trim();
+    }
+    return cmd;
+  };
+  const trimOutput = (s: string, limit = 2000) => {
+    if (!s) return "";
+    if (s.length <= limit) return s;
+    const half = Math.floor(limit / 2);
+    return s.slice(0, half) + "\n...\n" + s.slice(-half);
+  };
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
     const agentResponse = await terminalStep(
@@ -414,7 +454,7 @@ export const terminalAgent = async (
         output: "Task completed successfully",
         success: true,
       });
-      return { output: agentResponse.updatedContext };
+      return { output: currentContext };
     }
 
     // Validate command is not empty before execution
@@ -425,24 +465,33 @@ export const terminalAgent = async (
       continue;
     }
 
-    LOG(TAG).INFO("executing:" + commandToExecute);
-    const commandResult = await terminalTool(event, commandToExecute);
+    const prepared = applyCd(commandToExecute);
+    LOG(TAG).INFO("executing:" + prepared + " @ " + currentCwd);
+    const commandResult = await terminalTool(event, prepared, false, currentCwd);
 
     // Send command output to UI
     event.sender.send("stream-chunk", {
       chunk: `${commandResult.output}\n`,
       type: "log",
     });
+    if (commandResult.needConformation) {
+      event.sender.send("stream-chunk", {
+        chunk: `REQUIRES CONFIRMATION: ${commandResult.reason}\n`,
+        type: "log",
+      });
+      blockedCount++;
+    }
 
     executionLog.push({
       iteration,
       context: currentContext,
-      command: agentResponse.command,
+      command: prepared,
       output: commandResult.output,
       success: commandResult.success,
     });
 
-    currentContext = `${agentResponse.updatedContext}\n\nLast Command: ${agentResponse.command}\nOutput: ${commandResult.output}`;
+    const snippet = trimOutput(commandResult.output);
+    currentContext = `${agentResponse.updatedContext}\n\nCWD: ${currentCwd}\nLast Command: ${prepared}\nOutput: ${snippet}`;
 
     if (!commandResult.success) {
       currentContext += `\nCommand failed with error: ${commandResult.reason}`;
@@ -452,6 +501,25 @@ export const terminalAgent = async (
         type: "log",
       });
     }
+    if (commandResult.needConformation) {
+      currentContext += `\nBlocked by safety policy: ${commandResult.reason}\nChoose a safe, read-only alternative or set "DONE" if goal is satisfied.`;
+      // Stop if repeatedly blocked
+      if (blockedCount >= 2) {
+        LOG(TAG).WARN("stopping: repeatedly blocked by safety policy");
+        break;
+      }
+      continue;
+    }
+
+    const repeat =
+      prepared === lastCommand && snippet === lastOutputSnippet;
+    if (repeat) {
+      LOG(TAG).WARN("stalled: repeated command/output");
+      currentContext += `\nDetected stall: same command/output repeated. Stopping.`;
+      break;
+    }
+    lastCommand = prepared;
+    lastOutputSnippet = snippet;
   }
 
   LOG(TAG).WARN("max iterations reached");
