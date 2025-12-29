@@ -345,9 +345,13 @@ export class DatabaseService {
         message.type,
       );
 
-      // Update session timestamp to keep it sorted by recency
-      // If this fails, we want to rollback the entire transaction
-      this.touchSession(message.sessionId, message.timestamp);
+      const updateStmt = this.db.prepare(
+        `UPDATE sessions SET updated_at = ? WHERE id = ?`,
+      );
+      const updateResult = updateStmt.run(message.timestamp, message.sessionId);
+      if (updateResult.changes === 0) {
+        throw new Error(`Session with id ${message.sessionId} not found`);
+      }
 
       this.db.exec("COMMIT");
 
