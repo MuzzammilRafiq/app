@@ -19,6 +19,16 @@ export default function Sidebar() {
   const onNewSession = async () => {
     setCurrentSession(undefined);
   };
+  const onDeleteSession = async (id: string) => {
+    try {
+      await window.electronAPI.dbDeleteSession(id);
+      const sessions =
+        await window.electronAPI.dbGetAllSessionsWithMessages(50);
+      populateSessions(sessions);
+    } catch (err) {
+      console.error("Failed to delete session", err);
+    }
+  };
   useEffect(() => {
     (async () => {
       const sessions =
@@ -105,7 +115,7 @@ export default function Sidebar() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      // onDeleteSession(session.id);
+                      void onDeleteSession(session.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded transition-all duration-200"
                     title="Delete Session"
