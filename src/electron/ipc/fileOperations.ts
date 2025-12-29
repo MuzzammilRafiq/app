@@ -5,6 +5,9 @@ import { randomUUID } from "node:crypto";
 import { getDirs } from "../get-folder.js";
 import { heicConverter } from "../services/heicConverter.js";
 import sharp from "sharp";
+import { LOG } from "../utils/logging.js";
+
+const TAG = "file-operations";
 
 export function setupFileOperationHandlers() {
   ipcMain.handle("read-file-as-buffer", async (event, filePath: string) => {
@@ -12,7 +15,10 @@ export function setupFileOperationHandlers() {
       const buffer = await fs.readFile(filePath);
       return buffer;
     } catch (error) {
-      console.error("Error reading file:", error);
+      LOG(TAG).ERROR(
+        "Error reading file:",
+        error instanceof Error ? error.message : String(error)
+      );
       throw error;
     }
   });
@@ -21,7 +27,10 @@ export function setupFileOperationHandlers() {
     try {
       return await heicConverter.getConvertedPath(heicPath);
     } catch (error) {
-      console.error("Error converting HEIC:", error);
+      LOG(TAG).ERROR(
+        "Error converting HEIC:",
+        error instanceof Error ? error.message : String(error)
+      );
       return null;
     }
   });
@@ -30,7 +39,10 @@ export function setupFileOperationHandlers() {
     try {
       return await heicConverter.getCacheStats();
     } catch (error) {
-      console.error("Error getting cache stats:", error);
+      LOG(TAG).ERROR(
+        "Error getting cache stats:",
+        error instanceof Error ? error.message : String(error)
+      );
       return { fileCount: 0, totalSizeMB: 0 };
     }
   });
@@ -40,7 +52,10 @@ export function setupFileOperationHandlers() {
       await heicConverter.cleanupCache();
       return { success: true };
     } catch (error) {
-      console.error("Error cleaning up cache:", error);
+      LOG(TAG).ERROR(
+        "Error cleaning up cache:",
+        error instanceof Error ? error.message : String(error)
+      );
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -57,7 +72,7 @@ export function setupFileOperationHandlers() {
         data: string; // base64 (no data URL prefix)
         mimeType: string; // e.g. image/png
         name?: string; // original filename
-      },
+      }
     ) => {
       if (!image || !image.data || !image.mimeType) {
         throw new Error("Invalid image payload");
@@ -85,10 +100,13 @@ export function setupFileOperationHandlers() {
         await fs.writeFile(filePath, out);
         return filePath;
       } catch (error) {
-        console.error("Failed to save thumbnail:", error);
+        LOG(TAG).ERROR(
+          "Failed to save thumbnail:",
+          error instanceof Error ? error.message : String(error)
+        );
         throw error;
       }
-    },
+    }
   );
 
   // Save a thumbnail from an existing file path into media and return the new media path
@@ -126,9 +144,12 @@ export function setupFileOperationHandlers() {
         await fs.writeFile(outPath, outputBuffer);
         return outPath;
       } catch (error) {
-        console.error("Failed to save thumbnail from path:", error);
+        LOG(TAG).ERROR(
+          "Failed to save thumbnail from path:",
+          error instanceof Error ? error.message : String(error)
+        );
         throw error;
       }
-    },
+    }
   );
 }

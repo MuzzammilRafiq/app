@@ -7,7 +7,7 @@ const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
   event: any,
   apiKey: string,
-  userQuery: string,
+  userQuery: string
 ): Promise<string[]> {
   const prompt = `
 You are a search assistant for a similarity search system. 
@@ -67,7 +67,10 @@ User query: "${userQuery}"
     const parsedResponse = JSON.parse(c);
     return parsedResponse.queries;
   } catch (error) {
-    console.error("Error parsing search queries response:", error);
+    LOG(TAG).ERROR(
+      "Error parsing search queries response:",
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }
@@ -98,7 +101,7 @@ export async function ragAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
-  limit = 3,
+  limit = 3
 ): Promise<string> {
   LOG(TAG).INFO("RAG enabled, performing retrieval...", {
     userQuery,
@@ -111,7 +114,10 @@ export async function ragAnswer(
       const r = await searchLocalAPI(q, limit);
       results.push(r);
     } catch (err) {
-      console.error(`Error searching for "${q}":`, err);
+      LOG(TAG).ERROR(
+        `Error searching for "${q}":`,
+        err instanceof Error ? err.message : String(err)
+      );
     }
   }
   // now elemenate the duplicate in results based on ids
@@ -133,7 +139,7 @@ export async function ragAnswer(
       }
     }
   }
-  LOG(TAG).INFO("uniqueResults", JSON_PRINT(uniqueResults));
+  LOG(TAG).INFO(`Found ${uniqueResults.length} unique results`);
   event.sender.send("stream-chunk", {
     chunk: JSON.stringify(uniqueResults),
     type: "source",

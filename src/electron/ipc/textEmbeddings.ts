@@ -1,5 +1,7 @@
 import { dialog, ipcMain } from "electron";
+import { LOG } from "../utils/logging.js";
 
+const TAG = "text-embedding";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 
 export function setupTextEmbeddingHandlers() {
@@ -18,10 +20,13 @@ export function setupTextEmbeddingHandlers() {
 
         return result.filePaths[0];
       } catch (error) {
-        console.error("Error selecting folder:", error);
+        LOG(TAG).ERROR(
+          "Error selecting folder:",
+          error instanceof Error ? error.message : String(error)
+        );
         return null;
       }
-    },
+    }
   );
 
   ipcMain.handle(
@@ -42,7 +47,7 @@ export function setupTextEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
         const results = await response.json();
@@ -60,7 +65,7 @@ export function setupTextEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error("Error in image-embeddings:scan-folder:", errorMessage);
+        LOG(TAG).ERROR("scan-folder failed:", errorMessage);
 
         return {
           success: false,
@@ -68,7 +73,7 @@ export function setupTextEmbeddingHandlers() {
           results: null,
         };
       }
-    },
+    }
   );
   ipcMain.handle(
     "text-embeddings:search-by-text",
@@ -89,7 +94,7 @@ export function setupTextEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
 
@@ -103,17 +108,14 @@ export function setupTextEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error(
-          "Error in image-embeddings:search-by-text:",
-          errorMessage,
-        );
+        LOG(TAG).ERROR("search-by-text failed:", errorMessage);
         return {
           success: false,
           error: errorMessage,
           results: [],
         };
       }
-    },
+    }
   );
   ipcMain.handle("text-embeddings:delete-all", async (event) => {
     try {
@@ -136,7 +138,7 @@ export function setupTextEmbeddingHandlers() {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error("Error in image-embeddings:delete-all:", errorMessage);
+      LOG(TAG).ERROR("delete-all failed:", errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -160,7 +162,7 @@ export function setupTextEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
 
@@ -174,13 +176,13 @@ export function setupTextEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error("Error in image-embeddings:delete-folder:", errorMessage);
+        LOG(TAG).ERROR("delete-folder failed:", errorMessage);
         return {
           success: false,
           error: errorMessage,
           message: null,
         };
       }
-    },
+    }
   );
 }

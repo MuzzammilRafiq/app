@@ -1,6 +1,9 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { promises as fs } from "fs";
 import path from "node:path";
+import { LOG } from "../utils/logging.js";
+
+const TAG = "model";
 
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
@@ -57,9 +60,9 @@ export const ASK_TEXT = async function* (
     messages,
     ...opts,
     stream: true as const,
-    provider:{
-      only:["Groq"]
-    }
+    provider: {
+      only: ["Groq"],
+    },
   });
 
   for await (const chunk of stream) {
@@ -103,7 +106,10 @@ export const ASK_IMAGE = async function* (
         },
       });
     } catch (err) {
-      console.error(`Failed to read image at ${imagePath}:`, err);
+      LOG(TAG).ERROR(
+        `Failed to read image at ${imagePath}:`,
+        err instanceof Error ? err.message : String(err)
+      );
     }
   }
 
@@ -168,7 +174,7 @@ export const EXTRACT_WEB_SEARCH = async function (
   });
 
   const content = results.choices?.[0]?.message?.content;
-  
+
   // Handle case where content might be an array of content items
   if (Array.isArray(content)) {
     // Extract text from all text content items
@@ -177,6 +183,6 @@ export const EXTRACT_WEB_SEARCH = async function (
       .map((item) => item.text)
       .join("");
   }
-  
+
   return content;
 };

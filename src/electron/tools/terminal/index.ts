@@ -259,7 +259,7 @@ export const terminalTool = async (
       success: true,
     };
   } catch (error: any) {
-    console.log(error);
+    LOG(TAG).ERROR("Terminal execution failed:", error.message);
     return {
       output: "",
       needConformation: false,

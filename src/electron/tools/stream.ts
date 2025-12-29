@@ -48,10 +48,8 @@ const router = async (
   planHash: string
 ): Promise<string> => {
   LOG(TAG).INFO(
-    "router called with plan",
-    JSON_PRINT(plan),
-    "and messages count:",
-    messages.length
+    `Router called with ${plan.length} steps, first: "${plan[0]?.description || "none"}"`,
+    `messages count: ${messages.length}`
   );
 
   // Initialize execution context
@@ -109,8 +107,7 @@ const router = async (
     context.accumulatedOutput += result.output + "\n";
 
     LOG(TAG).INFO(
-      `Step ${step_number} completed`,
-      JSON_PRINT({ tool: tool_name, outputLength: result.output.length })
+      `Step ${step_number} completed (${tool_name}), output: ${result.output.length} chars`
     );
 
     // Emit a completion log to the renderer for live plan progress
@@ -195,7 +192,7 @@ export const stream = async (
       LOG(TAG).ERROR("Failed to persist initial plan steps: " + err);
     }
 
-    LOG(TAG).INFO("plan", JSON_PRINT(planResult.steps));
+    LOG(TAG).INFO(`Generated plan with ${planResult.steps.length} steps`);
 
     const finalResponse = await router(
       planResult.steps,

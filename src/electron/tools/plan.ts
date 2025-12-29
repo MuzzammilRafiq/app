@@ -151,11 +151,10 @@ export const getPlan = async (
         });
       }
     }
-    LOG(TAG).INFO(JSON_PRINT(JSON.parse(c)));
-    LOG(TAG).INFO(JSON_PRINT(messages));
     const planData: {
       steps: MakePlanResponse[];
     } = JSON.parse(c);
+    LOG(TAG).INFO(`Generated ${planData.steps.length} plan steps`);
     if (!planData.steps || planData.steps.length === 0) {
       const fallback: MakePlanResponse = {
         step_number: 1,
@@ -168,7 +167,10 @@ export const getPlan = async (
     }
     return { steps: planData.steps };
   } catch (error) {
-    LOG(TAG).ERROR("Failed to generate plan:", error);
+    LOG(TAG).ERROR(
+      "Failed to generate plan:",
+      error instanceof Error ? error.message : String(error)
+    );
     return {
       steps: [],
       error: error instanceof Error ? error.message : "Unknown error occurred",

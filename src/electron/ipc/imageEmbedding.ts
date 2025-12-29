@@ -1,5 +1,7 @@
 import { dialog, ipcMain } from "electron";
+import { LOG } from "../utils/logging.js";
 
+const TAG = "image-embedding";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 
 export function setupImageEmbeddingHandlers() {
@@ -18,10 +20,13 @@ export function setupImageEmbeddingHandlers() {
 
         return result.filePaths[0];
       } catch (error) {
-        console.error("Error selecting folder:", error);
+        LOG(TAG).ERROR(
+          "Error selecting folder:",
+          error instanceof Error ? error.message : String(error)
+        );
         return null;
       }
-    },
+    }
   );
   ipcMain.handle(
     "image-embeddings:scan-folder",
@@ -41,7 +46,7 @@ export function setupImageEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
         const results = await response.json();
@@ -59,7 +64,7 @@ export function setupImageEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error("Error in image-embeddings:scan-folder:", errorMessage);
+        LOG(TAG).ERROR("scan-folder failed:", errorMessage);
 
         return {
           success: false,
@@ -67,7 +72,7 @@ export function setupImageEmbeddingHandlers() {
           results: null,
         };
       }
-    },
+    }
   );
   ipcMain.handle(
     "image-embeddings:search-by-text",
@@ -88,7 +93,7 @@ export function setupImageEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
 
@@ -102,17 +107,14 @@ export function setupImageEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error(
-          "Error in image-embeddings:search-by-text:",
-          errorMessage,
-        );
+        LOG(TAG).ERROR("search-by-text failed:", errorMessage);
         return {
           success: false,
           error: errorMessage,
           results: [],
         };
       }
-    },
+    }
   );
   ipcMain.handle("image-embeddings:delete-all", async (event) => {
     try {
@@ -135,7 +137,7 @@ export function setupImageEmbeddingHandlers() {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error("Error in image-embeddings:delete-all:", errorMessage);
+      LOG(TAG).ERROR("delete-all failed:", errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -159,7 +161,7 @@ export function setupImageEmbeddingHandlers() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.detail || `Server error: ${response.status}`,
+            errorData.detail || `Server error: ${response.status}`
           );
         }
 
@@ -173,13 +175,13 @@ export function setupImageEmbeddingHandlers() {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error("Error in image-embeddings:delete-folder:", errorMessage);
+        LOG(TAG).ERROR("delete-folder failed:", errorMessage);
         return {
           success: false,
           error: errorMessage,
           message: null,
         };
       }
-    },
+    }
   );
 }

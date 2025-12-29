@@ -1,5 +1,5 @@
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
-import { LOG, JSON_PRINT } from "../../utils/logging.js";
+import { LOG, truncate } from "../../utils/logging.js";
 import { ChatMessageRecord } from "../../../common/types.js";
 
 const TAG = "general";
@@ -7,7 +7,7 @@ export const generalTool = async (
   messages: ChatMessageRecord[],
   taskDescription: string,
   event: any,
-  apiKey: string,
+  apiKey: string
 ): Promise<{ output: string }> => {
   try {
     LOG(TAG).INFO("taskDescription:", taskDescription);
@@ -50,13 +50,13 @@ Provide a clear, concise, well-formatted markdown response based on the conversa
         });
       }
     }
-    LOG(TAG).INFO(JSON_PRINT(c));
+    LOG(TAG).INFO(`Response generated: ${truncate(c, 100)}`);
     // Streaming complete - no need to send final chunk
 
     return { output: c };
   } catch (error) {
     LOG(TAG).ERROR(
-      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );
     return {
       output: `# Error\n\nSorry, I encountered an error while processing your request:\n\n\`${error instanceof Error ? error.message : "Unknown error"}\`\n\nPlease try again or contact support if the issue persists.`,
