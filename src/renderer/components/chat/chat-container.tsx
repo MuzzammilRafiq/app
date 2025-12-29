@@ -191,35 +191,39 @@ export default function ChatContainer() {
 
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
-    if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
-      const applyPlans = async () => {
-        const fromDb = await buildSyntheticPlanFromDB(plans);
-        if (fromDb.length > 0) {
-          setSidebarPlans(fromDb);
-        } else {
-          setSidebarPlans(buildSyntheticPlan(plans, logs));
-        }
-      };
-      void applyPlans();
-      setSidebarLogs(logs);
-      setSidebarSources(sources);
-      setHasAutoOpened(true);
-    } else if (hasDetails && sidebarOpen) {
-      // Keep sidebar content in sync if it's already open
-      const applyPlans = async () => {
-        const fromDb = await buildSyntheticPlanFromDB(plans);
-        if (fromDb.length > 0) {
-          setSidebarPlans(fromDb);
-        } else {
-          setSidebarPlans(buildSyntheticPlan(plans, logs));
-        }
-      };
-      void applyPlans();
-      setSidebarLogs(logs);
-      setSidebarSources(sources);
-    }
-    prevCountRef.current = curr;
-  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
+      if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
+        const applyPlans = async () => {
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) {
+            setSidebarPlans(fromDb);
+          } else {
+            setSidebarPlans(buildSyntheticPlan(plans, logs));
+          }
+        };
+        void (async () => {
+          await applyPlans();
+          setSidebarLogs(logs);
+          setSidebarSources(sources);
+          setHasAutoOpened(true);
+        })();
+      } else if (hasDetails && sidebarOpen) {
+        // Keep sidebar content in sync if it's already open
+        const applyPlans = async () => {
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) {
+            setSidebarPlans(fromDb);
+          } else {
+            setSidebarPlans(buildSyntheticPlan(plans, logs));
+          }
+        };
+        void (async () => {
+          await applyPlans();
+          setSidebarLogs(logs);
+          setSidebarSources(sources);
+        })();
+      }
+      prevCountRef.current = curr;
+    }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
 
   const handleSendMessage = async () => {
     const settings = loadSettings();
