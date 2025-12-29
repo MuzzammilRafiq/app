@@ -87,10 +87,7 @@ export async function createUserMessage(
   };
 
   const newMessage = await window.electronAPI.dbAddChatMessage(messageRecord);
-  const updatedSession = await window.electronAPI.dbTouchSession(
-    session.id,
-    Date.now()
-  );
+  const updatedSession = await window.electronAPI.dbGetSession(session.id);
 
   if (!updatedSession) {
     throw new Error("Failed to update session timestamp");
@@ -143,7 +140,6 @@ export async function persistStreamingSegments(
     };
 
     const saved = await window.electronAPI.dbAddChatMessage(record);
-    await window.electronAPI.dbTouchSession(session.id, Date.now());
     savedRecords.push(saved);
   }
   return savedRecords;
