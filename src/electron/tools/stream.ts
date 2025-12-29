@@ -5,6 +5,7 @@ import { preProcessMessage } from "./pre/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
 import { LOG, JSON_PRINT } from "../utils/logging.js";
+import dbService from "../services/database.js";
 
 const TAG = "stream";
 
@@ -30,11 +31,21 @@ interface ExecutionContext {
  * - Worker tools (terminal_tool, future tools) add their results to ExecutionContext
  * - general_tool receives full context to synthesize final user response
  */
+function djb2Hash(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 const router = async (
   plan: MakePlanResponse[],
   messages: ChatMessageRecord[],
   event: IpcMainInvokeEvent,
-  apiKey: string
+  apiKey: string,
+  sessionId: string,
+  planHash: string
 ): Promise<string> => {
   LOG(TAG).INFO(
     "router called with plan",
@@ -101,6 +112,17 @@ const router = async (
       `Step ${step_number} completed`,
       JSON_PRINT({ tool: tool_name, outputLength: result.output.length })
     );
+
+    // Emit a completion log to the renderer for live plan progress
+    event.sender.send("stream-chunk", {
+      chunk: `Step ${step_number} done`,
+      type: "log",
+    });
+    try {
+      dbService.markPlanStepDone(sessionId, planHash, step_number);
+    } catch (err) {
+      LOG(TAG).ERROR("Failed to persist plan step completion: " + err);
+    }
   }
 
   // Return the last result (should be from general_tool)
@@ -164,13 +186,24 @@ export const stream = async (
       type: "plan",
     });
 
+    // Persist plan steps with initial statuses
+    const sessionId = lastUserMessage.sessionId;
+    const planHash = djb2Hash(JSON.stringify(planResult.steps));
+    try {
+      dbService.upsertPlanSteps(sessionId, planHash, planResult.steps);
+    } catch (err) {
+      LOG(TAG).ERROR("Failed to persist initial plan steps: " + err);
+    }
+
     LOG(TAG).INFO("plan", JSON_PRINT(planResult.steps));
 
     const finalResponse = await router(
       planResult.steps,
       updatedMessages,
       event,
-      apiKey
+      apiKey,
+      sessionId,
+      planHash
     );
 
     return { text: finalResponse };

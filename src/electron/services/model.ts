@@ -57,6 +57,9 @@ export const ASK_TEXT = async function* (
     messages,
     ...opts,
     stream: true as const,
+    provider:{
+      only:["Groq"]
+    }
   });
 
   for await (const chunk of stream) {

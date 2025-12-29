@@ -61,4 +61,24 @@ export function setupDatabaseHandlers() {
       return dbService.getAllSessionsWithMessages(limit);
     },
   );
+
+  // Plan steps
+  ipcMain.handle(
+    "db:upsert-plan-steps",
+    async (_event, sessionId: string, planHash: string, steps: any[]) => {
+      return dbService.upsertPlanSteps(sessionId, planHash, steps);
+    },
+  );
+  ipcMain.handle(
+    "db:mark-plan-step-done",
+    async (_event, sessionId: string, planHash: string, stepNumber: number) => {
+      return dbService.markPlanStepDone(sessionId, planHash, stepNumber);
+    },
+  );
+  ipcMain.handle(
+    "db:get-plan-steps",
+    async (_event, sessionId: string, planHash: string) => {
+      return dbService.getPlanSteps(sessionId, planHash);
+    },
+  );
 }

@@ -43,12 +43,68 @@ export default function ChatContainer() {
     setSelectedImage(null);
   };
 
+  const djb2Hash = (str: string): string => {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 33) ^ str.charCodeAt(i);
+    }
+    return (hash >>> 0).toString(16);
+  };
+
+  const buildSyntheticPlanFromDB = async (
+    plans: ChatMessageRecord[],
+  ): Promise<ChatMessageRecord[]> => {
+    if (!plans || plans.length === 0) return [];
+    const latest = plans[plans.length - 1]!;
+    let steps: any[] | null = null;
+    try {
+      const parsed = JSON.parse(latest.content);
+      if (Array.isArray(parsed)) steps = parsed;
+      else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
+    } catch {}
+    if (!steps) return plans;
+    const planHash = djb2Hash(JSON.stringify(steps));
+    try {
+      const dbSteps = await window.electronAPI.dbGetPlanSteps(latest.sessionId, planHash);
+      if (Array.isArray(dbSteps) && dbSteps.length > 0) {
+        const merged = steps.map((s: any) => {
+          const matched = dbSteps.find((d: any) => Number(d.step_number) === Number(s.step_number));
+          return matched ? { ...s, status: matched.status } : { ...s, status: s.status ?? "todo" };
+        });
+        const synthetic: ChatMessageRecord = {
+          id: latest.id ?? `synthetic-plan-${Date.now()}`,
+          sessionId: latest.sessionId,
+          content: JSON.stringify({ steps: merged }, null, 2),
+          role: latest.role,
+          timestamp: Date.now(),
+          isError: "",
+          imagePaths: null,
+          type: "plan",
+        };
+        return [synthetic];
+      }
+    } catch (err) {
+      // Silent fallback to log-based synthetic plan
+      // eslint-disable-next-line no-console
+      console.error("Failed to fetch plan steps from DB:", err);
+    }
+    return plans;
+  };
+
   const openSidebar = (payload: {
     plans: ChatMessageRecord[];
     logs: ChatMessageRecord[];
     sources: ChatMessageRecord[];
   }) => {
-    setSidebarPlans(payload.plans || []);
+    const applyPlans = async () => {
+      const fromDb = await buildSyntheticPlanFromDB(payload.plans || []);
+      if (fromDb.length > 0) {
+        setSidebarPlans(fromDb);
+      } else {
+        setSidebarPlans(buildSyntheticPlan(payload.plans || [], payload.logs || []));
+      }
+    };
+    void applyPlans();
     setSidebarLogs(payload.logs || []);
     setSidebarSources(payload.sources || []);
     setSidebarOpen(true);
@@ -58,6 +114,45 @@ export default function ChatContainer() {
   // Auto-open sidebar when new assistant details arrive
   const prevCountRef = useRef(0);
   const messages = (currentSession?.messages ?? []) as ChatMessageRecord[];
+
+  const buildSyntheticPlan = (
+    plans: ChatMessageRecord[],
+    logs: ChatMessageRecord[],
+  ): ChatMessageRecord[] => {
+    if (!plans || plans.length === 0) return [];
+    const latest = plans[plans.length - 1]!;
+    let steps: any[] | null = null;
+    try {
+      const parsed = JSON.parse(latest.content);
+      if (Array.isArray(parsed)) steps = parsed;
+      else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
+    } catch {}
+    if (!steps) return plans;
+    const done = new Set<number>();
+    for (const l of logs) {
+      const m = l.content.match(/Step\s+(\d+)\s+done/i);
+      if (m) {
+        const n = Number(m[1]);
+        if (!Number.isNaN(n)) done.add(n);
+      }
+    }
+    const updated = steps.map((s: any) => {
+      const num = Number(s.step_number);
+      const isDone = done.has(num);
+      return { ...s, status: isDone ? "done" : s.status ?? "todo" };
+    });
+    const synthetic: ChatMessageRecord = {
+      id: latest.id ?? `synthetic-plan-${Date.now()}`,
+      sessionId: latest.sessionId,
+      content: JSON.stringify({ steps: updated }, null, 2),
+      role: latest.role,
+      timestamp: Date.now(),
+      isError: "",
+      imagePaths: null,
+      type: "plan",
+    };
+    return [synthetic];
+  };
 
   const computeLastAssistantGroup = () => {
     if (!messages.length)
@@ -97,13 +192,29 @@ export default function ChatContainer() {
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
     if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
-      setSidebarPlans(plans);
+      const applyPlans = async () => {
+        const fromDb = await buildSyntheticPlanFromDB(plans);
+        if (fromDb.length > 0) {
+          setSidebarPlans(fromDb);
+        } else {
+          setSidebarPlans(buildSyntheticPlan(plans, logs));
+        }
+      };
+      void applyPlans();
       setSidebarLogs(logs);
       setSidebarSources(sources);
       setHasAutoOpened(true);
     } else if (hasDetails && sidebarOpen) {
       // Keep sidebar content in sync if it's already open
-      setSidebarPlans(plans);
+      const applyPlans = async () => {
+        const fromDb = await buildSyntheticPlanFromDB(plans);
+        if (fromDb.length > 0) {
+          setSidebarPlans(fromDb);
+        } else {
+          setSidebarPlans(buildSyntheticPlan(plans, logs));
+        }
+      };
+      void applyPlans();
       setSidebarLogs(logs);
       setSidebarSources(sources);
     }

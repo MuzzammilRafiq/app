@@ -276,6 +276,24 @@ interface Window {
     ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
 
     /**
+     * Plan steps persistence APIs
+     */
+    dbUpsertPlanSteps: (
+      sessionId: string,
+      planHash: string,
+      steps: import("../common/types").MakePlanResponse[],
+    ) => Promise<void>;
+    dbMarkPlanStepDone: (
+      sessionId: string,
+      planHash: string,
+      stepNumber: number,
+    ) => Promise<boolean>;
+    dbGetPlanSteps: (
+      sessionId: string,
+      planHash: string,
+    ) => Promise<import("../common/types").MakePlanResponse[]>;
+
+    /**
      * OpenRouter API: get available models from OpenRouter
      */
     getOpenRouterModels: (

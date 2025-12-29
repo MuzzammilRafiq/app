@@ -6,6 +6,7 @@ import {
   ChatSessionRecord,
   ChatType,
   ChatSessionWithMessages,
+  MakePlanResponse,
 } from "../../common/types.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
@@ -143,6 +144,35 @@ export class DatabaseService {
       }
     } catch (error) {
       LOG(TAG).ERROR(`Failed to ensure chat_messages schema: ${error}`);
+      throw error;
+    }
+    // Plan steps table for persistent plan progress
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS plan_steps (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          plan_hash TEXT NOT NULL,
+          step_number INTEGER NOT NULL,
+          tool_name TEXT NOT NULL,
+          description TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('todo','done')),
+          updated_at INTEGER NOT NULL,
+          UNIQUE(session_id, plan_hash, step_number),
+          FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+      `);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_plan_steps_session_hash ON plan_steps(session_id, plan_hash);`,
+      );
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_plan_steps_session ON plan_steps(session_id);`,
+      );
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to ensure plan_steps schema: ${error}`);
       throw error;
     }
   }
@@ -531,6 +561,101 @@ export class DatabaseService {
     } catch (error) {
       LOG(TAG).ERROR(`Failed to delete chat messages by session: ${error}`);
       throw new Error(`Failed to delete chat messages by session: ${error}`);
+    }
+  }
+
+  // ---------------- Plan steps APIs ----------------
+  upsertPlanSteps(
+    sessionId: string,
+    planHash: string,
+    steps: MakePlanResponse[],
+  ): void {
+    this.validateInput(sessionId, "sessionId");
+    this.validateInput(planHash, "planHash");
+    if (!Array.isArray(steps)) {
+      throw new Error("steps must be an array");
+    }
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      const stmt = this.db.prepare(`
+        INSERT INTO plan_steps (id, session_id, plan_hash, step_number, tool_name, description, status, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(session_id, plan_hash, step_number)
+        DO UPDATE SET status=excluded.status, tool_name=excluded.tool_name, description=excluded.description, updated_at=excluded.updated_at
+      `);
+      const now = Date.now();
+      for (const s of steps) {
+        const id = randomUUID();
+        stmt.run(
+          id,
+          sessionId,
+          planHash,
+          s.step_number,
+          s.tool_name,
+          s.description,
+          s.status ?? "todo",
+          now,
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to upsert plan steps: ${error}`);
+      throw error;
+    }
+  }
+
+  markPlanStepDone(
+    sessionId: string,
+    planHash: string,
+    stepNumber: number,
+  ): boolean {
+    this.validateInput(sessionId, "sessionId");
+    this.validateInput(planHash, "planHash");
+    if (typeof stepNumber !== "number" || stepNumber <= 0) {
+      throw new Error("stepNumber must be a positive number");
+    }
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE plan_steps SET status='done', updated_at=? 
+        WHERE session_id=? AND plan_hash=? AND step_number=?
+      `);
+      const res = stmt.run(Date.now(), sessionId, planHash, stepNumber);
+      return res.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to mark plan step done: ${error}`);
+      throw error;
+    }
+  }
+
+  getPlanSteps(
+    sessionId: string,
+    planHash: string,
+  ): Array<MakePlanResponse> {
+    this.validateInput(sessionId, "sessionId");
+    this.validateInput(planHash, "planHash");
+    try {
+      const stmt = this.db.prepare(`
+        SELECT step_number, tool_name, description, status 
+        FROM plan_steps 
+        WHERE session_id=? AND plan_hash=?
+        ORDER BY step_number ASC
+      `);
+      const rows = stmt.all(sessionId, planHash) as Array<{
+        step_number: number;
+        tool_name: string;
+        description: string;
+        status: "todo" | "done";
+      }>;
+      return rows.map((r) => ({
+        step_number: r.step_number,
+        tool_name: r.tool_name,
+        description: r.description,
+        status: r.status,
+      }));
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get plan steps: ${error}`);
+      throw error;
     }
   }
 
