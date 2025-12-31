@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import { useStore } from "../../utils/store";
 import { type ImageData } from "../../services/imageUtils";
 import type { ChatMessageRecord } from "../../../common/types";
-
 import ChatInput from "./chat-input";
 import MessageGroups from "./message-groups";
 import MessageDetailsSidebar from "./message-details-sidebar";
@@ -96,15 +95,12 @@ export default function ChatContainer() {
     logs: ChatMessageRecord[];
     sources: ChatMessageRecord[];
   }) => {
-    const applyPlans = async () => {
+    const immediate = buildSyntheticPlan(payload.plans || [], payload.logs || []);
+    setSidebarPlans(immediate);
+    void (async () => {
       const fromDb = await buildSyntheticPlanFromDB(payload.plans || []);
-      if (fromDb.length > 0) {
-        setSidebarPlans(fromDb);
-      } else {
-        setSidebarPlans(buildSyntheticPlan(payload.plans || [], payload.logs || []));
-      }
-    };
-    void applyPlans();
+      if (fromDb.length > 0) setSidebarPlans(fromDb);
+    })();
     setSidebarLogs(payload.logs || []);
     setSidebarSources(payload.sources || []);
     setSidebarOpen(true);
@@ -128,18 +124,35 @@ export default function ChatContainer() {
       else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
     } catch {}
     if (!steps) return plans;
-    const done = new Set<number>();
+    // Prefer statuses provided by the plan itself; fall back to logs only if missing.
+    const completedFromLogs = new Set<number>();
+    const logPatterns = [
+      /Step\s+(\d+)\s+completed/i,
+      /Step\s+(\d+)\s+done/i,
+      /✓\s*Step\s+(\d+)/i,
+    ];
     for (const l of logs) {
-      const m = l.content.match(/Step\s+(\d+)\s+done/i);
-      if (m) {
-        const n = Number(m[1]);
-        if (!Number.isNaN(n)) done.add(n);
+      for (const re of logPatterns) {
+        const m = l.content.match(re);
+        if (m) {
+          const n = Number(m[1]);
+          if (!Number.isNaN(n)) completedFromLogs.add(n);
+          break;
+        }
       }
     }
     const updated = steps.map((s: any) => {
       const num = Number(s.step_number);
-      const isDone = done.has(num);
-      return { ...s, status: isDone ? "done" : s.status ?? "todo" };
+      // If plan includes a non-pending status, use it. Otherwise infer from logs.
+      const statusInPlan = s.status;
+      const isCompletedByLogs = completedFromLogs.has(num);
+      const status =
+        statusInPlan && statusInPlan !== "pending"
+          ? statusInPlan
+          : isCompletedByLogs
+            ? "done"
+            : statusInPlan ?? "todo";
+      return { ...s, status };
     });
     const synthetic: ChatMessageRecord = {
       id: latest.id ?? `synthetic-plan-${Date.now()}`,
@@ -176,6 +189,26 @@ export default function ChatContainer() {
     return { plans, logs, sources };
   };
 
+  useEffect(() => {
+    const currLen = (currentSession?.messages?.length ?? 0);
+    prevCountRef.current = currLen;
+    setHasAutoOpened(false);
+    const { plans, logs, sources } = computeLastAssistantGroup();
+    const immediate = buildSyntheticPlan(plans, logs);
+    setSidebarPlans(immediate);
+    setSidebarLogs(logs);
+    setSidebarSources(sources);
+    void (async () => {
+      const fromDb = await buildSyntheticPlanFromDB(plans);
+      if (fromDb.length > 0) setSidebarPlans(fromDb);
+    })();
+    if (!currentSession?.id) {
+      setSidebarPlans([]);
+      setSidebarLogs([]);
+      setSidebarSources([]);
+    }
+  }, [currentSession?.id]);
+
   // Effect to auto-open details sidebar for new messages
   // Conditions:
   // - Message count increased OR content changed significantly
@@ -192,34 +225,25 @@ export default function ChatContainer() {
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
       if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
-        const applyPlans = async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) {
-            setSidebarPlans(fromDb);
-          } else {
-            setSidebarPlans(buildSyntheticPlan(plans, logs));
-          }
-        };
+        if (!sidebarOpen) setSidebarOpen(true);
+        const immediate = buildSyntheticPlan(plans, logs);
+        setSidebarPlans(immediate);
+        setSidebarLogs(logs);
+        setSidebarSources(sources);
         void (async () => {
-          await applyPlans();
-          setSidebarLogs(logs);
-          setSidebarSources(sources);
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) setSidebarPlans(fromDb);
           setHasAutoOpened(true);
         })();
       } else if (hasDetails && sidebarOpen) {
         // Keep sidebar content in sync if it's already open
-        const applyPlans = async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) {
-            setSidebarPlans(fromDb);
-          } else {
-            setSidebarPlans(buildSyntheticPlan(plans, logs));
-          }
-        };
+        const immediate = buildSyntheticPlan(plans, logs);
+        setSidebarPlans(immediate);
+        setSidebarLogs(logs);
+        setSidebarSources(sources);
         void (async () => {
-          await applyPlans();
-          setSidebarLogs(logs);
-          setSidebarSources(sources);
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) setSidebarPlans(fromDb);
         })();
       }
       prevCountRef.current = curr;

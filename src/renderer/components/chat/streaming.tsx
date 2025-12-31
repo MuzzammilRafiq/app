@@ -37,45 +37,44 @@ export function useStreaming() {
         }
       }
 
-      setSegments((prev) => {
-        const updated = [...prev];
-        if (data.type === "plan") {
-          // Plan is single; overwrite if exists else insert at end
-          const existingIndex = updated.findIndex((s) => s.type === "plan");
-          if (existingIndex >= 0) {
-            const existing = updated[existingIndex];
-            if (existing) {
-              updated[existingIndex] = {
-                id: existing.id,
-                type: existing.type,
-                content: data.chunk,
-              };
-            }
-          } else {
-            updated.push({
-              id: crypto.randomUUID(),
-              type: "plan",
+      // Use ref for immediate state access to avoid stale closures during rapid updates
+      const updated = [...segmentsRef.current];
+      if (data.type === "plan") {
+        // Plan is single; overwrite if exists else insert at end
+        const existingIndex = updated.findIndex((s) => s.type === "plan");
+        if (existingIndex >= 0) {
+          const existing = updated[existingIndex];
+          if (existing) {
+            updated[existingIndex] = {
+              id: existing.id,
+              type: existing.type,
               content: data.chunk,
-            });
+            };
           }
         } else {
-          const last = updated[updated.length - 1];
-          if (last && last.type === data.type) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: last.content + data.chunk,
-            };
-          } else {
-            updated.push({
-              id: crypto.randomUUID(),
-              type: data.type,
-              content: data.chunk,
-            });
-          }
+          updated.push({
+            id: crypto.randomUUID(),
+            type: "plan",
+            content: data.chunk,
+          });
         }
-        segmentsRef.current = updated;
-        return updated;
-      });
+      } else {
+        const last = updated[updated.length - 1];
+        if (last && last.type === data.type) {
+          updated[updated.length - 1] = {
+            ...last,
+            content: last.content + data.chunk,
+          };
+        } else {
+          updated.push({
+            id: crypto.randomUUID(),
+            type: data.type,
+            content: data.chunk,
+          });
+        }
+      }
+      segmentsRef.current = updated;
+      setSegments(updated);
     };
 
     window.electronAPI.onStreamChunk(handleStreamChunk);
@@ -102,7 +101,8 @@ export function useStreaming() {
 export function StreamingPreview({ segments }: { segments: Segment[] }) {
   if (segments.length === 0) return null;
 
-  const planSegments = segments.filter((seg) => seg.type === "plan");
+  // Only take the last plan segment to avoid duplicates during streaming
+  const planSegment = segments.filter((seg) => seg.type === "plan").pop();
   const logSegments = segments.filter((seg) => seg.type === "log");
   const streamSegments = segments.filter((seg) => seg.type === "stream");
   const sourceSegments = segments.filter((seg) => seg.type === "source");
@@ -110,10 +110,10 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
   return (
     <div className="flex justify-start">
       <div className="break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
-        {/* Plans */}
-        {planSegments.map((msg) => (
-          <PlanRenderer key={msg.id} content={msg.content} />
-        ))}
+        {/* Plan - only render the latest one */}
+        {planSegment && (
+          <PlanRenderer key={planSegment.id} content={planSegment.content} />
+        )}
 
         {/* Logs */}
         {logSegments.map((msg) => (

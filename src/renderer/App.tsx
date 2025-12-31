@@ -4,7 +4,6 @@ import Settings from "./components/settings";
 import { Toaster } from "react-hot-toast";
 import { useCurrentViewStore } from "./utils/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -17,7 +16,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function App() {
+function App() {
   const currentView = useCurrentViewStore((s) => s.currentView);
   return (
     <QueryClientProvider client={queryClient}>
@@ -40,3 +39,4 @@ export default function App() {
     </QueryClientProvider>
   );
 }
+export default App;
