@@ -164,34 +164,65 @@ export const useStore = create<Store>((set) => ({
       const updatedSessions = state.chatSessionsWithMessages.map((session) => {
         if (session.id !== sessionId) return session;
 
-        // Try to find last assistant message of this type that is not marked error
         const msgs = [...session.messages];
-        const last = msgs[msgs.length - 1];
-        // FIX #6: Use explicit string comparison for isError
-        if (
-          last &&
-          last.role === "assistant" &&
-          last.type === type &&
-          last.isError === ""
-        ) {
-          const merged: ChatMessageRecord = {
-            ...last,
-            content: last.content + chunk,
-            timestamp: Date.now(),
-          };
-          msgs[msgs.length - 1] = merged;
+        if (type === "plan") {
+          let idx = -1;
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            const m = msgs[i];
+            if (m && m.role === "assistant" && m.type === "plan" && m.isError === "") {
+              idx = i;
+              break;
+            }
+          }
+          if (idx >= 0) {
+            const existing = msgs[idx]!;
+            const updated: ChatMessageRecord = {
+              ...existing,
+              content: chunk,
+              timestamp: Date.now(),
+            };
+            msgs.splice(idx, 1);
+            msgs.push(updated);
+          } else {
+            const newMsg: ChatMessageRecord = {
+              id: String(crypto.randomUUID()),
+              sessionId,
+              content: chunk,
+              role: "assistant",
+              timestamp: Date.now(),
+              isError: "",
+              imagePaths: null,
+              type: "plan",
+            };
+            msgs.push(newMsg);
+          }
         } else {
-          const newMsg: ChatMessageRecord = {
-            id: String(crypto.randomUUID()),
-            sessionId,
-            content: chunk,
-            role: "assistant",
-            timestamp: Date.now(),
-            isError: "",
-            imagePaths: null,
-            type,
-          };
-          msgs.push(newMsg);
+          const last = msgs[msgs.length - 1];
+          if (
+            last &&
+            last.role === "assistant" &&
+            last.type === type &&
+            last.isError === ""
+          ) {
+            const merged: ChatMessageRecord = {
+              ...last,
+              content: last.content + chunk,
+              timestamp: Date.now(),
+            };
+            msgs[msgs.length - 1] = merged;
+          } else {
+            const newMsg: ChatMessageRecord = {
+              id: String(crypto.randomUUID()),
+              sessionId,
+              content: chunk,
+              role: "assistant",
+              timestamp: Date.now(),
+              isError: "",
+              imagePaths: null,
+              type,
+            };
+            msgs.push(newMsg);
+          }
         }
 
         return { ...session, messages: msgs };

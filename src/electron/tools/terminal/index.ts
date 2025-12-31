@@ -33,10 +33,8 @@ const DANGEROUS_COMMANDS = [
   "service",
   "launchctl",
   "crontab",
-  "at ",
   "nohup",
   "&",
-  "python -c",
   "node -e",
   "eval",
   "exec",
@@ -146,7 +144,7 @@ You are a macOS terminal agent. Output only a single JSON object with keys: upda
 - - Use only allowed base commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
 - - If a needed action is disallowed, choose a read-only alternative or set command to "DONE" if goal satisfied
 `;
-const checkCommandSecurity = (
+export const checkCommandSecurity = (
   command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
@@ -198,7 +196,7 @@ export const terminalTool = async (
   event: any,
   command: string,
   confirm = false,
-  cwd?: string,
+  cwd?: string
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -250,12 +248,47 @@ export const terminalTool = async (
   }
 };
 
+/**
+ * Simplified terminal executor for the orchestrator.
+ * Executes a single command and returns the result.
+ * Does NOT include LLM planning - the orchestrator handles that.
+ */
+export const terminalExecutor = async (
+  command: string,
+  cwd?: string
+): Promise<{ output: string; success: boolean }> => {
+  try {
+    LOG(TAG).INFO(`Executing: ${command} @ ${cwd || process.cwd()}`);
+
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 30000,
+      maxBuffer: 1024 * 1024,
+      cwd: cwd || process.cwd(),
+    });
+
+    let output = "";
+    if (stdout) output += stdout;
+    if (stderr) output += (output ? "\n" : "") + stderr;
+
+    return {
+      output: output || "Command executed successfully with no output",
+      success: true,
+    };
+  } catch (error: any) {
+    LOG(TAG).ERROR("Terminal execution failed:", error.message);
+    return {
+      output: error.message || "Command failed",
+      success: false,
+    };
+  }
+};
+
 // Terminal Agent Function
 export const terminalStep = async (
   event: any,
   apiKey: string,
   context: string,
-  index: number,
+  index: number
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -377,7 +410,7 @@ export const terminalAgent = async (
   initialContext: string,
   event: any,
   apiKey: string,
-  maxIterations: number = 20,
+  maxIterations: number = 20
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
@@ -395,11 +428,8 @@ export const terminalAgent = async (
 
   const home = os.homedir();
   const resolveCwd = (base: string, p: string) => {
-    const expanded =
-      p.startsWith("~") ? path.join(home, p.slice(1)) : p;
-    return path.isAbsolute(expanded)
-      ? expanded
-      : path.resolve(base, expanded);
+    const expanded = p.startsWith("~") ? path.join(home, p.slice(1)) : p;
+    return path.isAbsolute(expanded) ? expanded : path.resolve(base, expanded);
   };
   const applyCd = (cmd: string) => {
     const trimmed = cmd.trim();
@@ -430,11 +460,11 @@ export const terminalAgent = async (
       event,
       apiKey,
       currentContext,
-      iteration,
+      iteration
     );
     if (!agentResponse.success) {
       LOG(TAG).ERROR(
-        "terminal agent failed:" + agentResponse.error || "Unknown error",
+        "terminal agent failed:" + agentResponse.error || "Unknown error"
       );
       executionLog.push({
         iteration,
@@ -467,7 +497,12 @@ export const terminalAgent = async (
 
     const prepared = applyCd(commandToExecute);
     LOG(TAG).INFO("executing:" + prepared + " @ " + currentCwd);
-    const commandResult = await terminalTool(event, prepared, false, currentCwd);
+    const commandResult = await terminalTool(
+      event,
+      prepared,
+      false,
+      currentCwd
+    );
 
     // Send command output to UI
     event.sender.send("stream-chunk", {
@@ -511,8 +546,7 @@ export const terminalAgent = async (
       continue;
     }
 
-    const repeat =
-      prepared === lastCommand && snippet === lastOutputSnippet;
+    const repeat = prepared === lastCommand && snippet === lastOutputSnippet;
     if (repeat) {
       LOG(TAG).WARN("stalled: repeated command/output");
       currentContext += `\nDetected stall: same command/output repeated. Stopping.`;
@@ -524,7 +558,7 @@ export const terminalAgent = async (
 
   LOG(TAG).WARN("max iterations reached");
   LOG(TAG).WARN(
-    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
+    "task may not be fully completed. consider increasing maxIterations or checking the plan."
   );
 
   return { output: currentContext };

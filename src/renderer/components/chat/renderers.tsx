@@ -31,7 +31,7 @@ export function MarkdownRenderer({
           <h1
             className={clsx(
               "text-xl font-bold mb-3 mt-6",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -41,7 +41,7 @@ export function MarkdownRenderer({
           <h2
             className={clsx(
               "text-lg font-bold mb-2 mt-5",
-              isUser ? "text-blue-700" : "text-slate-800",
+              isUser ? "text-blue-700" : "text-slate-800"
             )}
           >
             {children}
@@ -348,7 +348,7 @@ export function PlanRenderer({ content }: { content: string }) {
                       {step.status}
                     </span>
                   </div>
-                  <p className="text-sm text-blue-900 leading-relaxed">
+                  <p className="text-sm text-blue-900 leading-relaxed break-words overflow-wrap-anywhere">
                     {step.description}
                   </p>
                 </div>

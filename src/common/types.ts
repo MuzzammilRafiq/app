@@ -7,6 +7,26 @@ interface MakePlanResponse {
   description: string;
   status: "todo" | "done";
 }
+
+// Orchestrator types for the new agent architecture
+type AgentType = "terminal" | "general"; // Extensible for future agents
+
+interface OrchestratorStep {
+  step_number: number;
+  agent: AgentType;
+  action: string; // Command for terminal, task description for general
+  status: "pending" | "running" | "done" | "failed";
+  result?: string;
+}
+
+interface OrchestratorContext {
+  goal: string;
+  cwd: string;
+  currentStep: number;
+  steps: OrchestratorStep[];
+  history: Array<{ step: number; command: string; output: string }>;
+  done: boolean;
+}
 interface StreamChunk {
   chunk: string;
   type: ChatType;
@@ -88,11 +108,14 @@ interface OpenRouterModel {
 }
 
 export type {
+  AgentType,
   ChatMessageRecord,
   ChatRole,
   ChatSessionRecord,
   ChatType,
   MakePlanResponse,
+  OrchestratorContext,
+  OrchestratorStep,
   StreamChunk,
   VideoDetails,
   VideoParams,
