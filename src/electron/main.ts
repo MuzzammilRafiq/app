@@ -27,6 +27,8 @@ function createWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 1000,
+    minWidth: 600,
+    minHeight: 400,
     webPreferences: {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
@@ -38,7 +40,9 @@ function createWindow(): BrowserWindow {
   if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://localhost:5173");
   } else {
-    mainWindow.loadFile(path.join(app.getAppPath(), "dist-renderer/index.html"));
+    mainWindow.loadFile(
+      path.join(app.getAppPath(), "dist-renderer/index.html")
+    );
   }
 
   // if (process.env.NODE_ENV === "development") {

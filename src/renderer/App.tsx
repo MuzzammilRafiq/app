@@ -20,11 +20,11 @@ function App() {
   const currentView = useCurrentViewStore((s) => s.currentView);
   return (
     <QueryClientProvider client={queryClient}>
-      <div>
+      <div className="h-screen overflow-hidden">
         <Toaster position="top-center" toastOptions={{ duration: 1000 }} />
-        <div className="h-screen bg-white flex">
+        <div className="h-full bg-white flex overflow-hidden">
           {currentView === "chat" && <Sidebar />}
-          <div className="flex-1 flex flex-col h-full">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
             {(() => {
               switch (currentView) {
                 case "settings":

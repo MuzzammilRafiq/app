@@ -71,8 +71,8 @@ export default function ChatInput({
   console.log(isRAGEnabled);
 
   return (
-    <div className="flex-shrink-0 px-4 pb-4">
-      <div className="mx-auto px-2 pt-2 chat-input rounded-b-3xl rounded-t-3xl max-w-3xl border-1 border-gray-300 shadow-lg">
+    <div className="shrink-0 px-4 pb-4">
+      <div className="mx-auto px-2 pt-2 chat-input rounded-b-3xl rounded-t-3xl max-w-3xl min-w-0 border-1 border-gray-300 shadow-lg">
         {/* Selected image preview above textarea */}
         {(selectedImage || (imagePaths && imagePaths.length > 0)) && (
           <div className="w-full flex justify-start mb-2">
@@ -147,7 +147,9 @@ export default function ChatInput({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingImage}
-                className={iconClass + " shadow-sm bg-white border border-gray-200"}
+                className={
+                  iconClass + " shadow-sm bg-white border border-gray-200"
+                }
                 title={selectedImage ? "Replace Image" : "Upload Image"}
                 type="button"
               >
@@ -156,7 +158,9 @@ export default function ChatInput({
               <button
                 onClick={() => setIsSearchModalOpen(true)}
                 disabled={isLoading}
-                className={iconClass + " shadow-sm bg-white border border-gray-200"}
+                className={
+                  iconClass + " shadow-sm bg-white border border-gray-200"
+                }
                 title="Search Images"
                 type="button"
               >
