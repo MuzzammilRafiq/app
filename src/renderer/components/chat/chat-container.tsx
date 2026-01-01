@@ -17,7 +17,9 @@ import {
 import { loadSettings } from "../../services/settingsStorage";
 
 export default function ChatContainer() {
-  const currentSession = useStore((s) => s.currentSession) as ChatSession | null;
+  const currentSession = useStore(
+    (s) => s.currentSession
+  ) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
 
@@ -34,7 +36,8 @@ export default function ChatContainer() {
   const [autoOpenEnabled] = useState(true);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } = useStreaming();
+  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } =
+    useStreaming();
 
   const resetInputState = () => {
     setContent("");
@@ -51,7 +54,7 @@ export default function ChatContainer() {
   };
 
   const buildSyntheticPlanFromDB = async (
-    plans: ChatMessageRecord[],
+    plans: ChatMessageRecord[]
   ): Promise<ChatMessageRecord[]> => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -59,7 +62,12 @@ export default function ChatContainer() {
     try {
       const parsed = JSON.parse(latest.content);
       if (Array.isArray(parsed)) steps = parsed;
-      else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
+      else if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray(parsed.steps)
+      )
+        steps = parsed.steps;
     } catch {}
     if (!steps) return plans;
     const normalizedForHash = steps.map((s: any) => ({
@@ -70,11 +78,18 @@ export default function ChatContainer() {
     }));
     const planHash = djb2Hash(JSON.stringify(normalizedForHash));
     try {
-      const dbSteps = await window.electronAPI.dbGetPlanSteps(latest.sessionId, planHash);
+      const dbSteps = await window.electronAPI.dbGetPlanSteps(
+        latest.sessionId,
+        planHash
+      );
       if (Array.isArray(dbSteps) && dbSteps.length > 0) {
         const merged = steps.map((s: any) => {
-          const matched = dbSteps.find((d: any) => Number(d.step_number) === Number(s.step_number));
-          return matched ? { ...s, status: matched.status } : { ...s, status: s.status ?? "todo" };
+          const matched = dbSteps.find(
+            (d: any) => Number(d.step_number) === Number(s.step_number)
+          );
+          return matched
+            ? { ...s, status: matched.status }
+            : { ...s, status: s.status ?? "todo" };
         });
         const synthetic: ChatMessageRecord = {
           id: latest.id ?? `synthetic-plan-${Date.now()}`,
@@ -101,7 +116,10 @@ export default function ChatContainer() {
     logs: ChatMessageRecord[];
     sources: ChatMessageRecord[];
   }) => {
-    const immediate = buildSyntheticPlan(payload.plans || [], payload.logs || []);
+    const immediate = buildSyntheticPlan(
+      payload.plans || [],
+      payload.logs || []
+    );
     setSidebarPlans(immediate);
     void (async () => {
       const fromDb = await buildSyntheticPlanFromDB(payload.plans || []);
@@ -119,7 +137,7 @@ export default function ChatContainer() {
 
   const buildSyntheticPlan = (
     plans: ChatMessageRecord[],
-    logs: ChatMessageRecord[],
+    logs: ChatMessageRecord[]
   ): ChatMessageRecord[] => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -127,7 +145,12 @@ export default function ChatContainer() {
     try {
       const parsed = JSON.parse(latest.content);
       if (Array.isArray(parsed)) steps = parsed;
-      else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
+      else if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray(parsed.steps)
+      )
+        steps = parsed.steps;
     } catch {}
     if (!steps) return plans;
     // Prefer statuses provided by the plan itself; fall back to logs only if missing.
@@ -197,7 +220,7 @@ export default function ChatContainer() {
   };
 
   useEffect(() => {
-    const currLen = (currentSession?.messages?.length ?? 0);
+    const currLen = currentSession?.messages?.length ?? 0;
     prevCountRef.current = currLen;
     setHasAutoOpened(false);
     const { plans, logs, sources } = computeLastAssistantGroup();
@@ -227,34 +250,35 @@ export default function ChatContainer() {
     const prev = prevCountRef.current as number;
     const curr = messages.length;
     const { plans, logs, sources } = computeLastAssistantGroup();
-    const hasDetails = plans.length > 0 || logs.length > 0 || sources.length > 0;
+    const hasDetails =
+      plans.length > 0 || logs.length > 0 || sources.length > 0;
 
     const isNew = curr > prev; // naive new-message detection
     // Also consider first-time hydration: don't auto-open unless something new arrived
-      if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
-        if (!sidebarOpen) setSidebarOpen(true);
-        const immediate = buildSyntheticPlan(plans, logs);
-        setSidebarPlans(immediate);
-        setSidebarLogs(logs);
-        setSidebarSources(sources);
-        void (async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) setSidebarPlans(fromDb);
-          setHasAutoOpened(true);
-        })();
-      } else if (hasDetails && sidebarOpen) {
-        // Keep sidebar content in sync if it's already open
-        const immediate = buildSyntheticPlan(plans, logs);
-        setSidebarPlans(immediate);
-        setSidebarLogs(logs);
-        setSidebarSources(sources);
-        void (async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) setSidebarPlans(fromDb);
-        })();
-      }
-      prevCountRef.current = curr;
-    }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
+    if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
+      if (!sidebarOpen) setSidebarOpen(true);
+      const immediate = buildSyntheticPlan(plans, logs);
+      setSidebarPlans(immediate);
+      setSidebarLogs(logs);
+      setSidebarSources(sources);
+      void (async () => {
+        const fromDb = await buildSyntheticPlanFromDB(plans);
+        if (fromDb.length > 0) setSidebarPlans(fromDb);
+        setHasAutoOpened(true);
+      })();
+    } else if (hasDetails && sidebarOpen) {
+      // Keep sidebar content in sync if it's already open
+      const immediate = buildSyntheticPlan(plans, logs);
+      setSidebarPlans(immediate);
+      setSidebarLogs(logs);
+      setSidebarSources(sources);
+      void (async () => {
+        const fromDb = await buildSyntheticPlanFromDB(plans);
+        if (fromDb.length > 0) setSidebarPlans(fromDb);
+      })();
+    }
+    prevCountRef.current = curr;
+  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
 
   const handleSendMessage = async () => {
     const settings = loadSettings();
@@ -263,7 +287,8 @@ export default function ChatContainer() {
       return;
     }
     const trimmedContent = content.trim();
-    const hasAnyImage = !!selectedImage || (imagePaths && imagePaths.length > 0);
+    const hasAnyImage =
+      !!selectedImage || (imagePaths && imagePaths.length > 0);
     if ((!trimmedContent && !hasAnyImage) || isLoading || isStreaming) {
       return;
     }
@@ -280,26 +305,33 @@ export default function ChatContainer() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession,
+        createNewSession
       );
-      const storedImagePaths = await handleImagePersistence(selectedImage, imagePaths);
+      const storedImagePaths = await handleImagePersistence(
+        selectedImage,
+        imagePaths
+      );
       const newMessage = await createUserMessage(
         session,
         trimmedContent || "",
         storedImagePaths,
-        addMessage,
+        addMessage
       );
 
       // Stream tokens directly into the current session's messages
       const handleChunk = (data: any) => {
         if (!session?.id) return;
         // Grow the visible assistant message by type
-        useStore.getState().upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
+        useStore
+          .getState()
+          .upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
       };
       setupStreaming(handleChunk);
 
       try {
-        const existingMessages = currentSession?.messages ? [...currentSession.messages] : [];
+        const existingMessages = currentSession?.messages
+          ? [...currentSession.messages]
+          : [];
         const history = existingMessages.concat([newMessage]);
 
         await window.electronAPI.streamMessageWithHistory(
@@ -310,18 +342,25 @@ export default function ChatContainer() {
             textModelOverride: settings.textModel || "",
             imageModelOverride: settings.imageModel || "",
           },
-          settings.openrouterApiKey,
+          settings.openrouterApiKey
         );
 
         // FIX #5: Persist streaming segments and replace ephemeral messages
         const ephemeralCount = segmentsRef.current.length;
-        const persistedRecords = await persistStreamingSegments(segmentsRef.current, session);
+        const persistedRecords = await persistStreamingSegments(
+          segmentsRef.current,
+          session
+        );
 
         // Replace ephemeral messages in store with persisted records
         if (persistedRecords.length > 0 && session?.id) {
           useStore
             .getState()
-            .replaceStreamingMessages(session.id, persistedRecords, ephemeralCount);
+            .replaceStreamingMessages(
+              session.id,
+              persistedRecords,
+              ephemeralCount
+            );
         }
       } catch (streamErr) {
         console.error("Streaming error:", streamErr);
@@ -340,14 +379,19 @@ export default function ChatContainer() {
   return (
     <div className="flex-1 flex h-full overflow-hidden">
       {/* Left column: messages + input */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         {currentSession && currentSession?.messages?.length > 0 ? (
           <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar">
-            <MessageGroups messages={currentSession.messages} onOpenDetails={openSidebar} />
+            <MessageGroups
+              messages={currentSession.messages}
+              onOpenDetails={openSidebar}
+            />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-2xl mb-4 text-blue-700">👋 How can I help you ?</h1>
+            <h1 className="text-2xl mb-4 text-blue-700">
+              👋 How can I help you ?
+            </h1>
           </div>
         )}
 

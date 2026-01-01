@@ -39,7 +39,7 @@ export default function Sidebar() {
 
   if (sidebarCollapsed) {
     return (
-      <div className="w-14 h-full flex flex-col">
+      <div className="w-14 h-full flex flex-col flex-shrink-0 select-none overflow-hidden">
         <div className="flex-1 overflow-y-auto p-2 w-full">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -67,7 +67,7 @@ export default function Sidebar() {
     );
   } else {
     return (
-      <div className="w-52 h-full border-r border-gray-300 flex flex-col">
+      <div className="w-52 h-full border-r border-gray-300 flex flex-col flex-shrink-0 select-none overflow-hidden">
         <div className="flex-1 overflow-y-auto p-2">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
