@@ -7,7 +7,8 @@ export const generalTool = async (
   messages: ChatMessageRecord[],
   taskDescription: string,
   event: any,
-  apiKey: string
+  apiKey: string,
+  config: any
 ): Promise<{ output: string }> => {
   try {
     LOG(TAG).INFO("taskDescription:", taskDescription);
@@ -25,10 +26,11 @@ Provide a clear, concise, well-formatted markdown response based on the conversa
       content: msg.content,
     }));
 
-    const response = ASK_TEXT(apiKey, [
-      { role: "system", content: system },
-      ...chatHistory,
-    ]);
+    const response = ASK_TEXT(
+      apiKey,
+      [{ role: "system", content: system }, ...chatHistory],
+      { overrideModel: config?.textModelOverride }
+    );
     if (!response) {
       throw new Error("No response content received from LLM");
     }

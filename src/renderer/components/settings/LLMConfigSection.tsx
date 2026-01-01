@@ -46,6 +46,40 @@ export function LLMConfigSection({
               </button>
             </div>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">
+              Text Model (ID)
+            </label>
+            <input
+              type="text"
+              placeholder="moonshotai/kimi-k2-0905"
+              value={settings.textModel || ""}
+              onChange={(e) =>
+                onSettingsChange((s) => ({
+                  ...s,
+                  textModel: e.target.value,
+                }))
+              }
+              className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 border border-gray-300"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">
+              Image Model (ID)
+            </label>
+            <input
+              type="text"
+              placeholder="qwen/qwen3-vl-30b-a3b-thinking"
+              value={settings.imageModel || ""}
+              onChange={(e) =>
+                onSettingsChange((s) => ({
+                  ...s,
+                  imageModel: e.target.value,
+                }))
+              }
+              className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 border border-gray-300"
+            />
+          </div>
         </div>
       </div>
     </div>

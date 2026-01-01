@@ -2,12 +2,16 @@ export interface AppSettings {
   theme: "light" | "dark";
   openrouterApiKey?: string;
   folders: string[];
+  textModel?: string;
+  imageModel?: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
   openrouterApiKey: "",
   folders: [],
+  textModel: "",
+  imageModel: "",
 };
 
 const SETTINGS_KEY = "app-settings";
