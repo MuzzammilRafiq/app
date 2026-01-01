@@ -105,7 +105,8 @@ User: "Hello!"
 async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
-  event: IpcMainInvokeEvent
+  event: IpcMainInvokeEvent,
+  config: any
 ): Promise<{ steps: OrchestratorStep[]; error?: string }> {
   try {
     const chatHistory: ChatMessage[] = messages.map((msg) => ({
@@ -160,6 +161,7 @@ async function generatePlan(
         },
       },
       temperature: 0.2,
+      overrideModel: config?.textModelOverride,
     };
 
     const response = ASK_TEXT(apiKey, M, options);
@@ -261,7 +263,8 @@ async function executeGeneralStep(
   messages: ChatMessageRecord[],
   context: OrchestratorContext,
   event: IpcMainInvokeEvent,
-  apiKey: string
+  apiKey: string,
+  config: any
 ): Promise<{ output: string }> {
   // Build context summary from all previous steps
   const contextSummary =
@@ -273,7 +276,13 @@ async function executeGeneralStep(
         "\n</EXECUTION_RESULTS>"
       : "";
 
-  return generalTool(messages, step.action + contextSummary, event, apiKey);
+  return generalTool(
+    messages,
+    step.action + contextSummary,
+    event,
+    apiKey,
+    config
+  );
 }
 
 /**
@@ -283,12 +292,13 @@ export async function orchestrate(
   messages: ChatMessageRecord[],
   event: IpcMainInvokeEvent,
   apiKey: string,
-  sessionId: string
+  sessionId: string,
+  config: any
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
 
   // Generate the plan
-  const planResult = await generatePlan(messages, apiKey, event);
+  const planResult = await generatePlan(messages, apiKey, event, config);
 
   if (planResult.error || planResult.steps.length === 0) {
     return {
@@ -388,7 +398,8 @@ export async function orchestrate(
         messages,
         context,
         event,
-        apiKey
+        apiKey,
+        config
       );
 
       step.status = "done";

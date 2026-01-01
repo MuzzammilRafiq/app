@@ -1,7 +1,7 @@
 import { preProcessMessage } from "./pre/index.js";
 import { orchestrate } from "./orchestrator.js";
 import { ChatMessageRecord } from "../../common/types.js";
-import { LOG } from "../utils/logging.js";
+import { LOG ,JSON_PRINT} from "../utils/logging.js";
 
 const TAG = "stream";
 
@@ -16,6 +16,7 @@ export const stream = async (
   apiKey: string
 ) => {
   try {
+    LOG(TAG).INFO(JSON_PRINT(config));
     const filteredMessages = messages.filter(
       (msg) => msg.type === "user" || msg.type === "stream"
     );
@@ -47,7 +48,13 @@ export const stream = async (
     });
 
     // Delegate to orchestrator for plan generation and execution
-    const result = await orchestrate(updatedMessages, event, apiKey, sessionId);
+    const result = await orchestrate(
+      updatedMessages,
+      event,
+      apiKey,
+      sessionId,
+      config
+    );
 
     if (result.error) {
       event.sender.send("stream-chunk", {

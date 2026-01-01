@@ -54,9 +54,15 @@ export const ASK_TEXT = async function* (
 ) {
   const openrouter = new OpenRouter({ apiKey });
 
-  const { stream: _ignored, provider: __ignored, ...opts } = options ?? {};
+  const {
+    stream: _ignored,
+    provider: __ignored,
+    overrideModel,
+    ...opts
+  } = options ?? {};
   const stream = await openrouter.chat.send({
-    model: "moonshotai/kimi-k2-0905",
+    model:
+      (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
     messages,
     ...opts,
     stream: true as const,
@@ -83,7 +89,12 @@ export const ASK_IMAGE = async function* (
   options?: Record<string, unknown>
 ) {
   const openrouter = new OpenRouter({ apiKey });
-  const { stream: _ignored, provider: __ignored, ...opts } = options ?? {};
+  const {
+    stream: _ignored,
+    provider: __ignored,
+    overrideModel,
+    ...opts
+  } = options ?? {};
 
   // Build multimodal content array
   const contentArray: MessageContent[] = [
@@ -121,7 +132,9 @@ export const ASK_IMAGE = async function* (
   ];
 
   const stream = await openrouter.chat.send({
-    model: "qwen/qwen3-vl-30b-a3b-thinking",
+    model:
+      (overrideModel as string | undefined) ||
+      "qwen/qwen3-vl-30b-a3b-thinking",
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: messages as any,
     ...opts,

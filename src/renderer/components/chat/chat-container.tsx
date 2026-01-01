@@ -301,6 +301,8 @@ export default function ChatContainer() {
           {
             rag: isRAGEnabled,
             webSearch: isWebSearchEnabled,
+            textModelOverride: settings.textModel || "",
+            imageModelOverride: settings.imageModel || "",
           },
           settings.openrouterApiKey,
         );

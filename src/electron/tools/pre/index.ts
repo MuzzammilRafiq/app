@@ -26,6 +26,9 @@ export const preProcessMessage = async (
         apiKey,
         "Describe this image in detail and extract any text visible in it.",
         lastUserMessage.imagePaths,
+        {
+          overrideModel: config?.imageModelOverride,
+        }
       );
 
       let description = "";
