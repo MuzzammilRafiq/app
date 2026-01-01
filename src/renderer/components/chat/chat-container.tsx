@@ -62,7 +62,13 @@ export default function ChatContainer() {
       else if (parsed && typeof parsed === "object" && Array.isArray(parsed.steps)) steps = parsed.steps;
     } catch {}
     if (!steps) return plans;
-    const planHash = djb2Hash(JSON.stringify(steps));
+    const normalizedForHash = steps.map((s: any) => ({
+      step_number: Number(s.step_number),
+      tool_name: s.tool_name,
+      description: s.description,
+      status: "todo",
+    }));
+    const planHash = djb2Hash(JSON.stringify(normalizedForHash));
     try {
       const dbSteps = await window.electronAPI.dbGetPlanSteps(latest.sessionId, planHash);
       if (Array.isArray(dbSteps) && dbSteps.length > 0) {

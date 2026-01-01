@@ -67,6 +67,10 @@ export const stream = async (
       };
     }
 
+    event.sender.send("stream-chunk", {
+      chunk: "*General tool done*",
+      type: "log",
+    });
     return { text: result.text };
   } catch (error) {
     LOG(TAG).ERROR("error in stream", error);
