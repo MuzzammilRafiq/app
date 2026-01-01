@@ -117,7 +117,7 @@ export function setupTextEmbeddingHandlers() {
       }
     }
   );
-  ipcMain.handle("text-embeddings:delete-all", async (event) => {
+  ipcMain.handle("text-embeddings:delete-all", async (_event) => {
     try {
       const response = await fetch(`${URL}/text/delete-all`, {
         method: "DELETE",

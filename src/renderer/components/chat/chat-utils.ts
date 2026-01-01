@@ -62,6 +62,7 @@ export async function ensureSession(
     return { ...newSessionRecord, messages: [] } as ChatSession;
   } catch (e) {
     toast.error("Failed to create chat session");
+    console.error("Session creation failed:", e);
     throw new Error("Session creation failed");
   }
 }

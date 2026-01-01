@@ -3,7 +3,8 @@ import * as path from "path";
 import * as os from "os";
 import { spawn } from "child_process";
 import crypto from "crypto";
-
+import { LOG } from "../utils/logging.js";
+const TAG = "heicConverter";
 class HeicConverter {
   private cacheDir: string;
 
@@ -17,7 +18,7 @@ class HeicConverter {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
     } catch (error) {
-      console.error("Failed to create HEIC cache directory:", error);
+      LOG(TAG).ERROR("Failed to create HEIC cache directory:", error);
     }
   }
 
@@ -30,6 +31,7 @@ class HeicConverter {
       const content = `${filePath}-${stats.mtime.getTime()}-${stats.size}`;
       return crypto.createHash("sha256").update(content).digest("hex");
     } catch (error) {
+      LOG(TAG).ERROR("Failed to get cache key:", error);
       // Fallback to just file path hash if stats fail
       return crypto.createHash("sha256").update(filePath).digest("hex");
     }
@@ -60,7 +62,7 @@ class HeicConverter {
       });
 
       sips.on("error", (error) => {
-        console.error("Error running sips command:", error);
+        LOG(TAG).ERROR("Error running sips command:", error);
         resolve(false);
       });
     });
@@ -93,11 +95,11 @@ class HeicConverter {
       if (success) {
         return cachedPath;
       } else {
-        console.error(`Failed to convert HEIC file: ${heicPath}`);
+        LOG(TAG).ERROR(`Failed to convert HEIC file: ${heicPath}`);
         return null;
       }
     } catch (error) {
-      console.error("Error in getConvertedPath:", error);
+      LOG(TAG).ERROR("Error in getConvertedPath:", error);
       return null;
     }
   }
@@ -109,7 +111,8 @@ class HeicConverter {
     try {
       const ext = path.extname(filePath).toLowerCase();
       return ext === ".heic" || ext === ".heif";
-    } catch {
+    } catch (error) {
+      LOG(TAG).ERROR("Error in isHeicFile:", error);
       return false;
     }
   }
@@ -140,19 +143,18 @@ class HeicConverter {
       const cutoffTime = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days ago
 
       for (const file of files) {
-        try {
-          const filePath = path.join(this.cacheDir, file);
-          const stats = await fs.stat(filePath);
+        const filePath = path.join(this.cacheDir, file);
+        const stats = await fs.stat(filePath);
 
-          if (stats.mtime.getTime() < cutoffTime) {
-            await fs.unlink(filePath);
-          }
-        } catch (error) {
-          // Ignore errors for individual files
+        if (stats.mtime.getTime() < cutoffTime) {
+          await fs.unlink(filePath);
         }
+
       }
+
     } catch (error) {
-      console.error("Error cleaning up cache:", error);
+      // Ignore errors for individual files
+      LOG(TAG).ERROR("Error cleaning up cache:", error);
     }
   }
 
