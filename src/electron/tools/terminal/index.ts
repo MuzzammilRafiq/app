@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
-import { LOG, JSON_PRINT } from "../../utils/logging.js";
+import { LOG } from "../../utils/logging.js";
 import path from "node:path";
 import os from "node:os";
 const TAG = "terminal";
@@ -107,38 +107,17 @@ const extractBase = (command: string) => {
   const first = trimmed.split(/\s+/)[0];
   return first;
 };
-const PROMPT = (context: string) => `
-You are a macOS terminal agent. Produce only a single JSON object matching the schema:
-{"updated_context":"string","command":"string"}
-
-Rules:
-- macOS paths/commands only
-- Non‑interactive, idempotent, safe operations
-- Prefer absolute or verified relative paths
-- Use ls/pwd/which to verify before acting
-- No network/destructive/system modifications
-- Single command only (no pipes/semicolons/&&). Use only allowed commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
-- Output "DONE" when goal achieved
-- If a command would be blocked by safety rules, propose a safe alternative instead
-
-Context:
-${context}
-
-Examples:
-{"updated_context":"Goal: list app dir. Verified cwd. Next: list src.","command":"ls -la"}
-{"updated_context":"Goal completed. Collected sizes for src/dist.","command":"DONE"}
-`;
 const SYSTEM_PROMPT = `
 You are a macOS terminal agent. Output only a single JSON object with keys: updated_context, command. No extra text.
-- Non‑interactive, macOS‑compatible, idempotent commands
+- Non-interactive, macOS-compatible, idempotent commands
 - Avoid network and destructive/system ops
 - Prefer absolute or verified relative paths
 - Verify with ls/pwd before acting
 - Use "DONE" when the goal is achieved
 - Minimal steps: never run exploratory commands once the requested result is obtained
-- Decide using context: if last output satisfies the user’s goal, set command to "DONE"
+- Decide using context: if last output satisfies the user's goal, set command to "DONE"
 - For single-output goals like “show”, “print”, “get”, use exactly one command then "DONE"
-- updated_context must preserve the specific STDOUT needed to satisfy the user’s goal (e.g., the time string for "get current time")
+- updated_context must preserve the specific STDOUT needed to satisfy the user's goal (e.g., the time string for "get current time")
 - Strict constraints:
 - - Use only one command per step (no pipes/semicolons/&&)
 - - Use only allowed base commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
@@ -348,7 +327,7 @@ export const terminalStep = async (
         }
       }
       let cleaned = c
-        .replace(/[\x00-\x1F\x7F]/g, (char) => {
+        .replace(/\p{Cc}/gu, (char) => {
           const map: { [key: string]: string } = {
             "\n": "\\n",
             "\r": "\\r",

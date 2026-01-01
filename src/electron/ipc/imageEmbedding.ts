@@ -116,7 +116,7 @@ export function setupImageEmbeddingHandlers() {
       }
     }
   );
-  ipcMain.handle("image-embeddings:delete-all", async (event) => {
+  ipcMain.handle("image-embeddings:delete-all", async (_event) => {
     try {
       const response = await fetch(`${URL}/image/delete-all`, {
         method: "DELETE",
