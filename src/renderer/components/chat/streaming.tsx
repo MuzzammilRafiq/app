@@ -102,7 +102,14 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
   if (segments.length === 0) return null;
 
   // Only take the last plan segment to avoid duplicates during streaming
-  const planSegment = segments.filter((seg) => seg.type === "plan").pop();
+  let planSegment: Segment | undefined;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i];
+    if (seg && seg.type === "plan") {
+      planSegment = seg;
+      break;
+    }
+  }
   const logSegments = segments.filter((seg) => seg.type === "log");
   const streamSegments = segments.filter((seg) => seg.type === "stream");
   const sourceSegments = segments.filter((seg) => seg.type === "source");
