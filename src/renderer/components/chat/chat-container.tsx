@@ -143,15 +143,16 @@ export default function ChatContainer() {
     }
     const updated = steps.map((s: any) => {
       const num = Number(s.step_number);
-      // If plan includes a non-pending status, use it. Otherwise infer from logs.
       const statusInPlan = s.status;
+      const normalized =
+        typeof statusInPlan === "string" ? statusInPlan.toLowerCase() : "";
+      const usePlan = normalized === "done" || normalized === "failed";
       const isCompletedByLogs = completedFromLogs.has(num);
-      const status =
-        statusInPlan && statusInPlan !== "pending"
-          ? statusInPlan
-          : isCompletedByLogs
-            ? "done"
-            : statusInPlan ?? "todo";
+      const status = usePlan
+        ? normalized
+        : isCompletedByLogs
+          ? "done"
+          : normalized || "todo";
       return { ...s, status };
     });
     const synthetic: ChatMessageRecord = {
