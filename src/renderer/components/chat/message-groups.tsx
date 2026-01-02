@@ -59,13 +59,13 @@ function AssistantMessageSection({
   const sourceMessages = messages.filter((msg) => msg.type === "source");
 
   return (
-    <div className="flex justify-start">
-      <div className="w-[80%] break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
-        {/* Single Details button */}
-        {(planMessages.length > 0 ||
-          logMessages.length > 0 ||
-          sourceMessages.length > 0) && (
-          <div>
+    <div className="flex flex-col gap-2">
+      {/* Messages Wrapper */}
+      <div className="w-full text-slate-800 space-y-4 ">
+        {/* Detail Toggle for non-chat artifacts */}
+        {planMessages.length + logMessages.length + sourceMessages.length >
+          0 && (
+          <div className="flex items-center gap-2 mb-2">
             <button
               onClick={() =>
                 onOpenDetails &&
@@ -75,16 +75,19 @@ function AssistantMessageSection({
                   sources: sourceMessages,
                 })
               }
-              className="cursor-pointer text-[11px] px-0 py-0 bg-transparent border-0 text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 focus:outline-none focus:ring-0 opacity-90 hover:opacity-100"
+              className="text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-primary transition-colors flex items-center gap-1"
             >
-              Details
+              <span>View Process & Sources</span>
             </button>
           </div>
         )}
 
-        {/* Stream messages - keep inline */}
+        {/* Stream messages - Content */}
         {streamMessages.map((msg) => (
-          <div key={msg.id} className="prose prose-sm max-w-none">
+          <div
+            key={msg.id}
+            className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]"
+          >
             <MarkdownRenderer content={msg.content} isUser={false} />
           </div>
         ))}
@@ -100,21 +103,21 @@ export default function MessageGroups({
   const groupedMessages = groupMessages(messages);
 
   return (
-    <>
+    <div className="max-w-3xl mx-auto px-2">
       {groupedMessages.map((group, groupIndex) => (
-        <div key={groupIndex} className="space-y-4">
+        <div key={groupIndex} className="space-y-6 mb-8">
           {group.userMessage && (
-            <div className="flex justify-end">
-              <div className="max-w-[80%] break-words overflow-hidden overflow-wrap-anywhere bg-blue-100 rounded-xl px-2 py-2">
+            <div className="flex justify-end pl-12 animate-fade-in">
+              <div className="bg-[#3e2723] text-white rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full break-words">
                 {group.userMessage.imagePaths &&
                   group.userMessage.imagePaths.length > 0 && (
-                    <div className="flex flex-wrap gap-3 mb-2">
+                    <div className="flex flex-wrap gap-3 mb-3">
                       {group.userMessage.imagePaths.map((p, idx) => (
                         <div className="relative" key={idx}>
                           <img
                             src={`file://${p}`}
                             alt="attached image"
-                            className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                            className="max-w-full max-h-48 rounded-lg border border-[#d7ccc8]/30"
                             style={{ maxWidth: "200px" }}
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).alt =
@@ -125,7 +128,7 @@ export default function MessageGroups({
                       ))}
                     </div>
                   )}
-                <div className="prose prose-sm max-w-none">
+                <div className="prose prose-sm max-w-none text-white selection:bg-white/30 selection:text-white">
                   <MarkdownRenderer
                     content={group.userMessage.content}
                     isUser={true}
@@ -136,13 +139,15 @@ export default function MessageGroups({
           )}
 
           {group.assistantMessages.length > 0 && (
-            <AssistantMessageSection
-              messages={group.assistantMessages}
-              onOpenDetails={onOpenDetails}
-            />
+            <div className="animate-fade-in delay-75">
+              <AssistantMessageSection
+                messages={group.assistantMessages}
+                onOpenDetails={onOpenDetails}
+              />
+            </div>
           )}
         </div>
       ))}
-    </>
+    </div>
   );
 }
