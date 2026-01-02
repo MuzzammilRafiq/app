@@ -50,7 +50,7 @@ function guessMimeFromPath(filePath: string): string {
 export const ASK_TEXT = async function* (
   apiKey: string,
   messages: ChatMessage[],
-  options?: Record<string, unknown>
+  options?: Record<string, unknown> & { signal?: AbortSignal }
 ) {
   const openrouter = new OpenRouter({ apiKey });
 
@@ -58,20 +58,30 @@ export const ASK_TEXT = async function* (
     stream: _ignored,
     provider: __ignored,
     overrideModel,
+    signal,
     ...opts
   } = options ?? {};
+  
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+
   const stream = await openrouter.chat.send({
     model:
       (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
     messages,
     ...opts,
     stream: true as const,
-    // provider: {
-    //   only: ["Groq"],
-    // },
+    provider: {
+      sort: "throughput",
+    },
   });
 
   for await (const chunk of stream) {
+    if (signal?.aborted) {
+      // Clean up iterator if possible, though 'break' usually suffices
+      break;
+    }
     const delta = chunk.choices?.[0]?.delta;
     if (delta?.content || delta?.reasoning) {
       yield {
@@ -86,15 +96,20 @@ export const ASK_IMAGE = async function* (
   apiKey: string,
   textContent: string,
   imagePaths: string[],
-  options?: Record<string, unknown>
+  options?: Record<string, unknown> & { signal?: AbortSignal }
 ) {
   const openrouter = new OpenRouter({ apiKey });
   const {
     stream: _ignored,
     provider: __ignored,
     overrideModel,
+    signal,
     ...opts
   } = options ?? {};
+
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
   // Build multimodal content array
   const contentArray: MessageContent[] = [
@@ -145,6 +160,9 @@ export const ASK_IMAGE = async function* (
   });
 
   for await (const chunk of stream) {
+    if (signal?.aborted) {
+      break;
+    }
     const delta = chunk.choices?.[0]?.delta;
     if (delta?.content || delta?.reasoning) {
       yield {

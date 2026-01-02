@@ -252,19 +252,22 @@ export default function ChatContainer() {
 
   const getStreamingMessages = useCallback(() => {
     if (!currentSession?.id) return [];
-    return streamingDetailsSegments.map(
-      (seg): ChatMessageRecord => ({
-        id: seg.id,
-        sessionId: currentSession.id,
-        content: seg.content,
-        role: "assistant",
-        timestamp: Date.now(),
-        isError: "",
-        imagePaths: null,
-        type: seg.type,
-      }),
-    );
-  }, [streamingDetailsSegments, currentSession?.id]);
+    const existingIds = new Set(messages.map((m) => m.id));
+    return streamingDetailsSegments
+      .filter((seg) => !existingIds.has(seg.id))
+      .map(
+        (seg): ChatMessageRecord => ({
+          id: seg.id,
+          sessionId: currentSession.id,
+          content: seg.content,
+          role: "assistant",
+          timestamp: Date.now(),
+          isError: "",
+          imagePaths: null,
+          type: seg.type,
+        }),
+      );
+  }, [streamingDetailsSegments, currentSession?.id, messages]);
 
   const computeLastAssistantGroup = () => {
     const allMessages = [...messages, ...getStreamingMessages()];
@@ -460,6 +463,18 @@ export default function ChatContainer() {
     }
   };
 
+  const handleStopGeneration = async () => {
+    if (currentSession?.id) {
+      try {
+        await window.electronAPI.cancelStream(currentSession.id);
+        toast.success("Generation stopped");
+      } catch (err) {
+        console.error("Failed to stop generation:", err);
+        toast.error("Failed to stop generation");
+      }
+    }
+  };
+
   return (
     <div className="flex-1 flex h-full overflow-hidden">
       {/* Left column: messages + input */}
@@ -505,6 +520,7 @@ export default function ChatContainer() {
           isLoading={isLoading}
           isStreaming={isStreaming}
           handleSendMessage={handleSendMessage}
+          handleStopGeneration={handleStopGeneration}
           isRAGEnabled={isRAGEnabled}
           setIsRAGEnabled={setIsRAGEnabled}
           isWebSearchEnabled={isWebSearchEnabled}

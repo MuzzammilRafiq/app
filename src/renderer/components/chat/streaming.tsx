@@ -22,8 +22,8 @@ export function useStreaming() {
   }, [streamingSegments]);
 
   const setupStreaming = () => {
-    useStreamingStore.getState().setStreaming(true);
     useStreamingStore.getState().clearStreaming();
+    useStreamingStore.getState().setStreaming(true);
 
     const handleStreamChunk = (data: StreamChunk) => {
       useStreamingStore.getState().addStreamingChunk(data);
