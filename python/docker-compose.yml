@@ -1,0 +1,16 @@
+services:
+  python-server:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist ChromaDB and user data
+      - ./user_data:/app/user_data
+      # Mount user folders for scanning (read-only)
+      - ${HOME}/Desktop:${HOME}/Desktop:ro
+      - ${HOME}/Downloads:${HOME}/Downloads:ro
+      - ${HOME}/Documents:${HOME}/Documents:ro
+      - ${HOME}/Pictures:${HOME}/Pictures:ro
+      - ${HOME}/Music:${HOME}/Music:ro
+      - ${HOME}/Movies:${HOME}/Movies:ro
+    restart: unless-stopped
