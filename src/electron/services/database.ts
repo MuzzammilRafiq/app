@@ -175,6 +175,28 @@ export class DatabaseService {
       LOG(TAG).ERROR(`Failed to ensure plan_steps schema: ${error}`);
       throw error;
     }
+
+    // RAG folders table for tracking indexed folders
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS rag_folders (
+          id TEXT PRIMARY KEY,
+          folder_path TEXT NOT NULL UNIQUE,
+          type TEXT NOT NULL CHECK(type IN ('image','text')),
+          last_scanned_at INTEGER,
+          created_at INTEGER NOT NULL
+        );
+      `);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_rag_folders_type ON rag_folders(type);`,
+      );
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to ensure rag_folders schema: ${error}`);
+      throw error;
+    }
   }
 
   private validateInput(
@@ -655,6 +677,98 @@ export class DatabaseService {
       }));
     } catch (error) {
       LOG(TAG).ERROR(`Failed to get plan steps: ${error}`);
+      throw error;
+    }
+  }
+
+  // ---------------- RAG Folders APIs ----------------
+
+  /**
+   * RAG folder record type
+   */
+  getRagFolders(
+    type: "image" | "text",
+  ): Array<{ folderPath: string; lastScannedAt: number | null }> {
+    if (type !== "image" && type !== "text") {
+      throw new Error("type must be 'image' or 'text'");
+    }
+    try {
+      const stmt = this.db.prepare(`
+        SELECT folder_path, last_scanned_at
+        FROM rag_folders
+        WHERE type = ?
+        ORDER BY created_at DESC
+      `);
+      const rows = stmt.all(type) as Array<{
+        folder_path: string;
+        last_scanned_at: number | null;
+      }>;
+      return rows.map((r) => ({
+        folderPath: r.folder_path,
+        lastScannedAt: r.last_scanned_at,
+      }));
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get RAG folders: ${error}`);
+      throw error;
+    }
+  }
+
+  addRagFolder(
+    folderPath: string,
+    type: "image" | "text",
+    lastScannedAt?: number,
+  ): { folderPath: string; lastScannedAt: number | null } {
+    this.validateInput(folderPath, "folderPath");
+    if (type !== "image" && type !== "text") {
+      throw new Error("type must be 'image' or 'text'");
+    }
+    try {
+      const id = randomUUID();
+      const now = Date.now();
+      const stmt = this.db.prepare(`
+        INSERT INTO rag_folders (id, folder_path, type, last_scanned_at, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(folder_path) DO UPDATE SET last_scanned_at = excluded.last_scanned_at
+      `);
+      stmt.run(id, folderPath, type, lastScannedAt ?? null, now);
+      return {
+        folderPath,
+        lastScannedAt: lastScannedAt ?? null,
+      };
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to add RAG folder: ${error}`);
+      throw error;
+    }
+  }
+
+  updateRagFolderScanTime(
+    folderPath: string,
+    lastScannedAt: number,
+  ): boolean {
+    this.validateInput(folderPath, "folderPath");
+    if (typeof lastScannedAt !== "number" || lastScannedAt <= 0) {
+      throw new Error("lastScannedAt must be a positive number");
+    }
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE rag_folders SET last_scanned_at = ? WHERE folder_path = ?
+      `);
+      const result = stmt.run(lastScannedAt, folderPath);
+      return result.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to update RAG folder scan time: ${error}`);
+      throw error;
+    }
+  }
+
+  deleteRagFolder(folderPath: string): boolean {
+    this.validateInput(folderPath, "folderPath");
+    try {
+      const stmt = this.db.prepare(`DELETE FROM rag_folders WHERE folder_path = ?`);
+      const result = stmt.run(folderPath);
+      return result.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to delete RAG folder: ${error}`);
       throw error;
     }
   }

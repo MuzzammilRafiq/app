@@ -93,6 +93,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbGetPlanSteps: (sessionId: string, planHash: string) =>
     ipcRenderer.invoke("db:get-plan-steps", sessionId, planHash),
 
+  // RAG folders APIs
+  dbGetRagFolders: (type: "image" | "text") =>
+    ipcRenderer.invoke("db:get-rag-folders", type),
+  dbAddRagFolder: (
+    folderPath: string,
+    type: "image" | "text",
+    lastScannedAt?: number
+  ) => ipcRenderer.invoke("db:add-rag-folder", folderPath, type, lastScannedAt),
+  dbUpdateRagFolderScanTime: (folderPath: string, lastScannedAt: number) =>
+    ipcRenderer.invoke("db:update-rag-folder-scan-time", folderPath, lastScannedAt),
+  dbDeleteRagFolder: (folderPath: string) =>
+    ipcRenderer.invoke("db:delete-rag-folder", folderPath),
+
   //-------------------------openrouter---------------------------
   getOpenRouterModels: (apiKey: string) =>
     ipcRenderer.invoke("get-openrouter-models", apiKey),

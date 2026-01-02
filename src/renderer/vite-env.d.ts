@@ -294,6 +294,23 @@ interface Window {
     ) => Promise<import("../common/types").MakePlanResponse[]>;
 
     /**
+     * RAG folders persistence APIs
+     */
+    dbGetRagFolders: (
+      type: "image" | "text"
+    ) => Promise<Array<{ folderPath: string; lastScannedAt: number | null }>>;
+    dbAddRagFolder: (
+      folderPath: string,
+      type: "image" | "text",
+      lastScannedAt?: number
+    ) => Promise<{ folderPath: string; lastScannedAt: number | null }>;
+    dbUpdateRagFolderScanTime: (
+      folderPath: string,
+      lastScannedAt: number
+    ) => Promise<boolean>;
+    dbDeleteRagFolder: (folderPath: string) => Promise<boolean>;
+
+    /**
      * OpenRouter API: get available models from OpenRouter
      */
     getOpenRouterModels: (

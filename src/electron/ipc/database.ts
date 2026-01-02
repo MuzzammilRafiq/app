@@ -81,4 +81,32 @@ export function setupDatabaseHandlers() {
       return dbService.getPlanSteps(sessionId, planHash);
     },
   );
+
+  // RAG folders
+  ipcMain.handle(
+    "db:get-rag-folders",
+    async (_event, type: "image" | "text") => {
+      return dbService.getRagFolders(type);
+    },
+  );
+  ipcMain.handle(
+    "db:add-rag-folder",
+    async (
+      _event,
+      folderPath: string,
+      type: "image" | "text",
+      lastScannedAt?: number,
+    ) => {
+      return dbService.addRagFolder(folderPath, type, lastScannedAt);
+    },
+  );
+  ipcMain.handle(
+    "db:update-rag-folder-scan-time",
+    async (_event, folderPath: string, lastScannedAt: number) => {
+      return dbService.updateRagFolderScanTime(folderPath, lastScannedAt);
+    },
+  );
+  ipcMain.handle("db:delete-rag-folder", async (_event, folderPath: string) => {
+    return dbService.deleteRagFolder(folderPath);
+  });
 }
