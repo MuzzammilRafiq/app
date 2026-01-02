@@ -7,6 +7,7 @@ import { setupImageEmbeddingHandlers } from "./ipc/imageEmbedding.js";
 import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
 import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
+import { setupWindowHandlers } from "./ipc/window.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -29,6 +30,8 @@ function createWindow(): BrowserWindow {
     height: 1000,
     minWidth: 600,
     minHeight: 400,
+    titleBarStyle: "hidden", // Hide default title bar on macOS
+    trafficLightPosition: { x: 12, y: 16 }, // Position macOS traffic lights
     webPreferences: {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
@@ -73,6 +76,7 @@ app.whenReady().then(() => {
   setupTextEmbeddingHandlers();
   setupFileOperationHandlers();
   setupDatabaseHandlers();
+  setupWindowHandlers();
   createWindow();
 });
 

@@ -17,7 +17,7 @@ export function LLMConfigSection({
       <div className="text-sm font-medium text-slate-800">
         LLM Configuration
       </div>
-      <div className="rounded-lg border border-gray-200 p-3 bg-white space-y-4">
+      <div className="rounded-lg border border-gray-200 p-3 bg-surface space-y-4">
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-2">

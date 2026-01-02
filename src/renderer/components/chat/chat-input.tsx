@@ -1,11 +1,9 @@
 import { type ImageData } from "../../services/imageUtils";
 import {
-  iconClass,
   ImageSVG,
   LoadingSVG,
   PauseSVG,
   RAGSVG,
-  RemoveSVG,
   SearchSVG,
   SendSVG,
   WebSearchSVG,
@@ -58,7 +56,8 @@ export default function ChatInput({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200); // Max height limit
+      textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [content]);
 
@@ -68,44 +67,59 @@ export default function ChatInput({
       handleSendMessage();
     }
   };
-  console.log(isRAGEnabled);
+
+  // Button styles
+  const actionBtnBase =
+    "p-2 rounded-xl transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+  const actionBtnGhost = `${actionBtnBase} text-slate-400 hover:text-primary hover:bg-primary-light/20`;
+  const actionBtnActive = `${actionBtnBase} text-primary bg-primary-light/30`;
+  const sendBtnClass = `ml-2 p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center shadow-md ${
+    content.trim() || selectedImage || (imagePaths && imagePaths.length > 0)
+      ? "bg-primary text-white hover:bg-primary-hover hover:scale-105"
+      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+  }`;
 
   return (
-    <div className="shrink-0 px-4 pb-4">
-      <div className="mx-auto px-2 pt-2 chat-input rounded-b-3xl rounded-t-3xl max-w-3xl min-w-0 border-1 border-gray-300 shadow-lg">
-        {/* Selected image preview above textarea */}
+    <div className="shrink-0 px-6 pb-6 pt-2">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-[24px] shadow-float border border-transparent">
+        {/* Selected image preview inside the bubble */}
         {(selectedImage || (imagePaths && imagePaths.length > 0)) && (
-          <div className="w-full flex justify-start mb-2">
-            <div className="flex items-center gap-2 bg-gray-50/80 rounded-lg p-2 border border-gray-200/60">
+          <div className="px-4 pt-4 pb-0">
+            <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-xl w-fit animate-fade-in">
               {selectedImage ? (
                 <img
                   src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`}
                   alt={selectedImage.name || "Selected Image"}
-                  className="w-14 h-14 object-cover rounded-md border border-gray-200/60"
+                  className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
                 />
               ) : (
                 <img
                   src={`file://${imagePaths![0]}`}
                   alt={"Selected Image"}
-                  className="w-14 h-14 object-cover rounded-md border border-gray-200/60"
+                  className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
                 />
               )}
-              <button
-                onClick={() => {
-                  setSelectedImage(null);
-                  setImagePaths(null);
-                }}
-                className="p-1.5 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100 transition-colors duration-150"
-                title="Remove image"
-                type="button"
-              >
-                {RemoveSVG}
-              </button>
+              <div className="flex flex-col gap-1 pr-2">
+                <span className="text-xs font-medium text-slate-500">
+                  Image attached
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedImage(null);
+                    setImagePaths(null);
+                  }}
+                  className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium text-left"
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </div>
         )}
-        {/* textarea */}
-        <div className="text-gray-500">
+
+        {/* Textarea */}
+        <div className="relative">
           <textarea
             ref={textareaRef}
             value={content}
@@ -119,107 +133,119 @@ export default function ChatInput({
                 setSelectedImage,
               })
             }
-            placeholder="Ask or Act"
+            placeholder="Ask anything..."
             disabled={isLoading || isStreaming}
-            className="w-full px-4 py-3 resize-none max-h-32 min-h-[48px]"
+            className="w-full px-5 py-4 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-64 min-h-[56px] leading-relaxed"
             rows={1}
           />
         </div>
-        {/* tools */}
-        <div className="flex-1 relative">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={(event) =>
-              handleImageUpload({
-                event,
-                selectedImage,
-                setSelectedImage,
-                fileInputRef,
-                setIsProcessingImage,
-              })
-            }
-            className="hidden"
-          />
-          <div className="flex items-center justify-between w-full gap-2 relative py-2 px-1">
-            <div className="flex items-center gap-2 relative">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || isProcessingImage}
-                className={
-                  iconClass + " shadow-sm bg-white border border-gray-200"
-                }
-                title={selectedImage ? "Replace Image" : "Upload Image"}
-                type="button"
-              >
-                {isProcessingImage ? LoadingSVG : ImageSVG}
-              </button>
-              <button
-                onClick={() => setIsSearchModalOpen(true)}
-                disabled={isLoading}
-                className={
-                  iconClass + " shadow-sm bg-white border border-gray-200"
-                }
-                title="Search Images"
-                type="button"
-              >
-                {SearchSVG}
-              </button>
-              <button
-                onClick={() => setIsRAGEnabled((isRAGEnabled) => !isRAGEnabled)}
-                disabled={isLoading}
-                className={
-                  iconClass +
-                  " shadow-sm border " +
-                  (isRAGEnabled
-                    ? "text-blue-600 bg-blue-100 border-blue-400"
-                    : "bg-white border-gray-200 text-gray-500")
-                }
-                title={isRAGEnabled ? "Disable RAG" : "Enable RAG"}
-                type="button"
-              >
+
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-3 pb-3 pt-1">
+          <div className="flex items-center gap-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                handleImageUpload({
+                  event,
+                  selectedImage,
+                  setSelectedImage,
+                  fileInputRef,
+                  setIsProcessingImage,
+                })
+              }
+              className="hidden"
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || isProcessingImage}
+              className={actionBtnGhost}
+              title={selectedImage ? "Replace Image" : "Upload Image"}
+              type="button"
+            >
+              {isProcessingImage ? (
+                <span className="animate-spin">{LoadingSVG}</span>
+              ) : (
+                ImageSVG
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsSearchModalOpen(true)}
+              disabled={isLoading}
+              className={actionBtnGhost}
+              title="Search Images"
+              type="button"
+            >
+              {SearchSVG}
+            </button>
+
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
+
+            <button
+              onClick={() => setIsRAGEnabled((prev) => !prev)}
+              disabled={isLoading}
+              className={isRAGEnabled ? actionBtnActive : actionBtnGhost}
+              title={isRAGEnabled ? "Disable RAG" : "Enable RAG"}
+              type="button"
+            >
+              <div className="flex items-center gap-1.5">
                 {RAGSVG}
-              </button>
-              <button
-                onClick={() => setIsWebSearchEnabled((prev) => !prev)}
-                disabled={isLoading}
-                className={
-                  iconClass +
-                  " shadow-sm border " +
-                  (isWebSearchEnabled
-                    ? "text-blue-600 bg-blue-100 border-blue-400"
-                    : "bg-white border-gray-200 text-gray-500")
-                }
-                title={
-                  isWebSearchEnabled
-                    ? "Disable Web Search"
-                    : "Enable Web Search"
-                }
-                type="button"
-              >
+                <span
+                  className={`text-xs font-medium ${isRAGEnabled ? "text-primary" : "hidden"}`}
+                >
+                  RAG
+                </span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setIsWebSearchEnabled((prev) => !prev)}
+              disabled={isLoading}
+              className={isWebSearchEnabled ? actionBtnActive : actionBtnGhost}
+              title={
+                isWebSearchEnabled ? "Disable Web Search" : "Enable Web Search"
+              }
+              type="button"
+            >
+              <div className="flex items-center gap-1.5">
                 {WebSearchSVG}
-              </button>
-            </div>
-            {/* Right group: send button */}
-            <div className="flex items-center ml-auto">
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  (!content.trim() &&
-                    !selectedImage &&
-                    !(imagePaths && imagePaths.length > 0)) ||
-                  isLoading ||
-                  isStreaming
-                }
-                className={iconClass}
-                type="button"
-              >
-                {isLoading ? LoadingSVG : isStreaming ? PauseSVG : SendSVG}
-              </button>
-            </div>
+                <span
+                  className={`text-xs font-medium ${isWebSearchEnabled ? "text-primary" : "hidden"}`}
+                >
+                  Web
+                </span>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center">
+            <button
+              onClick={handleSendMessage}
+              disabled={
+                (!content.trim() &&
+                  !selectedImage &&
+                  !(imagePaths && imagePaths.length > 0)) ||
+                isLoading ||
+                isStreaming
+              }
+              className={sendBtnClass}
+              type="button"
+            >
+              {isLoading ? (
+                <span className="animate-spin">{LoadingSVG}</span>
+              ) : isStreaming ? (
+                PauseSVG
+              ) : (
+                SendSVG
+              )}
+            </button>
           </div>
         </div>
+
         <SearchModal
           isOpen={isSearchModalOpen}
           onClose={() => setIsSearchModalOpen(false)}
@@ -232,6 +258,11 @@ export default function ChatInput({
             })
           }
         />
+      </div>
+      <div className="text-center mt-3">
+        <p className="text-[10px] text-slate-400 font-medium">
+          AI can make mistakes. Check important info.
+        </p>
       </div>
     </div>
   );

@@ -79,12 +79,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbMarkPlanStepDone: (
     sessionId: string,
     planHash: string,
-    stepNumber: number,
-  ) => ipcRenderer.invoke("db:mark-plan-step-done", sessionId, planHash, stepNumber),
+    stepNumber: number
+  ) =>
+    ipcRenderer.invoke(
+      "db:mark-plan-step-done",
+      sessionId,
+      planHash,
+      stepNumber
+    ),
   dbGetPlanSteps: (sessionId: string, planHash: string) =>
     ipcRenderer.invoke("db:get-plan-steps", sessionId, planHash),
 
   //-------------------------openrouter---------------------------
   getOpenRouterModels: (apiKey: string) =>
     ipcRenderer.invoke("get-openrouter-models", apiKey),
+
+  //-------------------------window controls---------------------------
+  windowMinimize: () => ipcRenderer.invoke("window:minimize"),
+  windowMaximize: () => ipcRenderer.invoke("window:maximize"),
+  windowClose: () => ipcRenderer.invoke("window:close"),
+  windowIsMaximized: () => ipcRenderer.invoke("window:is-maximized"),
+  windowGetPlatform: () => ipcRenderer.invoke("window:get-platform"),
 });

@@ -30,7 +30,7 @@ export default function AdvancedSettings() {
           disabled={saving}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
             saving ? "opacity-50 cursor-not-allowed" : ""
-          } bg-blue-600 text-white hover:bg-blue-700`}
+          } bg-primary text-white hover:bg-primary-hover`}
         >
           Save Changes
         </button>

@@ -1,25 +1,57 @@
-@import 'tailwindcss';
-@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand+SC:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+/* ========================================
+   Theme Variables & Base Grid
+   ======================================== */
+@theme {
+  /* Semantic Colors - Dark Chocolate Theme */
+  --color-primary: #3e2723;       /* Dark Chocolate (Deep Brown) */
+  --color-primary-hover: #5d4037; /* Lighter Brown */
+  --color-primary-light: #d7ccc8; /* Very light brown */
+  
+  --color-surface: #ffffff;
+  --color-bg-app: #faf8f6;        /* Creamy warm background */
+  
+  /* Shadows */
+  --shadow-float: 0 10px 40px -10px rgba(62, 39, 35, 0.12);
+}
+
+:root {
+  /* Keep generic CSS vars if needed for non-tailwind components, mapping back to theme */
+  --bg-app: var(--color-bg-app);
+  --bg-surface: var(--color-surface);
+  --primary: var(--color-primary);
+}
 
 /* ========================================
    Desktop App Root & Body Styles
    ======================================== */
-html, body {
+html,
+body {
   overflow: hidden;
   height: 100%;
   margin: 0;
   padding: 0;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background-color: var(--bg-app);
 }
 
 /* ========================================
    Desktop Text Selection Policy
-   Disable selection on UI elements, allow on content
    ======================================== */
 button,
 label,
@@ -34,25 +66,22 @@ label,
 }
 
 /* ========================================
-   Desktop Overflow & Flex Utilities
+   UI Utilities
    ======================================== */
+
 .overflow-clip {
   overflow: clip;
 }
-
 .min-w-0 {
   min-width: 0;
 }
-
 .min-h-0 {
   min-height: 0;
 }
-
 .flex-shrink-0 {
   flex-shrink: 0;
 }
 
-/* Truncate text with ellipsis - desktop friendly */
 .truncate-desktop {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -60,17 +89,37 @@ label,
   min-width: 0;
 }
 
+/* Glass & Depth Effects */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(62, 39, 35, 0.05); /* very subtle brown border */
+}
 
-/* Custom input styles */
+.shadow-premium {
+  box-shadow:
+    0 4px 20px -2px rgba(62, 39, 35, 0.08),
+    0 0 3px rgba(62, 39, 35, 0.04);
+}
+
+.shadow-float {
+  box-shadow: var(--shadow-float);
+}
+
+/* ========================================
+   Input & Interaction Styles
+   ======================================== */
+
 .input-focus-ring {
-  @apply focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .input-transition {
   @apply transition-all duration-200 ease-in-out;
 }
 
-/* Enhanced textarea styles */
 textarea {
   font-family: inherit;
   line-height: 1.5;
@@ -79,82 +128,65 @@ textarea {
 }
 
 textarea:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Button hover effects */
 .btn-hover {
-  @apply hover:shadow-md hover:scale-105 transition-all duration-200;
+  @apply hover:transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200;
 }
 
 /* Image preview hover effects */
 .image-preview {
-  @apply transition-all duration-200 hover:shadow-md;
+  @apply transition-all duration-200 hover:shadow-lg;
 }
 
-/* Custom scrollbar for textarea */
-textarea::-webkit-scrollbar {
-  width: 0;
-  display: none;
+/* ========================================
+   Scrollbar Customization
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Remove focus outline for chat input textarea */
-.chat-input textarea:focus,
-.chat-input textarea:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: transparent !important;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-textarea::-webkit-scrollbar-track {
-  display: none;
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
-textarea::-webkit-scrollbar-thumb {
-  display: none;
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
-textarea::-webkit-scrollbar-thumb:hover {
-  display: none;
-}
-
-/* Hide scrollbar for Firefox */
-textarea {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-/* Hide scrollbar for chat container */
+/* Utility to hide scrollbars but keep functionality */
 .hide-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 .hide-scrollbar::-webkit-scrollbar {
-  width: 0;
   display: none;
 }
 
-.hide-scrollbar::-webkit-scrollbar-track {
-  display: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar-thumb {
-  display: none;
-}
-
-/* Focus styles for better accessibility */
+/* Focus styles for keyboard accessibility */
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -162,3 +194,6 @@ textarea:focus-visible {
   }
 }
 
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}

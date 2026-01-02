@@ -76,13 +76,13 @@ export default function Text() {
   };
 
   return (
-    <div className="bg-gray-100 px-3 py-6 rounded-xl">
+    <div className="bg-bg-app px-3 py-6 rounded-xl">
       <h2>Index text files</h2>
 
       <div className="space-y-2 mb-3">
         {selectedFolders &&
           Array.from(selectedFolders.entries()).map(([folder, lastScanned]) => (
-            <div key={folder} className="bg-gray-50 px-3 py-2 rounded-md">
+            <div key={folder} className="bg-surface px-3 py-2 rounded-md">
               <div className="text-sm text-gray-700 mb-2">{folder}</div>
               {isScanning ? (
                 LoadingSVG

@@ -31,7 +31,7 @@ export function MarkdownRenderer({
           <h1
             className={clsx(
               "text-xl font-bold mb-3 mt-6",
-              isUser ? "text-blue-700" : "text-slate-800"
+              isUser ? "text-white" : "text-slate-800"
             )}
           >
             {children}
@@ -41,7 +41,7 @@ export function MarkdownRenderer({
           <h2
             className={clsx(
               "text-lg font-bold mb-2 mt-5",
-              isUser ? "text-blue-700" : "text-slate-800"
+              isUser ? "text-white/90" : "text-slate-800"
             )}
           >
             {children}
@@ -51,7 +51,7 @@ export function MarkdownRenderer({
           <h3
             className={clsx(
               "text-base font-bold mb-2 mt-4",
-              isUser ? "text-blue-700" : "text-slate-800"
+              isUser ? "text-white/90" : "text-slate-800"
             )}
           >
             {children}
@@ -61,7 +61,7 @@ export function MarkdownRenderer({
           <p
             className={clsx(
               "mb-2 leading-relaxed",
-              isUser ? "text-blue-700" : "text-slate-700"
+              isUser ? "text-white" : "text-slate-700"
             )}
           >
             {children}
@@ -71,7 +71,7 @@ export function MarkdownRenderer({
           <ul
             className={clsx(
               "list-disc list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700"
+              isUser ? "text-white" : "text-slate-700"
             )}
           >
             {children}
@@ -81,14 +81,14 @@ export function MarkdownRenderer({
           <ol
             className={clsx(
               "list-decimal list-inside mb-3 space-y-1 pl-6",
-              isUser ? "text-blue-700" : "text-slate-700"
+              isUser ? "text-white" : "text-slate-700"
             )}
           >
             {children}
           </ol>
         ),
         li: ({ children }) => (
-          <li className={clsx(isUser ? "text-blue-700" : "text-slate-700")}>
+          <li className={clsx(isUser ? "text-white" : "text-slate-700")}>
             {children}
           </li>
         ),
@@ -96,7 +96,7 @@ export function MarkdownRenderer({
           <strong
             className={clsx(
               "font-semibold",
-              isUser ? "text-blue-700" : "text-slate-800"
+              isUser ? "text-white" : "text-slate-800"
             )}
           >
             {children}
@@ -110,7 +110,7 @@ export function MarkdownRenderer({
                 className={clsx(
                   "text-sm font-mono px-1.5 py-0.5 rounded-md",
                   isUser
-                    ? "bg-gray-200 text-blue-700"
+                    ? "bg-white/20 text-white"
                     : "bg-slate-200 text-slate-700"
                 )}
               >
@@ -151,7 +151,7 @@ export function MarkdownRenderer({
             className={clsx(
               "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap break-words",
               isUser
-                ? "bg-gray-200 border border-gray-300"
+                ? "bg-white/10 border border-white/20"
                 : "bg-slate-50 border border-slate-200"
             )}
           >
@@ -163,7 +163,7 @@ export function MarkdownRenderer({
             className={clsx(
               "border-l-4 pl-4 italic mb-3",
               isUser
-                ? "border-gray-400 text-blue-700"
+                ? "border-white/50 text-white/80"
                 : "border-slate-300 text-slate-600"
             )}
           >
@@ -178,7 +178,7 @@ export function MarkdownRenderer({
             className={clsx(
               "underline underline-offset-2 font-medium transition-colors duration-200",
               isUser
-                ? "text-blue-700 hover:text-blue-800"
+                ? "text-white hover:text-white/80"
                 : "text-blue-600 hover:text-blue-700"
             )}
           >
@@ -190,7 +190,7 @@ export function MarkdownRenderer({
             <table
               className={clsx(
                 "min-w-full border rounded-lg overflow-hidden shadow-sm",
-                isUser ? "border-blue-500/30" : "border-slate-200"
+                isUser ? "border-white/20" : "border-slate-200"
               )}
             >
               {children}
@@ -202,7 +202,7 @@ export function MarkdownRenderer({
             className={clsx(
               "border px-4 py-3 font-semibold",
               isUser
-                ? "border-gray-300 bg-gray-200 text-blue-700"
+                ? "border-white/20 bg-white/10 text-white"
                 : "border-slate-200 bg-slate-100 text-slate-700"
             )}
           >
@@ -214,7 +214,7 @@ export function MarkdownRenderer({
             className={clsx(
               "border px-4 py-3",
               isUser
-                ? "border-gray-300 text-blue-700"
+                ? "border-white/20 text-white"
                 : "border-slate-200 text-slate-700"
             )}
           >
@@ -265,15 +265,15 @@ export function PlanRenderer({ content }: { content: string }) {
   const extracted = extractPlan(content);
   if (!extracted) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded"
+          className="w-full flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-opacity-50 rounded"
         >
-          <div className="text-xs font-semibold text-blue-600">Plan</div>
+          <div className="text-xs font-semibold text-slate-600">Plan</div>
           <ChevronDownIcon
             className={clsx(
-              "w-4 h-4 text-blue-600 transition-transform duration-200",
+              "w-4 h-4 text-slate-600 transition-transform duration-200",
               isExpanded ? "rotate-180" : "rotate-0"
             )}
           />
@@ -284,7 +284,7 @@ export function PlanRenderer({ content }: { content: string }) {
             isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
-          <pre className="text-sm text-blue-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
+          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
             {content}
           </pre>
         </div>
@@ -292,18 +292,18 @@ export function PlanRenderer({ content }: { content: string }) {
     );
   }
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between text-left px-2 py-1"
       >
-        <div className="text-xs font-semibold text-blue-700 flex items-center">
+        <div className="text-xs font-semibold text-slate-700 flex items-center">
           <ClipboardIcon className="w-3 h-3 mr-1" />
           Plan
         </div>
         <ChevronDownIcon
           className={clsx(
-            "w-3 h-3 text-blue-700 transition-transform duration-200",
+            "w-3 h-3 text-slate-700 transition-transform duration-200",
             isExpanded ? "rotate-180" : "rotate-0"
           )}
         />
@@ -318,17 +318,17 @@ export function PlanRenderer({ content }: { content: string }) {
           {extracted.steps.map((step, index) => (
             <div
               key={index}
-              className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm"
+              className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm"
             >
               <div className="flex items-start space-x-3">
-                <div className=" border border-blue-200 bg-blue-200  w-8 items-center justify-center flex py-0.5 rounded-full">
-                  <span className="text-sm  text-blue-800">
+                <div className="border border-slate-300 bg-slate-200 w-8 items-center justify-center flex py-0.5 rounded-full">
+                  <span className="text-sm text-slate-800">
                     {step.step_number}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
                       {step.tool_name}
                     </span>
                     <span
@@ -348,7 +348,7 @@ export function PlanRenderer({ content }: { content: string }) {
                       {step.status}
                     </span>
                   </div>
-                  <p className="text-sm text-blue-900 leading-relaxed break-words overflow-wrap-anywhere">
+                  <p className="text-sm text-slate-900 leading-relaxed break-words overflow-wrap-anywhere">
                     {step.description}
                   </p>
                 </div>
