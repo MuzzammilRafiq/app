@@ -43,7 +43,7 @@ export default function Sidebar() {
 
   if (sidebarCollapsed) {
     return (
-      <div className="w-16 h-full flex flex-col flex-shrink-0 select-none overflow-hidden border-r border-slate-200 bg-bg-app">
+      <div className="w-16 h-full flex flex-col shrink-0 select-none overflow-hidden border-r border-slate-200 bg-bg-app">
         <div className="flex-1 overflow-y-auto px-2 py-4 w-full flex flex-col items-center gap-2">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -73,14 +73,14 @@ export default function Sidebar() {
     );
   } else {
     return (
-      <div className="w-64 h-full border-r border-slate-200 flex flex-col flex-shrink-0 select-none overflow-hidden transition-all duration-300 bg-bg-app">
+      <div className="w-64 h-full border-r border-slate-200 flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300 bg-bg-app">
         <div className="p-4 flex items-center justify-between">
           <h1 className="text-sm font-semibold text-slate-400 uppercase tracking-wider pl-1">
             Chat Settings
           </h1>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`${iconBtnClass} w-8 h-8 !p-1`}
+            className={`${iconBtnClass} w-8 h-8 p-1!`}
           >
             {MenuSVG}
           </button>
