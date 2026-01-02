@@ -100,4 +100,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
   windowClose: () => ipcRenderer.invoke("window:close"),
   windowIsMaximized: () => ipcRenderer.invoke("window:is-maximized"),
   windowGetPlatform: () => ipcRenderer.invoke("window:get-platform"),
+
+  //-------------------------terminal command confirmation---------------------------
+  onCommandConfirmation: (
+    callback: (data: {
+      command: string;
+      requestId: string;
+      cwd: string;
+    }) => void
+  ) => {
+    ipcRenderer.on("terminal:request-confirmation", (event, data) =>
+      callback(data)
+    );
+  },
+  respondToCommandConfirmation: (requestId: string, allowed: boolean) =>
+    ipcRenderer.invoke("terminal:confirmation-response", requestId, allowed),
+  removeCommandConfirmationListener: () => {
+    ipcRenderer.removeAllListeners("terminal:request-confirmation");
+  },
 });

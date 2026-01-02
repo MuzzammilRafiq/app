@@ -194,6 +194,22 @@ textarea:focus-visible {
   }
 }
 
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.15s ease-out forwards;
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.15s ease-out forwards;
 }

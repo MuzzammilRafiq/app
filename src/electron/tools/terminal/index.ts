@@ -79,71 +79,26 @@ const SYSTEM_MODIFY_PATTERNS = [
   /sed\s+-i/,
   /truncate/,
 ];
-// Allowlist: safe base commands for read-only/introspection
-const ALLOWED_BASE_COMMANDS = [
-  "ls",
-  "pwd",
-  "echo",
-  "cat",
-  "head",
-  "tail",
-  "wc",
-  "du",
-  "df",
-  "date",
-  "which",
-  "stat",
-  "basename",
-  "dirname",
-  "printf",
-  // navigation handled via special cd logic
-  "DONE",
-];
-const MULTI_COMMAND_PATTERN = /(\||;|&&)/;
-const extractBase = (command: string) => {
-  const trimmed = command.trim();
-  if (!trimmed) return "";
-  if (trimmed.startsWith("cd ")) return "cd";
-  const first = trimmed.split(/\s+/)[0];
-  return first;
-};
+// Note: We use a blocklist approach for warnings only
+// User confirmation handles security, so most commands are allowed
 const SYSTEM_PROMPT = `
 You are a macOS terminal agent. Output only a single JSON object with keys: updated_context, command. No extra text.
 - Non-interactive, macOS-compatible, idempotent commands
-- Avoid network and destructive/system ops
+- Avoid destructive operations and system modifications
 - Prefer absolute or verified relative paths
 - Verify with ls/pwd before acting
 - Use "DONE" when the goal is achieved
 - Minimal steps: never run exploratory commands once the requested result is obtained
-- Decide using context: if last output satisfies the user's goal, set command to "DONE"
-- For single-output goals like “show”, “print”, “get”, use exactly one command then "DONE"
-- updated_context must preserve the specific STDOUT needed to satisfy the user's goal (e.g., the time string for "get current time")
-- Strict constraints:
-- - Use only one command per step (no pipes/semicolons/&&)
-- - Use only allowed base commands: ${ALLOWED_BASE_COMMANDS.join(", ")} and cd
-- - If a needed action is disallowed, choose a read-only alternative or set command to "DONE" if goal satisfied
+- Decide using context: if last output satisfies the users goal, set command to "DONE"
+- For single-output goals like "show", "print", "get", use exactly one command then "DONE"
+- updated_context must preserve the specific STDOUT needed to satisfy the users goal
+- You can use pipes, command chaining, and any standard shell features as needed
+- Avoid commands that require user interaction or run indefinitely
 `;
 export const checkCommandSecurity = (
   command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
-
-  // Disallow multi-command chaining or piping
-  if (MULTI_COMMAND_PATTERN.test(normalizedCommand)) {
-    return {
-      needConformation: true,
-      reason: "Multiple commands/pipes detected. Single safe command required",
-    };
-  }
-
-  // Allow cd for navigation; all other commands must be on the allowlist
-  const base = extractBase(normalizedCommand);
-  if (base && base !== "cd" && !ALLOWED_BASE_COMMANDS.includes(base)) {
-    return {
-      needConformation: true,
-      reason: `Command not allowed: "${base}". Allowed: ${ALLOWED_BASE_COMMANDS.join(", ")}`,
-    };
-  }
 
   // Check for dangerous commands
   for (const dangerous of DANGEROUS_COMMANDS) {
