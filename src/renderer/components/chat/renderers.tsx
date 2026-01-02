@@ -1,6 +1,6 @@
 import { useState } from "react";
 import clsx from "clsx";
-
+import path from "path";
 import type { MakePlanResponse, UniqueResult } from "../../../common/types";
 import {
   BadgeCheckIcon,
@@ -232,7 +232,10 @@ function parseWebSources(content: string): WebSource[] | null {
 
 export function SourceRenderer({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(true);
-
+  const getExtension = (filePath: string) => {
+    const lastDot = filePath.lastIndexOf('.');
+    return lastDot !== -1 ? filePath.slice(lastDot + 1) : '';
+  };
   // Try parsing as RAG sources first
   const ragSources = parseSources(content);
   // Try parsing as web sources
@@ -276,7 +279,12 @@ export function SourceRenderer({ content }: { content: string }) {
                 <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
                   <span className="truncate">{s.metadata.path}</span>
                   <span className="h-1 w-1 rounded-full bg-slate-400" />
-                  <span>Index: {s.metadata.index}</span>
+                  {getExtension(s.metadata.path).toLocaleLowerCase() ===
+                  "pdf" ? (
+                    <span>Page No: {s.metadata.index+1}</span>
+                  ) : (
+                    <span>Line No: {s.metadata.index}</span>
+                  )}
                 </div>
               </li>
             ))}

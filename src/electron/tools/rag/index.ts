@@ -139,7 +139,7 @@ export async function ragAnswer(
       }
     }
   }
-  LOG(TAG).INFO(`Found ${uniqueResults.length} unique results`);
+  LOG(TAG).SUCCESS(`Found ${uniqueResults.length} unique results`);
   event.sender.send("stream-chunk", {
     chunk: JSON.stringify(uniqueResults),
     type: "source",
