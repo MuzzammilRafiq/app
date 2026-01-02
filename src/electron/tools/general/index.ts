@@ -8,11 +8,16 @@ export const generalTool = async (
   taskDescription: string,
   event: any,
   apiKey: string,
-  config: any
+  config: any,
+  signal?: AbortSignal
 ): Promise<{ output: string }> => {
   try {
     LOG(TAG).INFO("taskDescription:", taskDescription);
     LOG(TAG).INFO("messages count:", messages.length);
+
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
 
     const system = `You are a helpful AI assistant. You have access to the full conversation history below.
 
@@ -29,13 +34,16 @@ Provide a clear, concise, well-formatted markdown response based on the conversa
     const response = ASK_TEXT(
       apiKey,
       [{ role: "system", content: system }, ...chatHistory],
-      { overrideModel: config?.textModelOverride }
+      { overrideModel: config?.textModelOverride, signal }
     );
     if (!response) {
       throw new Error("No response content received from LLM");
     }
     let c = "";
     for await (const { content, reasoning } of response) {
+      if (signal?.aborted) {
+        break;
+      }
       if (content) {
         c += content;
       }
@@ -55,8 +63,15 @@ Provide a clear, concise, well-formatted markdown response based on the conversa
     LOG(TAG).INFO(`Response generated: ${truncate(c, 100)}`);
     // Streaming complete - no need to send final chunk
 
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
     return { output: c };
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error; // Re-throw abort error to be handled by caller
+    }
     LOG(TAG).ERROR(
       `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );

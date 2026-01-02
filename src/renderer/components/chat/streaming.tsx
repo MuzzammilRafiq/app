@@ -1,11 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef, useEffect } from "react";
 import type { StreamChunk } from "../../../common/types";
-import {
-  PlanRenderer,
-  LogRenderer,
-  MarkdownRenderer,
-  SourceRenderer,
-} from "./renderers";
+import { PlanRenderer, LogRenderer, SourceRenderer } from "./renderers";
+import { WorkerMarkdownRenderer } from "./worker-renderers";
+import { useStreamingStore } from "../../utils/store";
 
 interface Segment {
   id: string;
@@ -15,66 +12,21 @@ interface Segment {
 
 // Custom hook for managing streaming state and logic
 export function useStreaming() {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const segmentsRef = useRef<Segment[]>([]);
+  const isStreaming = useStreamingStore((s) => s.isStreaming);
+  const streamingSegments = useStreamingStore((s) => s.streamingSegments);
+  const segmentsRef = useRef(streamingSegments);
 
-  // Optional callback allows callers to handle chunks directly (e.g., write into store)
-  const setupStreaming = (onChunk?: (data: StreamChunk) => void) => {
-    setIsStreaming(true);
-    segmentsRef.current = [];
-    setSegments([]);
+  // Sync ref with latest segments
+  useEffect(() => {
+    segmentsRef.current = streamingSegments;
+  }, [streamingSegments]);
+
+  const setupStreaming = () => {
+    useStreamingStore.getState().clearStreaming();
+    useStreamingStore.getState().setStreaming(true);
 
     const handleStreamChunk = (data: StreamChunk) => {
-      // Allow external side-effects first
-      if (onChunk) {
-        try {
-          onChunk(data);
-        } catch (err) {
-          // Swallow errors from external callback to avoid breaking stream updates
-          // eslint-disable-next-line no-console
-          console.error("onChunk handler error:", err);
-        }
-      }
-
-      // Use ref for immediate state access to avoid stale closures during rapid updates
-      const updated = [...segmentsRef.current];
-      if (data.type === "plan") {
-        // Plan is single; overwrite if exists else insert at end
-        const existingIndex = updated.findIndex((s) => s.type === "plan");
-        if (existingIndex >= 0) {
-          const existing = updated[existingIndex];
-          if (existing) {
-            updated[existingIndex] = {
-              id: existing.id,
-              type: existing.type,
-              content: data.chunk,
-            };
-          }
-        } else {
-          updated.push({
-            id: crypto.randomUUID(),
-            type: "plan",
-            content: data.chunk,
-          });
-        }
-      } else {
-        const last = updated[updated.length - 1];
-        if (last && last.type === data.type) {
-          updated[updated.length - 1] = {
-            ...last,
-            content: last.content + data.chunk,
-          };
-        } else {
-          updated.push({
-            id: crypto.randomUUID(),
-            type: data.type,
-            content: data.chunk,
-          });
-        }
-      }
-      segmentsRef.current = updated;
-      setSegments(updated);
+      useStreamingStore.getState().addStreamingChunk(data);
     };
 
     window.electronAPI.onStreamChunk(handleStreamChunk);
@@ -83,14 +35,12 @@ export function useStreaming() {
 
   const cleanupStreaming = () => {
     window.electronAPI.removeStreamChunkListener();
-    setIsStreaming(false);
-    segmentsRef.current = [];
-    setSegments([]);
+    useStreamingStore.getState().clearStreaming();
   };
 
   return {
     isStreaming,
-    segments,
+    segments: streamingSegments,
     segmentsRef,
     setupStreaming,
     cleanupStreaming,
@@ -116,7 +66,7 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
 
   return (
     <div className="flex justify-start">
-      <div className="break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
+      <div className="overflow-wrap-anywhere overflow-hidden text-slate-800 px-4 py-2.5 space-y-4">
         {/* Plan - only render the latest one */}
         {planSegment && (
           <PlanRenderer key={planSegment.id} content={planSegment.content} />
@@ -132,7 +82,12 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
         {/* Stream messages */}
         {streamSegments.map((msg) => (
           <div key={msg.id} className="prose prose-sm max-w-none">
-            <MarkdownRenderer content={msg.content} isUser={false} />
+            <WorkerMarkdownRenderer
+              id={msg.id}
+              content={msg.content}
+              isUser={false}
+              isStreaming={true}
+            />
           </div>
         ))}
 

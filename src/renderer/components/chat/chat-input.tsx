@@ -26,6 +26,7 @@ interface ChatInputProps {
   isLoading: boolean;
   isStreaming: boolean;
   handleSendMessage: () => void;
+  handleStopGeneration: () => void;
   isRAGEnabled: boolean;
   setIsRAGEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   isWebSearchEnabled: boolean;
@@ -42,6 +43,7 @@ export default function ChatInput({
   isLoading,
   isStreaming,
   handleSendMessage,
+  handleStopGeneration,
   isRAGEnabled,
   setIsRAGEnabled,
   isWebSearchEnabled,
@@ -74,7 +76,10 @@ export default function ChatInput({
   const actionBtnGhost = `${actionBtnBase} text-slate-400 hover:text-primary hover:bg-primary-light/20`;
   const actionBtnActive = `${actionBtnBase} text-primary bg-primary-light/30`;
   const sendBtnClass = `ml-2 p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center shadow-md ${
-    content.trim() || selectedImage || (imagePaths && imagePaths.length > 0)
+    content.trim() ||
+    selectedImage ||
+    (imagePaths && imagePaths.length > 0) ||
+    isStreaming
       ? "bg-primary text-white hover:bg-primary-hover hover:scale-105"
       : "bg-slate-200 text-slate-400 cursor-not-allowed"
   }`;
@@ -224,21 +229,21 @@ export default function ChatInput({
 
           <div className="flex items-center">
             <button
-              onClick={handleSendMessage}
+              onClick={isStreaming ? handleStopGeneration : handleSendMessage}
               disabled={
-                (!content.trim() &&
+                !isStreaming &&
+                ((!content.trim() &&
                   !selectedImage &&
                   !(imagePaths && imagePaths.length > 0)) ||
-                isLoading ||
-                isStreaming
+                  isLoading)
               }
               className={sendBtnClass}
               type="button"
             >
-              {isLoading ? (
-                <span className="animate-spin">{LoadingSVG}</span>
-              ) : isStreaming ? (
+              {isStreaming ? (
                 PauseSVG
+              ) : isLoading ? (
+                <span className="animate-spin">{LoadingSVG}</span>
               ) : (
                 SendSVG
               )}

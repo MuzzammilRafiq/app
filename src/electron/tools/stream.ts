@@ -13,7 +13,8 @@ export const stream = async (
   event: any,
   messages: ChatMessageRecord[],
   config: any,
-  apiKey: string
+  apiKey: string,
+  signal?: AbortSignal
 ) => {
   try {
     LOG(TAG).INFO(JSON_PRINT(config));
@@ -36,6 +37,10 @@ export const stream = async (
       config
     );
 
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
     // FIX #1: After pop(), filteredMessages already has last message removed
     // No need to slice again - just spread the remaining messages
     const updatedMessages = [...filteredMessages, lastUserMessage];
@@ -53,7 +58,8 @@ export const stream = async (
       event,
       apiKey,
       sessionId,
-      config
+      config,
+      signal
     );
 
     if (result.error) {
@@ -73,6 +79,16 @@ export const stream = async (
     });
     return { text: result.text };
   } catch (error) {
+    if (
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error && error.message === "Aborted")
+    ) {
+      LOG(TAG).INFO("Stream cancelled by user");
+      return {
+        text: "",
+        error: "Cancelled",
+      };
+    }
     LOG(TAG).ERROR("error in stream", error);
     return {
       text: "",

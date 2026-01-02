@@ -6,6 +6,9 @@ export interface StreamChunk {
 contextBridge.exposeInMainWorld("electronAPI", {
   streamMessageWithHistory: (messages: any[], config: any, apiKey: string) =>
     ipcRenderer.invoke("stream-message-with-history", messages, config, apiKey),
+  cancelStream: (sessionId: string) =>
+    ipcRenderer.invoke("cancel-chat-stream", sessionId),
+
   onStreamChunk: (callback: (data: StreamChunk) => void) => {
     ipcRenderer.on("stream-chunk", (event, data) => callback(data));
   },

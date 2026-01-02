@@ -304,7 +304,8 @@ async function executeGeneralStep(
   context: OrchestratorContext,
   event: IpcMainInvokeEvent,
   apiKey: string,
-  config: any
+  config: any,
+  signal?: AbortSignal
 ): Promise<{ output: string }> {
   // Build context summary from all previous steps
   const contextSummary =
@@ -321,7 +322,8 @@ async function executeGeneralStep(
     step.action + contextSummary,
     event,
     apiKey,
-    config
+    config,
+    signal
   );
 }
 
@@ -333,11 +335,14 @@ export async function orchestrate(
   event: IpcMainInvokeEvent,
   apiKey: string,
   sessionId: string,
-  config: any
+  config: any,
+  signal?: AbortSignal
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
 
   // Generate the plan
+  // Note: generatePlan could also take signal if we want to cancel plan generation
+  // For now, we mainly care about cancelling execution and heavy generation
   const planResult = await generatePlan(messages, apiKey, event, config);
 
   if (planResult.error || planResult.steps.length === 0) {
@@ -393,6 +398,13 @@ export async function orchestrate(
 
   // Execute each step
   for (let i = 0; i < steps.length; i++) {
+    // Check cancellation before starting step
+    if (signal?.aborted) {
+      LOG(TAG).INFO("Orchestration aborted by user");
+      // Optionally throw to stop completely
+      throw new DOMException("Aborted", "AbortError");
+    }
+
     const step = steps[i];
     context.currentStep = step.step_number;
     step.status = "running";
@@ -439,7 +451,8 @@ export async function orchestrate(
         context,
         event,
         apiKey,
-        config
+        config,
+        signal
       );
 
       step.status = "done";
