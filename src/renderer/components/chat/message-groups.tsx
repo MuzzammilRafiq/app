@@ -1,7 +1,7 @@
 import { WorkerMarkdownRenderer } from "./worker-renderers";
 import type { ChatMessageRecord } from "../../../common/types";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, memo } from "react";
 
 interface MessageGroup {
   id: string; // Unique stable ID for the group
@@ -70,9 +70,11 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
 function AssistantMessageSection({
   messages,
   onOpenDetails,
+  isStreaming,
 }: {
   messages: ChatMessageRecord[];
   onOpenDetails?: MessageGroupsProps["onOpenDetails"];
+  isStreaming?: boolean;
 }) {
   const planMessages = messages.filter((msg) => msg.type === "plan");
   const logMessages = messages.filter((msg) => msg.type === "log");
@@ -113,7 +115,7 @@ function AssistantMessageSection({
               id={msg.id}
               content={msg.content}
               isUser={false}
-              isStreaming={true} // Assume potential updates for assistant messages (or pass explicit prop)
+              isStreaming={isStreaming}
             />
           </div>
         ))}
@@ -122,7 +124,7 @@ function AssistantMessageSection({
   );
 }
 
-export default function MessageGroups({
+function MessageGroups({
   messages,
   onOpenDetails,
   isStreaming = false,
@@ -145,7 +147,7 @@ export default function MessageGroups({
       followOutput={"auto"}
       atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
       initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
-      itemContent={(index, group) => (
+      itemContent={(_index, group) => (
         <div className="max-w-3xl mx-auto px-4 py-6">
           {/* Group Content - Adds spacing via padding instead of margin to play nice with virtualization */}
 
@@ -187,6 +189,7 @@ export default function MessageGroups({
               <AssistantMessageSection
                 messages={group.assistantMessages}
                 onOpenDetails={onOpenDetails}
+                isStreaming={isStreaming}
               />
             </div>
           )}
@@ -195,3 +198,10 @@ export default function MessageGroups({
     />
   );
 }
+
+export default memo(MessageGroups, (prevProps, nextProps) => {
+  return (
+    prevProps.messages === nextProps.messages &&
+    prevProps.isStreaming === nextProps.isStreaming
+  );
+});

@@ -4,13 +4,13 @@ import {
   useSidebarCollapsedStore,
   useStore,
 } from "../utils/store";
-import { useEffect } from "react";
+import { useEffect, memo } from "react";
 
 // Updated button class for premium feel
 const iconBtnClass =
   "p-2 text-slate-500 hover:text-primary hover:bg-primary-light/20 rounded-xl transition-all duration-200 flex items-center justify-center cursor-pointer border border-transparent hover:border-primary-light/20 disabled:opacity-50 disabled:cursor-not-allowed";
 
-export default function Sidebar() {
+function SidebarInner() {
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
   const populateSessions = useStore((s) => s.populateSessions);
@@ -153,3 +153,5 @@ export default function Sidebar() {
     );
   }
 }
+
+export default memo(SidebarInner);

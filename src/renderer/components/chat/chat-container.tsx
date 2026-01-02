@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import toast from "react-hot-toast";
-import { useStore } from "../../utils/store";
+import {
+  useStore,
+  useSessionId,
+  useSessionMessages,
+  useChatSessions,
+  useStreamingStore,
+} from "../../utils/store";
 import { type ImageData } from "../../services/imageUtils";
 import type { ChatMessageRecord } from "../../../common/types";
 import ChatInput from "./chat-input";
@@ -18,8 +25,11 @@ import { loadSettings } from "../../services/settingsStorage";
 import { CommandConfirmationDialog } from "../CommandConfirmationDialog";
 
 export default function ChatContainer() {
-  const currentSession = useStore(
-    (s) => s.currentSession
+  const sessionId = useSessionId();
+  const messages = useSessionMessages();
+  const chatSessions = useChatSessions();
+  const currentSession = chatSessions.find(
+    (s) => s.id === sessionId,
   ) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
@@ -44,8 +54,17 @@ export default function ChatContainer() {
     cwd: string;
   } | null>(null);
 
-  const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } =
-    useStreaming();
+  const { isStreaming, setupStreaming, cleanupStreaming } = useStreaming();
+  const streamingSegments = useStreamingStore((s) => s.streamingSegments);
+  
+  // Optimization: Only subscribe to changes in Plans, Logs, or Sources for sidebar updates
+  const streamingDetailsSegments = useStreamingStore(
+    useShallow((s) =>
+      s.streamingSegments.filter((seg) =>
+        ["plan", "log", "source"].includes(seg.type),
+      ),
+    ),
+  );
 
   // Listen for terminal command confirmation requests
   useEffect(() => {
@@ -89,7 +108,7 @@ export default function ChatContainer() {
   };
 
   const buildSyntheticPlanFromDB = async (
-    plans: ChatMessageRecord[]
+    plans: ChatMessageRecord[],
   ): Promise<ChatMessageRecord[]> => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -115,12 +134,12 @@ export default function ChatContainer() {
     try {
       const dbSteps = await window.electronAPI.dbGetPlanSteps(
         latest.sessionId,
-        planHash
+        planHash,
       );
       if (Array.isArray(dbSteps) && dbSteps.length > 0) {
         const merged = steps.map((s: any) => {
           const matched = dbSteps.find(
-            (d: any) => Number(d.step_number) === Number(s.step_number)
+            (d: any) => Number(d.step_number) === Number(s.step_number),
           );
           return matched
             ? { ...s, status: matched.status }
@@ -153,7 +172,7 @@ export default function ChatContainer() {
   }) => {
     const immediate = buildSyntheticPlan(
       payload.plans || [],
-      payload.logs || []
+      payload.logs || [],
     );
     setSidebarPlans(immediate);
     void (async () => {
@@ -168,11 +187,10 @@ export default function ChatContainer() {
 
   // Auto-open sidebar when new assistant details arrive
   const prevCountRef = useRef(0);
-  const messages = (currentSession?.messages ?? []) as ChatMessageRecord[];
 
   const buildSyntheticPlan = (
     plans: ChatMessageRecord[],
-    logs: ChatMessageRecord[]
+    logs: ChatMessageRecord[],
   ): ChatMessageRecord[] => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -232,22 +250,39 @@ export default function ChatContainer() {
     return [synthetic];
   };
 
+  const getStreamingMessages = useCallback(() => {
+    if (!currentSession?.id) return [];
+    return streamingDetailsSegments.map(
+      (seg): ChatMessageRecord => ({
+        id: seg.id,
+        sessionId: currentSession.id,
+        content: seg.content,
+        role: "assistant",
+        timestamp: Date.now(),
+        isError: "",
+        imagePaths: null,
+        type: seg.type,
+      }),
+    );
+  }, [streamingDetailsSegments, currentSession?.id]);
+
   const computeLastAssistantGroup = () => {
-    if (!messages.length)
+    const allMessages = [...messages, ...getStreamingMessages()];
+    if (!allMessages.length)
       return {
         plans: [] as ChatMessageRecord[],
         logs: [] as ChatMessageRecord[],
         sources: [] as ChatMessageRecord[],
       };
     let lastUserIdx = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      const msg = allMessages[i];
       if (msg && msg.role === "user") {
         lastUserIdx = i;
         break;
       }
     }
-    const assistantGroup = messages.slice(lastUserIdx + 1);
+    const assistantGroup = allMessages.slice(lastUserIdx + 1);
     const plans = assistantGroup.filter((m) => m.type === "plan");
     const logs = assistantGroup.filter((m) => m.type === "log");
     const sources = assistantGroup.filter((m) => m.type === "source");
@@ -257,22 +292,31 @@ export default function ChatContainer() {
   useEffect(() => {
     const currLen = currentSession?.messages?.length ?? 0;
     prevCountRef.current = currLen;
-    setHasAutoOpened(false);
+    
+    if (!isStreaming) {
+      setHasAutoOpened(false);
+    }
+
     const { plans, logs, sources } = computeLastAssistantGroup();
     const immediate = buildSyntheticPlan(plans, logs);
     setSidebarPlans(immediate);
     setSidebarLogs(logs);
     setSidebarSources(sources);
-    void (async () => {
-      const fromDb = await buildSyntheticPlanFromDB(plans);
-      if (fromDb.length > 0) setSidebarPlans(fromDb);
-    })();
+    
+    // Only fetch from DB if not streaming
+    if (!isStreaming) {
+      void (async () => {
+        const fromDb = await buildSyntheticPlanFromDB(plans);
+        if (fromDb.length > 0) setSidebarPlans(fromDb);
+      })();
+    }
+
     if (!currentSession?.id) {
       setSidebarPlans([]);
       setSidebarLogs([]);
       setSidebarSources([]);
     }
-  }, [currentSession?.id]);
+  }, [currentSession?.id, isStreaming, streamingDetailsSegments, messages]);
 
   // Effect to auto-open details sidebar for new messages
   // Conditions:
@@ -282,38 +326,51 @@ export default function ChatContainer() {
   // - Avoid auto-opening on very first render unless new content arrived
   useEffect(() => {
     if (!autoOpenEnabled) return;
+
     const prev = prevCountRef.current as number;
     const curr = messages.length;
     const { plans, logs, sources } = computeLastAssistantGroup();
     const hasDetails =
       plans.length > 0 || logs.length > 0 || sources.length > 0;
 
-    const isNew = curr > prev; // naive new-message detection
-    // Also consider first-time hydration: don't auto-open unless something new arrived
-    if ((isNew || (!hasAutoOpened && prev === 0 && curr > 0)) && hasDetails) {
+    const shouldAutoOpen =
+      (isStreaming && !hasAutoOpened && hasDetails) ||
+      (!isStreaming &&
+        ((curr > prev) || (!hasAutoOpened && prev === 0 && curr > 0)) &&
+        hasDetails);
+
+    if (shouldAutoOpen) {
       if (!sidebarOpen) setSidebarOpen(true);
+      if (isStreaming) setHasAutoOpened(true);
+
       const immediate = buildSyntheticPlan(plans, logs);
       setSidebarPlans(immediate);
       setSidebarLogs(logs);
       setSidebarSources(sources);
-      void (async () => {
-        const fromDb = await buildSyntheticPlanFromDB(plans);
-        if (fromDb.length > 0) setSidebarPlans(fromDb);
-        setHasAutoOpened(true);
-      })();
+
+      if (!isStreaming) {
+        void (async () => {
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) setSidebarPlans(fromDb);
+          setHasAutoOpened(true);
+        })();
+      }
     } else if (hasDetails && sidebarOpen) {
       // Keep sidebar content in sync if it's already open
       const immediate = buildSyntheticPlan(plans, logs);
       setSidebarPlans(immediate);
       setSidebarLogs(logs);
       setSidebarSources(sources);
-      void (async () => {
-        const fromDb = await buildSyntheticPlanFromDB(plans);
-        if (fromDb.length > 0) setSidebarPlans(fromDb);
-      })();
+
+      if (!isStreaming) {
+        void (async () => {
+          const fromDb = await buildSyntheticPlanFromDB(plans);
+          if (fromDb.length > 0) setSidebarPlans(fromDb);
+        })();
+      }
     }
     prevCountRef.current = curr;
-  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened]);
+  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened, isStreaming, streamingDetailsSegments]);
 
   const handleSendMessage = async () => {
     const settings = loadSettings();
@@ -340,28 +397,20 @@ export default function ChatContainer() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession
+        createNewSession,
       );
       const storedImagePaths = await handleImagePersistence(
         selectedImage,
-        imagePaths
+        imagePaths,
       );
       const newMessage = await createUserMessage(
         session,
         trimmedContent || "",
         storedImagePaths,
-        addMessage
+        addMessage,
       );
 
-      // Stream tokens directly into the current session's messages
-      const handleChunk = (data: any) => {
-        if (!session?.id) return;
-        // Grow the visible assistant message by type
-        useStore
-          .getState()
-          .upsertStreamingAssistantMessage(session.id, data.type, data.chunk);
-      };
-      setupStreaming(handleChunk);
+      setupStreaming();
 
       try {
         const existingMessages = currentSession?.messages
@@ -377,25 +426,25 @@ export default function ChatContainer() {
             textModelOverride: settings.textModel || "",
             imageModelOverride: settings.imageModel || "",
           },
-          settings.openrouterApiKey
+          settings.openrouterApiKey,
         );
 
-        // FIX #5: Persist streaming segments and replace ephemeral messages
-        const ephemeralCount = segmentsRef.current.length;
+        // Persist streaming segments from the streaming store
+        const streamingSegments =
+          useStreamingStore.getState().streamingSegments;
         const persistedRecords = await persistStreamingSegments(
-          segmentsRef.current,
-          session
+          streamingSegments,
+          session,
         );
 
-        // Replace ephemeral messages in store with persisted records
-        if (persistedRecords.length > 0 && session?.id) {
-          useStore
-            .getState()
-            .replaceStreamingMessages(
-              session.id,
-              persistedRecords,
-              ephemeralCount
-            );
+        // Add persisted messages to the store
+        for (const record of persistedRecords) {
+          const updatedSession = await window.electronAPI.dbGetSession(
+            session.id,
+          );
+          if (updatedSession) {
+            addMessage(record, updatedSession);
+          }
         }
       } catch (streamErr) {
         console.error("Streaming error:", streamErr);
@@ -415,10 +464,25 @@ export default function ChatContainer() {
     <div className="flex-1 flex h-full overflow-hidden">
       {/* Left column: messages + input */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        {currentSession && currentSession?.messages?.length > 0 ? (
+        {currentSession &&
+        (currentSession?.messages?.length > 0 || isStreaming) ? (
           <div className="flex-1 min-h-0">
             <MessageGroups
-              messages={currentSession.messages}
+              messages={[
+                ...(currentSession.messages || []),
+                ...streamingSegments.map(
+                  (seg): ChatMessageRecord => ({
+                    id: seg.id,
+                    sessionId: currentSession.id,
+                    content: seg.content,
+                    role: "assistant",
+                    timestamp: Date.now(),
+                    isError: "",
+                    imagePaths: null,
+                    type: seg.type,
+                  }),
+                ),
+              ]}
               onOpenDetails={openSidebar}
               isStreaming={isStreaming}
             />

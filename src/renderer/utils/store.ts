@@ -3,6 +3,8 @@ import type {
   ChatSessionRecord,
   ChatSessionWithMessages,
   ChatMessageRecord,
+  ChatType,
+  StreamChunk,
 } from "../../common/types";
 
 // --------------chatSessions-------------------
@@ -14,7 +16,7 @@ export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
   (set) => ({
     chatSessionRecords: [],
     setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-  })
+  }),
 );
 
 // --------------chatSessionsWithMessages-------------------
@@ -49,7 +51,7 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
     sidebarCollapsed: false,
     setSidebarCollapsed: (collapsed: boolean) =>
       set({ sidebarCollapsed: collapsed }),
-  })
+  }),
 );
 
 // --------------currentView-------------------
@@ -70,13 +72,13 @@ interface Store {
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (
     message: ChatMessageRecord,
-    updatedSession: ChatSessionRecord
+    updatedSession: ChatSessionRecord,
   ) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (
     sessionId: string,
     type: ChatMessageRecord["type"],
-    chunk: string
+    chunk: string,
   ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
   /**
@@ -86,7 +88,7 @@ interface Store {
   replaceStreamingMessages: (
     sessionId: string,
     persistedMessages: ChatMessageRecord[],
-    ephemeralMessageCount: number
+    ephemeralMessageCount: number,
   ) => void;
 }
 interface ChatTitleStore {
@@ -143,7 +145,7 @@ export const useStore = create<Store>((set) => ({
 
       // Sort sessions by updatedAt descending (most recent first)
       const sortedSessions = updatedSessions.sort(
-        (a, b) => b.updatedAt - a.updatedAt
+        (a, b) => b.updatedAt - a.updatedAt,
       );
 
       return {
@@ -169,7 +171,12 @@ export const useStore = create<Store>((set) => ({
           let idx = -1;
           for (let i = msgs.length - 1; i >= 0; i--) {
             const m = msgs[i];
-            if (m && m.role === "assistant" && m.type === "plan" && m.isError === "") {
+            if (
+              m &&
+              m.role === "assistant" &&
+              m.type === "plan" &&
+              m.isError === ""
+            ) {
               idx = i;
               break;
             }
@@ -266,7 +273,7 @@ export const useStore = create<Store>((set) => ({
   replaceStreamingMessages: (
     sessionId,
     persistedMessages,
-    ephemeralMessageCount
+    ephemeralMessageCount,
   ) => {
     set((state) => {
       const updatedSessions = state.chatSessionsWithMessages.map((session) => {
@@ -297,3 +304,81 @@ export const useStore = create<Store>((set) => ({
     });
   },
 }));
+
+interface StreamingSegment {
+  id: string;
+  type: ChatType;
+  content: string;
+}
+
+interface StreamingStore {
+  isStreaming: boolean;
+  streamingSegments: StreamingSegment[];
+  setStreaming: (isStreaming: boolean) => void;
+  addStreamingChunk: (chunk: StreamChunk) => void;
+  clearStreaming: () => void;
+}
+
+export const useStreamingStore = create<StreamingStore>((set) => ({
+  isStreaming: false,
+  streamingSegments: [],
+  setStreaming: (isStreaming) => set({ isStreaming }),
+  addStreamingChunk: (chunk) =>
+    set((state) => {
+      const updated = [...state.streamingSegments];
+
+      if (chunk.type === "plan") {
+        // Overwrite existing plan
+        const existingIndex = updated.findIndex((s) => s.type === "plan");
+        if (existingIndex >= 0) {
+          const existing = updated[existingIndex];
+          if (existing) {
+            updated[existingIndex] = {
+              id: existing.id,
+              type: existing.type,
+              content: chunk.chunk,
+            };
+          }
+        } else {
+          updated.push({
+            id: crypto.randomUUID(),
+            type: "plan",
+            content: chunk.chunk,
+          });
+        }
+      } else {
+        // Append to last segment of same type
+        const last = updated[updated.length - 1];
+        if (last && last.type === chunk.type) {
+          updated[updated.length - 1] = {
+            ...last,
+            content: last.content + chunk.chunk,
+          };
+        } else {
+          updated.push({
+            id: crypto.randomUUID(),
+            type: chunk.type,
+            content: chunk.chunk,
+          });
+        }
+      }
+      return { streamingSegments: updated };
+    }),
+  clearStreaming: () => set({ streamingSegments: [], isStreaming: false }),
+}));
+
+const EMPTY_MESSAGES: ChatMessageRecord[] = [];
+
+// Granular selectors to prevent unnecessary re-renders
+export const selectSessionId = (state: Store) => state.currentSession?.id;
+export const selectSessionTitle = (state: Store) => state.currentSession?.title;
+export const selectSessionMessages = (state: Store) =>
+  state.currentSession?.messages || EMPTY_MESSAGES;
+export const selectChatSessions = (state: Store) =>
+  state.chatSessionsWithMessages;
+
+// Selector helpers that maintain reference equality when data hasn't changed
+export const useSessionId = () => useStore(selectSessionId);
+export const useSessionMessages = () => useStore(selectSessionMessages);
+export const useChatSessions = () => useStore(selectChatSessions);
+export const useSessionTitle = () => useStore(selectSessionTitle);

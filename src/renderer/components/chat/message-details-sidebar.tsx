@@ -1,6 +1,7 @@
 import type { ChatMessageRecord } from "../../../common/types";
 import { PlanRenderer, LogRenderer, SourceRenderer } from "./renderers";
 import clsx from "clsx";
+import { memo } from "react";
 
 interface MessageDetailsSidebarProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ interface MessageDetailsSidebarProps {
   sources: ChatMessageRecord[];
 }
 
-export default function MessageDetailsSidebar({
+function MessageDetailsSidebar({
   isOpen,
   onClose,
   plans,
@@ -25,7 +26,7 @@ export default function MessageDetailsSidebar({
       className={clsx(
         "h-full bg-bg-app border-l border-slate-200 shrink-0 overflow-hidden",
         "transition-all duration-300 ease-in-out",
-        isOpen ? "w-[320px] sm:w-[360px]" : "w-0"
+        isOpen ? "w-[320px] sm:w-[360px]" : "w-0",
       )}
       aria-hidden={!isOpen}
     >
@@ -33,7 +34,7 @@ export default function MessageDetailsSidebar({
         className={clsx(
           "h-full flex flex-col min-w-[320px] sm:min-w-[360px]",
           "transition-opacity duration-200",
-          isOpen ? "opacity-100" : "opacity-0"
+          isOpen ? "opacity-100" : "opacity-0",
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
@@ -100,3 +101,15 @@ export default function MessageDetailsSidebar({
     </aside>
   );
 }
+
+export default memo(MessageDetailsSidebar, (prevProps, nextProps) => {
+  if (prevProps.isOpen !== nextProps.isOpen) return false;
+  if (prevProps.plans?.length !== nextProps.plans?.length) return false;
+  if (prevProps.logs?.length !== nextProps.logs?.length) return false;
+  if (prevProps.sources?.length !== nextProps.sources?.length) return false;
+  return (
+    JSON.stringify(prevProps.plans) === JSON.stringify(nextProps.plans) &&
+    JSON.stringify(prevProps.logs) === JSON.stringify(nextProps.logs) &&
+    JSON.stringify(prevProps.sources) === JSON.stringify(nextProps.sources)
+  );
+});
