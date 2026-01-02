@@ -108,7 +108,7 @@ export default function MessageGroups({
         <div key={groupIndex} className="space-y-6 mb-8">
           {group.userMessage && (
             <div className="flex justify-end pl-12 animate-fade-in">
-              <div className="bg-[#3e2723] text-white rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full break-words">
+              <div className="bg-primary text-white rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full wrap-break-words">
                 {group.userMessage.imagePaths &&
                   group.userMessage.imagePaths.length > 0 && (
                     <div className="flex flex-wrap gap-3 mb-3">
@@ -117,7 +117,7 @@ export default function MessageGroups({
                           <img
                             src={`file://${p}`}
                             alt="attached image"
-                            className="max-w-full max-h-48 rounded-lg border border-[#d7ccc8]/30"
+                            className="max-w-full max-h-48 rounded-lg border border-primary-light/30"
                             style={{ maxWidth: "200px" }}
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).alt =

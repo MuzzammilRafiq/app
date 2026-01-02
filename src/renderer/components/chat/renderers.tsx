@@ -149,7 +149,7 @@ export function MarkdownRenderer({
         pre: ({ children }) => (
           <pre
             className={clsx(
-              "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap break-words",
+              "rounded-xl overflow-x-auto mb-3 p-4 whitespace-pre-wrap wrap-break-words",
               isUser
                 ? "bg-white/10 border border-white/20"
                 : "bg-slate-50 border border-slate-200"
@@ -348,7 +348,7 @@ export function PlanRenderer({ content }: { content: string }) {
                       {step.status}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-900 leading-relaxed break-words overflow-wrap-anywhere">
+                  <p className="text-sm text-slate-900 leading-relaxed wrap-break-words overflow-wrap-anywhere">
                     {step.description}
                   </p>
                 </div>
@@ -397,7 +397,7 @@ export function LogRenderer({ content }: { content: string }) {
           isExpanded ? "opacity-100 mt-2" : "max-h-0 opacity-0"
         )}
       >
-        <pre className="text-xs text-amber-700 whitespace-pre-wrap font-mono break-words px-2 pb-2">
+        <pre className="text-xs text-amber-700 whitespace-pre-wrap font-mono wrap-break-words px-2 pb-2">
           {content}
         </pre>
       </div>
