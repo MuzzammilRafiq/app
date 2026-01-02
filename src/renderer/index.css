@@ -269,7 +269,7 @@ textarea:focus-visible {
 
 /* Tables */
 .markdown-body table {
-  @apply min-w-full border rounded-lg overflow-hidden shadow-sm mb-4 block overflow-x-auto;
+  @apply w-fit max-w-full border rounded-lg overflow-hidden shadow-sm mb-4 block overflow-x-auto;
   border-collapse: collapse;
 }
 .markdown-body th {
