@@ -1,7 +1,10 @@
-import { MarkdownRenderer } from "./renderers";
+import { WorkerMarkdownRenderer } from "./worker-renderers";
 import type { ChatMessageRecord } from "../../../common/types";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { useRef, useEffect } from "react";
 
 interface MessageGroup {
+  id: string; // Unique stable ID for the group
   userMessage: ChatMessageRecord | null;
   assistantMessages: ChatMessageRecord[];
 }
@@ -13,11 +16,13 @@ interface MessageGroupsProps {
     logs: ChatMessageRecord[];
     sources: ChatMessageRecord[];
   }) => void;
+  isStreaming?: boolean; // To hint auto-scroll behavior
 }
 
 function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
   const groupedMessages: MessageGroup[] = [];
   let currentGroup: MessageGroup = {
+    id: "temp-start",
     userMessage: null,
     assistantMessages: [],
   };
@@ -29,9 +34,17 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
         currentGroup.userMessage ||
         currentGroup.assistantMessages.length > 0
       ) {
+        // Generate a stable-ish ID based on the user message ID
+        currentGroup.id =
+          currentGroup.userMessage?.id ||
+          `group-auto-${groupedMessages.length}`;
         groupedMessages.push(currentGroup);
       }
-      currentGroup = { userMessage: message, assistantMessages: [] };
+      currentGroup = {
+        id: message.id, // Use user message ID as group ID
+        userMessage: message,
+        assistantMessages: [],
+      };
     } else {
       // Add assistant message to current group
       currentGroup.assistantMessages.push(message);
@@ -40,6 +53,14 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
 
   // Add final group if it has content
   if (currentGroup.userMessage || currentGroup.assistantMessages.length > 0) {
+    if (!currentGroup.userMessage && groupedMessages.length > 0) {
+      // Orphan assistant messages (system prompt outputs etc) - append to previous group if possible or new
+      // For simplicity, just push as new group
+      currentGroup.id =
+        currentGroup.assistantMessages[0]?.id || `group-end-${Date.now()}`;
+    } else if (currentGroup.userMessage) {
+      currentGroup.id = currentGroup.userMessage.id;
+    }
     groupedMessages.push(currentGroup);
   }
 
@@ -88,7 +109,12 @@ function AssistantMessageSection({
             key={msg.id}
             className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]"
           >
-            <MarkdownRenderer content={msg.content} isUser={false} />
+            <WorkerMarkdownRenderer
+              id={msg.id}
+              content={msg.content}
+              isUser={false}
+              isStreaming={true} // Assume potential updates for assistant messages (or pass explicit prop)
+            />
           </div>
         ))}
       </div>
@@ -99,15 +125,32 @@ function AssistantMessageSection({
 export default function MessageGroups({
   messages,
   onOpenDetails,
+  isStreaming = false,
 }: MessageGroupsProps) {
   const groupedMessages = groupMessages(messages);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+
+  // Auto-scroll effect
+  useEffect(() => {
+    // If we receive new messages and they are at the end, Virtuoso 'followOutput' handles it.
+    // However, fast initial load might need a kick.
+    // virtuosoRef.current?.scrollToIndex({ index: groupedMessages.length - 1, align: 'end' });
+  }, [groupedMessages.length]);
 
   return (
-    <div className="max-w-3xl mx-auto px-2">
-      {groupedMessages.map((group, groupIndex) => (
-        <div key={groupIndex} className="space-y-6 mb-8">
+    <Virtuoso
+      ref={virtuosoRef}
+      style={{ height: "100%" }} // Must be set to fill container
+      data={groupedMessages}
+      followOutput={"auto"}
+      atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
+      initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
+      itemContent={(index, group) => (
+        <div className="max-w-3xl mx-auto px-4 py-6">
+          {/* Group Content - Adds spacing via padding instead of margin to play nice with virtualization */}
+
           {group.userMessage && (
-            <div className="flex justify-end pl-12 animate-fade-in">
+            <div className="flex justify-end pl-12 animate-fade-in mb-6">
               <div className="bg-primary text-white rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full wrap-break-words">
                 {group.userMessage.imagePaths &&
                   group.userMessage.imagePaths.length > 0 && (
@@ -129,7 +172,8 @@ export default function MessageGroups({
                     </div>
                   )}
                 <div className="prose prose-sm max-w-none text-white selection:bg-white/30 selection:text-white">
-                  <MarkdownRenderer
+                  <WorkerMarkdownRenderer
+                    id={group.userMessage.id}
                     content={group.userMessage.content}
                     isUser={true}
                   />
@@ -147,7 +191,7 @@ export default function MessageGroups({
             </div>
           )}
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }

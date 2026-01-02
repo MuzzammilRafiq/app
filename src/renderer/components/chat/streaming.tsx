@@ -1,11 +1,7 @@
 import { useRef, useState } from "react";
 import type { StreamChunk } from "../../../common/types";
-import {
-  PlanRenderer,
-  LogRenderer,
-  MarkdownRenderer,
-  SourceRenderer,
-} from "./renderers";
+import { PlanRenderer, LogRenderer, SourceRenderer } from "./renderers";
+import { WorkerMarkdownRenderer } from "./worker-renderers";
 
 interface Segment {
   id: string;
@@ -116,7 +112,7 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
 
   return (
     <div className="flex justify-start">
-      <div className="break-words overflow-hidden overflow-wrap-anywhere text-slate-800 px-4 py-2.5 space-y-4">
+      <div className="overflow-wrap-anywhere overflow-hidden text-slate-800 px-4 py-2.5 space-y-4">
         {/* Plan - only render the latest one */}
         {planSegment && (
           <PlanRenderer key={planSegment.id} content={planSegment.content} />
@@ -132,7 +128,12 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
         {/* Stream messages */}
         {streamSegments.map((msg) => (
           <div key={msg.id} className="prose prose-sm max-w-none">
-            <MarkdownRenderer content={msg.content} isUser={false} />
+            <WorkerMarkdownRenderer
+              id={msg.id}
+              content={msg.content}
+              isUser={false}
+              isStreaming={true}
+            />
           </div>
         ))}
 

@@ -416,10 +416,11 @@ export default function ChatContainer() {
       {/* Left column: messages + input */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         {currentSession && currentSession?.messages?.length > 0 ? (
-          <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4 hide-scrollbar">
+          <div className="flex-1 min-h-0">
             <MessageGroups
               messages={currentSession.messages}
               onOpenDetails={openSidebar}
+              isStreaming={isStreaming}
             />
           </div>
         ) : (
