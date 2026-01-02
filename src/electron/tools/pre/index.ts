@@ -11,6 +11,7 @@ export const preProcessMessage = async (
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
+  signal?: AbortSignal
 ) => {
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
@@ -94,10 +95,16 @@ export const preProcessMessage = async (
   }
 
   if (config?.webSearch) {
+    // Check if aborted before starting web search
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
     const webSearchResults = await webSearchAnswer(
       event,
       apiKey,
-      lastUserMessage.content
+      lastUserMessage.content,
+      1, // limitPerQuery
+      signal
     );
     lastUserMessage.content =
       lastUserMessage.content +

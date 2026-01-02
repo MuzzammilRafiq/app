@@ -1,5 +1,5 @@
 type ChatRole = "user" | "assistant" | "execution";
-type ChatType = "stream" | "log" | "plan" | "user" | "source";
+type ChatType = "stream" | "log" | "plan" | "user" | "source" | "search-status";
 
 interface MakePlanResponse {
   step_number: number;

@@ -86,7 +86,7 @@ export default function ChatInput({
 
   return (
     <div className="shrink-0 px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-[24px] shadow-float border border-transparent">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-3xl shadow-float border border-transparent">
         {/* Selected image preview inside the bubble */}
         {(selectedImage || (imagePaths && imagePaths.length > 0)) && (
           <div className="px-4 pt-4 pb-0">
@@ -140,7 +140,7 @@ export default function ChatInput({
             }
             placeholder="Ask anything..."
             disabled={isLoading || isStreaming}
-            className="w-full px-5 py-4 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-64 min-h-[56px] leading-relaxed"
+            className="w-full px-5 py-4 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-64 min-h-14 leading-relaxed"
             rows={1}
           />
         </div>

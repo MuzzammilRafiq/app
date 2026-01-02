@@ -95,14 +95,36 @@ User query: "${userQuery}"
 }
 
 /**
+ * Helper: Creates a promise that rejects when the signal is aborted.
+ * Use with Promise.race to make any async operation "cancellable".
+ */
+function createAbortPromise(signal?: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    if (!signal) {
+      // Never resolves/rejects if no signal - just keeps waiting forever
+      return;
+    }
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    signal.addEventListener("abort", () => {
+      reject(new DOMException("Aborted", "AbortError"));
+    }, { once: true });
+  });
+}
+
+/**
  * Call the Python web search API with generated queries.
  * Returns concatenated markdown content from search results.
+ * If signal is aborted, rejects immediately (server may continue, we just don't wait).
  */
 async function searchWebAPI(
   queries: string[],
-  limitPerQuery: number = 1
+  limitPerQuery: number = 1,
+  signal?: AbortSignal
 ): Promise<{ results: any[]; errors: string[] | null }> {
-  const response = await fetch(`${URL}/web/search`, {
+  const fetchPromise = fetch(`${URL}/web/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -112,6 +134,11 @@ async function searchWebAPI(
       limit_per_query: limitPerQuery,
     }),
   });
+
+  // Race between fetch and abort - if aborted, we stop waiting immediately
+  const response = signal
+    ? await Promise.race([fetchPromise, createAbortPromise(signal)])
+    : await fetchPromise;
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -131,32 +158,47 @@ export async function webSearchAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
-  limitPerQuery: number = 1
+  limitPerQuery: number = 1,
+  signal?: AbortSignal
 ): Promise<string> {
   LOG(TAG).INFO("Web search enabled, generating queries...", { userQuery });
 
+  // Send search status event - generating queries
   event.sender.send("stream-chunk", {
-    chunk: "*Generating web search queries...*",
-    type: "log",
+    chunk: JSON.stringify({ phase: "generating", message: "Generating search queries" }),
+    type: "search-status",
   });
 
   // Generate optimized search queries
   const queries = await generateWebSearchQueries(event, apiKey, userQuery);
 
-  // Log the generated queries to UI
+  // Check if cancelled - bail out early (server query may still run, we just won't use it)
+  if (signal?.aborted) {
+    LOG(TAG).INFO("Web search cancelled by user after query generation");
+    return "";
+  }
+
+  // Log the generated queries to UI (keep as log for details)
   event.sender.send("stream-chunk", {
     chunk: `*Generated queries:*\n${queries.map((q, i) => `  ${i + 1}. "${q}"`).join("\n")}`,
     type: "log",
   });
 
+  // Send search status event - searching
   event.sender.send("stream-chunk", {
-    chunk: `*Searching the web with ${queries.length} queries...*`,
-    type: "log",
+    chunk: JSON.stringify({ phase: "searching", message: `Searching ${queries.length} queries` }),
+    type: "search-status",
   });
 
   try {
-    // Call the web search API
-    const searchResponse = await searchWebAPI(queries, limitPerQuery);
+    // Call the web search API - if signal aborts, Promise.race rejects immediately
+    const searchResponse = await searchWebAPI(queries, limitPerQuery, signal);
+
+    // Check if cancelled after search API returns
+    if (signal?.aborted) {
+      LOG(TAG).INFO("Web search cancelled by user after API response");
+      return "";
+    }
 
     if (searchResponse.errors && searchResponse.errors.length > 0) {
       LOG(TAG).WARN("Some web searches had errors:", searchResponse.errors);
@@ -167,15 +209,16 @@ export async function webSearchAnswer(
 
     if (successfulResults.length === 0) {
       event.sender.send("stream-chunk", {
-        chunk: "*No web search results found*",
-        type: "log",
+        chunk: JSON.stringify({ phase: "complete", message: "No results found" }),
+        type: "search-status",
       });
       return "No relevant web search results found.";
     }
 
+    // Send search status event - processing
     event.sender.send("stream-chunk", {
-      chunk: `*Found ${successfulResults.length} web pages*`,
-      type: "log",
+      chunk: JSON.stringify({ phase: "processing", message: `Found ${successfulResults.length} pages` }),
+      type: "search-status",
     });
 
     // Send sources to UI
@@ -196,9 +239,10 @@ export async function webSearchAnswer(
       )
       .join("\n\n---\n\n");
 
+    // Send search status event - extracting
     event.sender.send("stream-chunk", {
-      chunk: "*Extracting relevant info from web pages...*",
-      type: "log",
+      chunk: JSON.stringify({ phase: "extracting", message: "Extracting relevant info" }),
+      type: "search-status",
     });
 
     // Use cheap model to extract only relevant info
@@ -208,6 +252,12 @@ export async function webSearchAnswer(
       combinedMarkdown
     );
 
+    // Send search status event - complete
+    event.sender.send("stream-chunk", {
+      chunk: JSON.stringify({ phase: "complete", message: "Search complete" }),
+      type: "search-status",
+    });
+
     LOG(TAG).SUCCESS(
       `Web search completed with ${successfulResults.length} results, extracted relevant info`
     );
@@ -216,11 +266,21 @@ export async function webSearchAnswer(
       extractedInfo || "No relevant information extracted from web search."
     );
   } catch (error) {
+    // Handle cancellation gracefully - not an error
+    if (
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error && error.message === "Aborted")
+    ) {
+      LOG(TAG).INFO("Web search cancelled by user");
+      return "";
+    }
+    
     LOG(TAG).ERROR("Web search API error:", error);
     event.sender.send("stream-chunk", {
-      chunk: `*Web search error: ${error instanceof Error ? error.message : "Unknown error"}*`,
-      type: "log",
+      chunk: JSON.stringify({ phase: "error", message: error instanceof Error ? error.message : "Search failed" }),
+      type: "search-status",
     });
     return `Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`;
   }
 }
+

@@ -34,7 +34,8 @@ export const stream = async (
       filteredMessages.pop()!, // Removes last message from array
       event,
       apiKey,
-      config
+      config,
+      signal
     );
 
     if (signal?.aborted) {

@@ -127,7 +127,7 @@ function SidebarInner() {
                       e.stopPropagation();
                       void onDeleteSession(session.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 cursor-pointer"
                     title="Delete Session"
                   >
                     <div className="w-4 h-4">{TrashSVG}</div>

@@ -102,13 +102,19 @@ export async function createUserMessage(
  * Persists streaming segments to the database.
  * FIX #5: Does NOT call addMessage anymore - caller should use
  * store.replaceStreamingMessages() to swap ephemeral messages with persisted ones.
+ * Note: search-status segments are ephemeral and not persisted.
  */
 export async function persistStreamingSegments(
   segments: Array<{ id: string; type: string; content: string }>,
   session: ChatSession
 ): Promise<ChatMessageRecord[]> {
+  // Filter out ephemeral segment types that shouldn't be persisted
+  const persistableSegments = segments.filter(
+    (seg) => seg.type !== "search-status"
+  );
+
   const savedRecords: ChatMessageRecord[] = [];
-  for (const seg of segments) {
+  for (const seg of persistableSegments) {
     let contentToSave = seg.content;
 
     if (seg.type === "plan") {

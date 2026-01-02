@@ -67,6 +67,79 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
   return groupedMessages;
 }
 
+// Search status type from backend
+interface SearchStatus {
+  phase: "generating" | "searching" | "processing" | "extracting" | "complete" | "error";
+  message: string;
+}
+
+// Parse search-status event from backend
+function parseSearchStatus(content: string): SearchStatus | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed && parsed.phase && parsed.message) {
+      return parsed as SearchStatus;
+    }
+  } catch {
+    // Not valid JSON
+  }
+  return null;
+}
+
+// Animated searching indicator for web search
+function SearchingIndicator({ status }: { status: SearchStatus }) {
+  // Don't show indicator for complete or error phases
+  if (status.phase === "complete" || status.phase === "error") {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+      {/* Animated spinner + search icon */}
+      <div className="relative">
+        <svg
+          className="w-5 h-5 text-blue-600 animate-spin"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+        <svg
+          className="w-3 h-3 text-blue-700 absolute -right-0.5 -bottom-0.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-blue-800">
+          Searching the web...
+        </span>
+        <span className="text-xs text-blue-600/80">{status.message}</span>
+      </div>
+    </div>
+  );
+}
+
 function AssistantMessageSection({
   messages,
   onOpenDetails,
@@ -80,11 +153,21 @@ function AssistantMessageSection({
   const logMessages = messages.filter((msg) => msg.type === "log");
   const streamMessages = messages.filter((msg) => msg.type === "stream");
   const sourceMessages = messages.filter((msg) => msg.type === "source");
+  const searchStatusMessages = messages.filter((msg) => msg.type === "search-status");
+
+  // Get the latest search status (if still active)
+  const latestSearchStatusContent = searchStatusMessages[searchStatusMessages.length - 1]?.content;
+  const searchStatus = isStreaming && latestSearchStatusContent
+    ? parseSearchStatus(latestSearchStatusContent)
+    : null;
 
   return (
     <div className="flex flex-col gap-2">
       {/* Messages Wrapper */}
       <div className="w-full text-slate-800 space-y-4 ">
+        {/* Web Search Indicator - shown prominently when searching */}
+        {searchStatus && <SearchingIndicator status={searchStatus} />}
+
         {/* Detail Toggle for non-chat artifacts */}
         {planMessages.length + logMessages.length + sourceMessages.length >
           0 && (
