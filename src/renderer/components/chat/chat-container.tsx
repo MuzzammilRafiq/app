@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import { useStore } from "../../utils/store";
 import { type ImageData } from "../../services/imageUtils";
@@ -15,6 +15,7 @@ import {
   type ChatSession,
 } from "./chat-utils";
 import { loadSettings } from "../../services/settingsStorage";
+import { CommandConfirmationDialog } from "../CommandConfirmationDialog";
 
 export default function ChatContainer() {
   const currentSession = useStore(
@@ -36,8 +37,42 @@ export default function ChatContainer() {
   const [autoOpenEnabled] = useState(true);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
+  // Command confirmation dialog state
+  const [pendingCommand, setPendingCommand] = useState<{
+    command: string;
+    requestId: string;
+    cwd: string;
+  } | null>(null);
+
   const { isStreaming, segmentsRef, setupStreaming, cleanupStreaming } =
     useStreaming();
+
+  // Listen for terminal command confirmation requests
+  useEffect(() => {
+    const handleConfirmationRequest = (data: {
+      command: string;
+      requestId: string;
+      cwd: string;
+    }) => {
+      setPendingCommand(data);
+    };
+
+    window.electronAPI.onCommandConfirmation(handleConfirmationRequest);
+
+    return () => {
+      window.electronAPI.removeCommandConfirmationListener();
+    };
+  }, []);
+
+  const handleAllowCommand = useCallback((requestId: string) => {
+    window.electronAPI.respondToCommandConfirmation(requestId, true);
+    setPendingCommand(null);
+  }, []);
+
+  const handleDenyCommand = useCallback((requestId: string) => {
+    window.electronAPI.respondToCommandConfirmation(requestId, false);
+    setPendingCommand(null);
+  }, []);
 
   const resetInputState = () => {
     setContent("");
@@ -422,6 +457,16 @@ export default function ChatContainer() {
           sources={sidebarSources}
         />
       )}
+
+      {/* Command confirmation dialog */}
+      <CommandConfirmationDialog
+        isOpen={!!pendingCommand}
+        command={pendingCommand?.command ?? ""}
+        cwd={pendingCommand?.cwd ?? ""}
+        requestId={pendingCommand?.requestId ?? ""}
+        onAllow={handleAllowCommand}
+        onDeny={handleDenyCommand}
+      />
     </div>
   );
 }

@@ -6,11 +6,12 @@ import {
   OrchestratorStep,
   OrchestratorContext,
 } from "../../common/types.js";
-import { IpcMainInvokeEvent } from "electron";
+import { IpcMainInvokeEvent, ipcMain } from "electron";
 import { terminalExecutor, checkCommandSecurity } from "./terminal/index.js";
 import { generalTool } from "./general/index.js";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const TAG = "orchestrator";
 
@@ -31,42 +32,66 @@ function truncateOutput(
   );
 }
 
-// Allowed terminal commands for the planner to use
-const ALLOWED_COMMANDS = [
-  "ls",
-  "pwd",
-  "echo",
-  "cat",
-  "head",
-  "tail",
-  "wc",
-  "du",
-  "df",
-  "date",
-  "which",
-  "stat",
-  "basename",
-  "dirname",
-  "printf",
-  "cd",
-];
+// Pending confirmation requests mapped by requestId
+const pendingConfirmations = new Map<
+  string,
+  { resolve: (allowed: boolean) => void }
+>();
+
+// IPC handler for confirmation responses from renderer
+ipcMain.handle(
+  "terminal:confirmation-response",
+  (_event, requestId: string, allowed: boolean) => {
+    const pending = pendingConfirmations.get(requestId);
+    if (pending) {
+      pending.resolve(allowed);
+      pendingConfirmations.delete(requestId);
+    }
+  }
+);
+
+// Wait for user confirmation before executing a command
+async function waitForUserConfirmation(
+  event: IpcMainInvokeEvent,
+  command: string,
+  cwd: string
+): Promise<boolean> {
+  const requestId = crypto.randomUUID();
+
+  return new Promise((resolve) => {
+    pendingConfirmations.set(requestId, { resolve });
+    event.sender.send("terminal:request-confirmation", {
+      command,
+      requestId,
+      cwd,
+    });
+
+    // Timeout after 5 minutes - auto-deny if no response
+    setTimeout(() => {
+      if (pendingConfirmations.has(requestId)) {
+        pendingConfirmations.delete(requestId);
+        resolve(false);
+      }
+    }, 300000);
+  });
+}
 
 const SYSTEM_PROMPT_PLANNER = `
 You are a task orchestrator for a macOS system. Your job is to break down user requests into granular, executable steps.
 
 Available Agents:
-1. terminal - Executes single shell commands on macOS. Use ONLY these commands: ${ALLOWED_COMMANDS.join(", ")}
+1. terminal - Executes shell commands on macOS. You can use any standard shell commands including pipes and chaining.
 2. general - Provides natural language responses, summaries, and formatted output to the user
 
 Rules:
 - Output JSON only, matching the schema strictly
-- Create granular steps - each terminal step should be ONE command
-- Do NOT chain commands with pipes, && or semicolons
+- Create granular steps - prefer simpler commands but can use pipes when needed
 - Maximum 15 steps per plan
 - Always end with a "general" step to format the final response for the user
 - If the request is a simple question or greeting, use only a "general" step
 - For file operations, verify paths exist before acting (use ls first)
 - Consider the conversation history for context
+- The user will be asked to confirm each terminal command before execution
 
 Step Format:
 - agent: "terminal" or "general"
@@ -82,12 +107,11 @@ User: "What time is it?"
   ]
 }
 
-User: "List files in Documents and show their sizes"
+User: "Count folders in Downloads"
 {
   "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "ls -la ~/Documents"},
-    {"step_number": 2, "agent": "terminal", "action": "du -sh ~/Documents/*"},
-    {"step_number": 3, "agent": "general", "action": "Summarize the files and sizes found"}
+    {"step_number": 1, "agent": "terminal", "action": "find ~/Downloads -maxdepth 1 -type d | wc -l"},
+    {"step_number": 2, "agent": "general", "action": "Report the folder count to the user"}
   ]
 }
 
@@ -231,17 +255,33 @@ async function executeTerminalStep(
     return { output: `Changed to ${newCwd}`, success: true, newCwd };
   }
 
-  // Check command security
+  // Check if command is potentially dangerous (for user awareness)
   const security = checkCommandSecurity(command);
   if (security.needConformation) {
     event.sender.send("stream-chunk", {
-      chunk: `⚠️ Blocked: ${security.reason}\n`,
+      chunk: `⚠️ Warning: ${security.reason}\n`,
       type: "log",
     });
-    return { output: `Blocked: ${security.reason}`, success: false };
+  }
+
+  // Request user confirmation before executing
+  LOG(TAG).INFO(`Requesting confirmation for: ${command}`);
+  const allowed = await waitForUserConfirmation(event, command, context.cwd);
+
+  if (!allowed) {
+    event.sender.send("stream-chunk", {
+      chunk: `❌ Command denied by user: ${command}\n`,
+      type: "log",
+    });
+    return { output: "Command denied by user", success: false };
   }
 
   // Execute the command
+  event.sender.send("stream-chunk", {
+    chunk: `✓ Command approved, executing...\n`,
+    type: "log",
+  });
+
   const result = await terminalExecutor(command, context.cwd);
 
   // Truncate large outputs to prevent context/UI bloat
