@@ -19,4 +19,5 @@ dependencies = [
   "ipywidgets>=8.1.7",
   "pdf2image>=1.17.0",
   "crawl4ai>=0.7.8",
+  "pyautogui>=0.9.54",
 ]

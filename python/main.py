@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from pillow_heif import register_heif_opener
-from routes import image_router, text_router, web_search_router
+from routes import image_router, text_router, web_search_router, automation_router
 
 
 register_heif_opener()
@@ -15,6 +15,7 @@ async def health_check():
 app.include_router(image_router)
 app.include_router(text_router)
 app.include_router(web_search_router)
+app.include_router(automation_router)
 #-------------routes--------------------
 
 if __name__ == "__main__":
