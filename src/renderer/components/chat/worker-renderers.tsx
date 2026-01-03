@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { markdownWorker } from "../../services/markdown-worker-manager";
 import clsx from "clsx";
 

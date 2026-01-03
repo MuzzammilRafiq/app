@@ -1,6 +1,6 @@
 import { useState } from "react";
 import clsx from "clsx";
-import path from "path";
+
 import type { MakePlanResponse, UniqueResult } from "../../../common/types";
 import {
   BadgeCheckIcon,

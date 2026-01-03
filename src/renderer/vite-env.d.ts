@@ -69,6 +69,12 @@ interface Window {
     removeStreamChunkListener: () => void;
 
     /**
+     * Cancels an active stream
+     * @param sessionId The ID of the session to cancel
+     */
+    cancelStream: (sessionId: string) => Promise<void>;
+
+    /**
      * Opens a dialog to select a folder
      *
      * @returns {Promise<string | null>} The selected folder path

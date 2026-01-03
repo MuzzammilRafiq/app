@@ -13,9 +13,12 @@ export default defineConfig({
     port: 5173,
   },
   resolve: {
-    alias: {
-      "decode-named-character-reference":
-        "./node_modules/decode-named-character-reference/index.js",
-    },
+    // alias: {
+    //   "decode-named-character-reference":
+    //     "./node_modules/decode-named-character-reference/index.js",
+    // },
+  },
+  worker: {
+    format: "es",
   },
 });

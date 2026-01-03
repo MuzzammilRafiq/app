@@ -104,10 +104,10 @@ function rehypeShiki({ theme }: { theme: string }) {
         try {
           // Verify language exists, fallback to text if not
           const loadedLangs = highlighter.getLoadedLanguages();
-          const safeLang = loadedLangs.includes(lang) ? lang : "text";
+          const safeLang = loadedLangs.includes(lang || "") ? lang : "text";
 
           const hast = highlighter.codeToHast(codeContent, {
-            lang: safeLang,
+            lang: safeLang as any,
             theme: theme,
           });
 
@@ -153,7 +153,7 @@ function rehypeShiki({ theme }: { theme: string }) {
 
 // Processor pipeline
 async function processMarkdown(content: string, isUser: boolean) {
-  const theme = isUser ? "one-light" : "one-light"; // Use light theme for now, or pass in preference
+  // const theme = isUser ? "one-light" : "one-light"; // Use light theme for now, or pass in preference
   // Ideally, user messages are dark bg, assistant light bg.
   // Let's assume we want 'one-light' for assistant (paper look) and maybe 'github-dark' for user?
   // Previous code: User = bg-white/10 (dark mode-ish), Assistant = bg-slate-50 (light).
