@@ -60,6 +60,30 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("automation:status");
   },
 
+  // Automation log listener
+  onAutomationLog: (
+    callback: (data: {
+      type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
+      title: string;
+      content: string;
+    }) => void
+  ) => {
+    ipcRenderer.on("automation:log", (event, data) => callback(data));
+  },
+  removeAutomationLogListener: () => {
+    ipcRenderer.removeAllListeners("automation:log");
+  },
+
+  // Automation image preview listener
+  onAutomationImagePreview: (
+    callback: (data: { title: string; imageBase64: string }) => void
+  ) => {
+    ipcRenderer.on("automation:image-preview", (event, data) => callback(data));
+  },
+  removeAutomationImagePreviewListener: () => {
+    ipcRenderer.removeAllListeners("automation:image-preview");
+  },
+
   //-------------------------image-embeddings-----------------------
   searchImagesByText: (query: string, limit: number = 10) =>
     ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),

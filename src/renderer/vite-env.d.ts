@@ -110,6 +110,20 @@ interface Window {
     ) => void;
     removeAutomationStatusListener: () => void;
 
+    onAutomationLog: (
+      callback: (data: {
+        type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
+        title: string;
+        content: string;
+      }) => void
+    ) => void;
+    removeAutomationLogListener: () => void;
+
+    onAutomationImagePreview: (
+      callback: (data: { title: string; imageBase64: string }) => void
+    ) => void;
+    removeAutomationImagePreviewListener: () => void;
+
     /**
      * Opens a dialog to select a folder
      *

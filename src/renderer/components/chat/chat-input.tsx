@@ -1,6 +1,5 @@
 import { type ImageData } from "../../services/imageUtils";
 import {
-  CrosshairSVG,
   ImageSVG,
   LoadingSVG,
   PauseSVG,
@@ -10,7 +9,6 @@ import {
   WebSearchSVG,
 } from "../icons";
 import SearchModal from "../SearchModal";
-import VisionClickModal from "../VisionClickModal";
 import {
   handleImageUpload,
   handlePaste,
@@ -53,7 +51,6 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [isVisionClickModalOpen, setIsVisionClickModalOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -228,20 +225,6 @@ export default function ChatInput({
                 </span>
               </div>
             </button>
-
-            <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-            <button
-              onClick={() => setIsVisionClickModalOpen(true)}
-              disabled={isLoading || isStreaming || !content.trim()}
-              className={actionBtnGhost}
-              title={content.trim() ? "Vision Click - Click on screen element" : "Type what to click first"}
-              type="button"
-            >
-              <div className="flex items-center gap-1.5">
-                {CrosshairSVG}
-              </div>
-            </button>
           </div>
 
           <div className="flex items-center">
@@ -279,12 +262,6 @@ export default function ChatInput({
               setSelectedImage,
             })
           }
-        />
-
-        <VisionClickModal
-          isOpen={isVisionClickModalOpen}
-          onClose={() => setIsVisionClickModalOpen(false)}
-          targetDescription={content}
         />
       </div>
       <div className="text-center mt-3">
