@@ -820,9 +820,6 @@ def grid_cell_center(
                 "y2": int(offset_y + (row + 1) * cell_height)
             }
         }
-        
-        print(f"[DEBUG] Cell {cell_number} center: ({center_x}, {center_y}) | Bounds: x[{int(offset_x + col * cell_width)}:{int(offset_x + (col + 1) * cell_width)}], y[{int(offset_y + row * cell_height)}:{int(offset_y + (row + 1) * cell_height)}]")
-        return result
     except HTTPException:
         raise
     except Exception as e:
