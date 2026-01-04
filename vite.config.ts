@@ -20,5 +20,19 @@ export default defineConfig({
   },
   worker: {
     format: "es",
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (
+            id.includes("/node_modules/shiki/") ||
+            id.includes("/node_modules/@shikijs/") ||
+            id.includes("/node_modules/vscode-textmate/") ||
+            id.includes("/node_modules/vscode-oniguruma/")
+          ) {
+            return "syntax-highlighter";
+          }
+        },
+      },
+    },
   },
 });

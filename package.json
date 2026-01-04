@@ -7,17 +7,21 @@
   "scripts": {
     "dev": "npm-run-all --parallel dev:react dev:electron",
     "dev:react": "vite",
-    "dev:electron": "npm run transpile:electron && NODE_ENV=development electron .",
-    "build:react": "tsgo -b && vite build",
-    "build:electron": "npm run transpile:electron",
-    "build": "npm run transpile:electron && tsgo -b && vite build",
+    "dev:electron": "bun run transpile:electron && NODE_ENV=development electron .",
+    "typecheck:react": "tsgo -b",
+    "build:vite": "vite build",
+    "transpile:electron": "npm-run-all --parallel transpile:electron:main transpile:electron:preload",
+    "transpile:electron:main": "tsgo -p src/electron/tsconfig.json",
+    "transpile:electron:preload": "tsgo -p src/electron/tsconfig.preload.json && mv dist-electron/ipc/preload.js dist-electron/preload.cjs",
+    "build:react": "npm-run-all --parallel typecheck:react build:vite",
+    "build:electron": "npm-run-all --parallel transpile:electron:main transpile:electron:preload",
+    "build": "npm-run-all --parallel transpile:electron:main transpile:electron:preload typecheck:react build:vite",
     "lint": "oxlint src",
     "lint:fix": "oxlint src --fix",
-    "format:fix": "npm run format:write && npm run lint:fix",
+    "format:fix": "bun run format:write && bun run lint:fix",
     "preview": "vite preview",
-    "transpile:electron": "tsgo -p src/electron/tsconfig.json && tsgo -p src/electron/tsconfig.preload.json && mv dist-electron/ipc/preload.js dist-electron/preload.cjs",
-    "dist:mac": "npm run build:electron && npm run build:react && electron-builder --mac --arm64",
-    "start": "npm run dev:electron",
+    "dist:mac": "bun run build && electron-builder --mac --arm64",
+    "start": "bun run dev:electron",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
@@ -84,6 +88,6 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.9.2",
-    "vite": "^6.3.5"
+    "vite": "npm:rolldown-vite@latest"
   }
 }
