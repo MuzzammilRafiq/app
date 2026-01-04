@@ -5,7 +5,7 @@
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { ASK_IMAGE } from "../services/model.js";
+import { ASK_IMAGE, ASK_TEXT, type ChatMessage } from "../services/model.js";
 import { GRID_SIZE, MAX_ORCHESTRATOR_STEPS } from "./types.js";
 import type { SendLogFn, CellIdentificationResult, OrchestratorStep } from "./types.js";
 
@@ -165,16 +165,27 @@ Example responses:
 {"cell": 7, "confidence": "medium", "reason": "Blue button visible in cell 7, likely the target"}
 {"cell": 0, "confidence": "none", "reason": "No element matching '${targetDescription}' found on the screen"}`;
 
-export const createPlanGenerationPrompt = (userPrompt: string) => `You are a browser automation assistant. Given the user's request and a screenshot of their screen, generate a step-by-step plan to achieve the goal.
+export const createScreenDescriptionPrompt = (userPrompt: string) => `You are a screen context analyzer.
+The user wants to: "${userPrompt}"
+
+Analyze the screenshot and provide a concise description of the visible state.
+1. Is the application or website required for the user's task visible?
+2. List key interactive elements visible on the screen that are relevant to the task (e.g., search bars, specific buttons, menus, input fields).
+3. If the required context is NOT visible, describe clearly what is shown instead.
+
+Keep your response factual and concise. Do not generate a plan, just describe the screen context.`;
+
+export const createPlanGenerationPrompt = (
+  userPrompt: string,
+  screenDescription: string
+) => `You are a browser automation assistant. Given the user's request and a description of the screen state, generate a step-by-step plan to achieve the goal.
 
 User request: "${userPrompt}"
+Screen Context: "${screenDescription}"
 
-FIRST, check if the required app/website is visible on screen. For example:
-- If user wants to search on YouTube, is a browser with YouTube visible?
-- If user wants to write an email, is an email app/website visible?
-
-If the required context is NOT visible, respond with:
-{"error": "Target not visible", "reason": "explanation of what's missing"}
+FIRST, evaluate if the screen context is sufficient for the request.
+If the required app/website is clearly NOT visible based on the description, respond with:
+{"error": "Target not visible", "reason": "explanation based on context"}
 
 If the context IS correct, return a JSON object with a "steps" array:
 {
@@ -187,7 +198,7 @@ If the context IS correct, return a JSON object with a "steps" array:
 }
 
 Rules:
-- Use "click" to click on elements - describe the element clearly
+- Use "click" to click on elements - describe the element clearly so a vision system can find it
 - Use "type" to enter text - specify target input and data to type
 - Use "press" for keyboard keys (enter, tab, escape, backspace, up, down, left, right, space)
 - Use "wait" for delays (specify ms, typically 1500-2000 for page loads)
@@ -201,25 +212,47 @@ Respond with ONLY the JSON object, no other text.`;
 export async function askLLMForPlanWithLogging(
   apiKey: string,
   imageBase64: string,
-  prompt: string,
+  userPrompt: string,
   imageModelOverride: string | undefined,
   sendLog: SendLogFn
 ): Promise<{ steps?: OrchestratorStep[]; error?: string; reason?: string }> {
+  // Step 1: Use Vision Model to get screen description
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, `orchestrator-plan-${Date.now()}.png`);
+  
+  let screenDescription = "";
 
   try {
     const buffer = Buffer.from(imageBase64, "base64");
     await fs.writeFile(tempFilePath, buffer);
 
+    sendLog("llm-request", "Scene Analysis", "Asking Vision Model to analyze screen content...");
+    
+    const descPrompt = createScreenDescriptionPrompt(userPrompt);
+    for await (const chunk of ASK_IMAGE(apiKey, descPrompt, [tempFilePath], {
+      overrideModel: imageModelOverride
+    })) {
+      if (chunk.content) {
+        screenDescription += chunk.content;
+      }
+    }
+    
+    sendLog("llm-response", "Screen Analysis", screenDescription);
+
+    // Step 2: Use Text Model to generate plan
+    sendLog("llm-request", "Plan Generation", "Asking Text Model to generate plan...");
+
+    const planPrompt = createPlanGenerationPrompt(userPrompt, screenDescription);
+    const messages: ChatMessage[] = [
+      { role: "user", content: planPrompt }
+    ];
+
     let responseContent = "";
     let thinkingContent = "";
 
-    sendLog("llm-request", "Plan Generation", "Asking LLM to analyze screenshot and create plan...");
-
-    for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
-      overrideModel: imageModelOverride,
-    })) {
+    // Note: We use the default model for ASK_TEXT unless specifically overridden logic is added later
+    // but here we just rely on ASK_TEXT's default or whatever is configured in model.ts
+    for await (const chunk of ASK_TEXT(apiKey, messages)) {
       if (chunk.reasoning) {
         thinkingContent += chunk.reasoning;
       }
@@ -229,13 +262,13 @@ export async function askLLMForPlanWithLogging(
     }
 
     if (thinkingContent) {
-      sendLog("thinking", "Model Thinking", thinkingContent);
+      sendLog("thinking", "Planner Thinking", thinkingContent);
     }
 
     // Parse JSON from response
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      sendLog("error", "Parse Error", `Could not parse LLM response: ${responseContent}`);
+      sendLog("error", "Parse Error", `Could not parse Planner response: ${responseContent}`);
       throw new Error(`Could not parse plan response: ${responseContent}`);
     }
 

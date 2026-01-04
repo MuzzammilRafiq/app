@@ -7,7 +7,6 @@ import { ipcMain, BrowserWindow } from "electron";
 import { AUTOMATION_SERVER_URL, MAX_ORCHESTRATOR_STEPS } from "./types.js";
 import {
   askLLMForPlanWithLogging,
-  createPlanGenerationPrompt,
 } from "./llm-helpers.js";
 import { executeVisionAction } from "./vision-handlers.js";
 import { LOG } from "../utils/logging.js";
@@ -77,11 +76,10 @@ export function setupOrchestratorHandlers() {
         LOG(TAG).INFO(`Generating execution plan...`);
         sendProgress("planning", "Generating execution plan...");
 
-        const planPrompt = createPlanGenerationPrompt(userPrompt);
         const planResult = await askLLMForPlanWithLogging(
           apiKey,
           screenshot.original_image_base64,
-          planPrompt,
+          userPrompt,
           imageModelOverride,
           sendLog
         );

@@ -17,42 +17,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("stream-chunk");
   },
 
-  // Vision click image analysis
-  visionClickAnalyze: (
-    apiKey: string,
-    imageBase64: string,
-    prompt: string,
-    imageModelOverride?: string
-  ) =>
-    ipcRenderer.invoke(
-      "vision-click-analyze",
-      apiKey,
-      imageBase64,
-      prompt,
-      imageModelOverride
-    ),
-
-
-  // Vision click: orchestrate full process in main process
-  automationExecuteVisionClick: (
-    apiKey: string,
-    targetDescription: string,
-    clickType: "left" | "right" | "double",
-    imageModelOverride?: string,
-    debug: boolean = false,
-    actionType: "click" | "type" | "press" = "click",
-    actionData?: string
-  ) =>
-    ipcRenderer.invoke(
-      "automation:execute-vision-click",
-      apiKey,
-      targetDescription,
-      clickType,
-      imageModelOverride,
-      debug,
-      actionType,
-      actionData
-    ),
 
   // Orchestrated multi-step workflow
   automationExecuteOrchestrated: (
@@ -68,13 +32,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       imageModelOverride,
       debug
     ),
-
-  // Keyboard automation
-  automationKeyboardType: (text: string, intervalMs: number = 0, delayMs: number = 0) =>
-    ipcRenderer.invoke("automation:keyboard-type", text, intervalMs, delayMs),
-
-  automationKeyboardPress: (key: string, delayMs: number = 0) =>
-    ipcRenderer.invoke("automation:keyboard-press", key, delayMs),
 
   // Automation progress listener
   onAutomationStatus: (

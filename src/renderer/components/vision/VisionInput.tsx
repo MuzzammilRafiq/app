@@ -3,28 +3,10 @@ import { LoadingSVG, SendSVG } from "../icons";
 import { useVisionLogStore } from "./VisionLogStore";
 import { loadSettings } from "../../services/settingsStorage";
 
-type ActionMode = "agent" | "click" | "double-click" | "right-click" | "type" | "press";
-
 const DEBUG_MODE = true;
-
-// Common keys for the press key action
-const KEYBOARD_KEYS = [
-  { value: "enter", label: "Enter ↵" },
-  { value: "tab", label: "Tab ⇥" },
-  { value: "space", label: "Space" },
-  { value: "escape", label: "Escape" },
-  { value: "backspace", label: "Backspace" },
-  { value: "up", label: "↑" },
-  { value: "down", label: "↓" },
-  { value: "left", label: "←" },
-  { value: "right", label: "→" },
-];
 
 export default function VisionInput() {
   const [content, setContent] = useState("");
-  const [actionMode, setActionMode] = useState<ActionMode>("agent");
-  const [typeText, setTypeText] = useState("");
-  const [pressKey, setPressKey] = useState("enter");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isExecuting = useVisionLogStore((s) => s.isExecuting);
@@ -79,11 +61,6 @@ export default function VisionInput() {
     const trimmedContent = content.trim();
     if (!trimmedContent || isExecuting) return;
 
-    if (actionMode === "type" && !typeText.trim()) {
-      addLog({ type: "error", title: "Missing Input", content: "Enter text to type" });
-      return;
-    }
-
     const settings = loadSettings();
     if (!settings.openrouterApiKey) {
       addLog({ type: "error", title: "Error", content: "API key not configured" });
@@ -93,59 +70,28 @@ export default function VisionInput() {
     clearLogs();
     setExecuting(true);
 
-    // Map actionMode to clickType and actionType
-    const clickType = actionMode === "double-click" ? "double" : actionMode === "right-click" ? "right" : "left";
-    const actionType = actionMode === "type" ? "type" : actionMode === "press" ? "press" : "click";
-    const actionData = actionMode === "type" ? typeText : actionMode === "press" ? pressKey : undefined;
-
     addLog({
       type: "status",
       title: "Started",
-      content: actionMode === "agent" 
-        ? `Goal: "${trimmedContent}"`
-        : `Target: "${trimmedContent}" | Action: ${actionMode}`,
+      content: `Goal: "${trimmedContent}"`,
     });
 
     try {
-      // Use orchestrated workflow for agent mode
-      if (actionMode === "agent") {
-        const result = await window.electronAPI.automationExecuteOrchestrated(
-          settings.openrouterApiKey,
-          trimmedContent,
-          settings.imageModel || undefined,
-          DEBUG_MODE
-        );
+      const result = await window.electronAPI.automationExecuteOrchestrated(
+        settings.openrouterApiKey,
+        trimmedContent,
+        settings.imageModel || undefined,
+        DEBUG_MODE
+      );
 
-        if (!result.success) {
-          addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
-        } else {
-          addLog({
-            type: "status",
-            title: "Complete",
-            content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
-          });
-        }
+      if (!result.success) {
+        addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
       } else {
-        // Use single vision action for other modes
-        const result = await window.electronAPI.automationExecuteVisionClick(
-          settings.openrouterApiKey,
-          trimmedContent,
-          clickType,
-          settings.imageModel || undefined,
-          DEBUG_MODE,
-          actionType,
-          actionData
-        );
-
-        if (!result.success) {
-          addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
-        } else {
-          addLog({
-            type: "status",
-            title: "Complete",
-            content: `Action performed at (${result.data?.coordinates?.x}, ${result.data?.coordinates?.y})`,
-          });
-        }
+        addLog({
+          type: "status",
+          title: "Complete",
+          content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
+        });
       }
     } catch (err) {
       addLog({ type: "error", title: "Error", content: err instanceof Error ? err.message : "Unknown error" });
@@ -159,79 +105,29 @@ export default function VisionInput() {
     addLog({ type: "status", title: "Cancelled", content: "Action cancelled" });
   };
 
-  const actionModes: { value: ActionMode; label: string }[] = [
-    { value: "agent", label: "Agent" },
-    { value: "click", label: "Click" },
-    { value: "double-click", label: "Double" },
-    { value: "right-click", label: "Right" },
-    { value: "type", label: "Type" },
-    { value: "press", label: "Key" },
-  ];
-
   return (
     <div className="shrink-0 px-6 pb-6 pt-2">
       <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow-float">
-        {/* Target Description */}
+        {/* Goal Description */}
         <div className="px-4 pt-4">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={actionMode === "agent" ? "What do you want to do?" : "Describe what to interact with..."}
+            placeholder="What do you want to do?"
             disabled={isExecuting}
             className="w-full bg-slate-50 rounded-xl px-4 py-3 text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-2 focus:ring-primary/20 focus:outline-none max-h-24 min-h-[52px] leading-relaxed border border-slate-200"
             rows={1}
           />
         </div>
 
-        {/* Action Mode + Additional Input (if needed) + Send */}
+        {/* Agent Label + Send Button */}
         <div className="flex items-center gap-3 px-4 py-3">
-          {/* Action Mode Pills */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-            {actionModes.map((mode) => (
-              <button
-                key={mode.value}
-                onClick={() => setActionMode(mode.value)}
-                disabled={isExecuting}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  actionMode === mode.value
-                    ? mode.value === "agent" 
-                      ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
-                      : "bg-white text-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                } disabled:opacity-50`}
-              >
-                {mode.label}
-              </button>
-            ))}
+          {/* Agent Mode Indicator */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg shadow-md">
+            <span className="text-xs font-medium uppercase tracking-wider">Agent</span>
           </div>
-
-          {/* Type input */}
-          {actionMode === "type" && (
-            <input
-              type="text"
-              value={typeText}
-              onChange={(e) => setTypeText(e.target.value)}
-              placeholder="Text to type..."
-              disabled={isExecuting}
-              className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-            />
-          )}
-
-          {/* Key selector */}
-          {actionMode === "press" && (
-            <select
-              value={pressKey}
-              onChange={(e) => setPressKey(e.target.value)}
-              disabled={isExecuting}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              {KEYBOARD_KEYS.map((key) => (
-                <option key={key.value} value={key.value}>{key.label}</option>
-              ))}
-            </select>
-          )}
 
           {/* Spacer */}
           <div className="flex-1" />
