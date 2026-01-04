@@ -17,6 +17,73 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("stream-chunk");
   },
 
+  // Vision click image analysis
+  visionClickAnalyze: (
+    apiKey: string,
+    imageBase64: string,
+    prompt: string,
+    imageModelOverride?: string
+  ) =>
+    ipcRenderer.invoke(
+      "vision-click-analyze",
+      apiKey,
+      imageBase64,
+      prompt,
+      imageModelOverride
+    ),
+
+
+  // Vision click: orchestrate full process in main process
+  automationExecuteVisionClick: (
+    apiKey: string,
+    targetDescription: string,
+    clickType: "left" | "right" | "double",
+    imageModelOverride?: string,
+    debug: boolean = false
+  ) =>
+    ipcRenderer.invoke(
+      "automation:execute-vision-click",
+      apiKey,
+      targetDescription,
+      clickType,
+      imageModelOverride,
+      debug
+    ),
+
+  // Automation progress listener
+  onAutomationStatus: (
+    callback: (data: { step: string; message: string }) => void
+  ) => {
+    ipcRenderer.on("automation:status", (event, data) => callback(data));
+  },
+  removeAutomationStatusListener: () => {
+    ipcRenderer.removeAllListeners("automation:status");
+  },
+
+  // Automation log listener
+  onAutomationLog: (
+    callback: (data: {
+      type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
+      title: string;
+      content: string;
+    }) => void
+  ) => {
+    ipcRenderer.on("automation:log", (event, data) => callback(data));
+  },
+  removeAutomationLogListener: () => {
+    ipcRenderer.removeAllListeners("automation:log");
+  },
+
+  // Automation image preview listener
+  onAutomationImagePreview: (
+    callback: (data: { title: string; imageBase64: string }) => void
+  ) => {
+    ipcRenderer.on("automation:image-preview", (event, data) => callback(data));
+  },
+  removeAutomationImagePreviewListener: () => {
+    ipcRenderer.removeAllListeners("automation:image-preview");
+  },
+
   //-------------------------image-embeddings-----------------------
   searchImagesByText: (query: string, limit: number = 10) =>
     ipcRenderer.invoke("image-embeddings:search-by-text", query, limit),
@@ -116,6 +183,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   windowClose: () => ipcRenderer.invoke("window:close"),
   windowIsMaximized: () => ipcRenderer.invoke("window:is-maximized"),
   windowGetPlatform: () => ipcRenderer.invoke("window:get-platform"),
+  windowHide: () => ipcRenderer.invoke("window:hide"),
+  windowShow: () => ipcRenderer.invoke("window:show"),
 
   //-------------------------terminal command confirmation---------------------------
   onCommandConfirmation: (

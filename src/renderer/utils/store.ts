@@ -56,8 +56,8 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
 
 // --------------currentView-------------------
 interface CurrentViewStore {
-  currentView: "chat" | "settings";
-  setCurrentView: (view: "chat" | "settings") => void;
+  currentView: "chat" | "settings" | "vision";
+  setCurrentView: (view: "chat" | "settings" | "vision") => void;
 }
 export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
   currentView: "chat",

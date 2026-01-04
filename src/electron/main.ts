@@ -8,6 +8,7 @@ import { setupFileOperationHandlers } from "./ipc/fileOperations.js";
 import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
 import { setupWindowHandlers } from "./ipc/window.js";
+import { setupAutomationHandlers } from "./ipc/automation.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -77,6 +78,7 @@ app.whenReady().then(() => {
   setupFileOperationHandlers();
   setupDatabaseHandlers();
   setupWindowHandlers();
+  setupAutomationHandlers();
   createWindow();
 });
 

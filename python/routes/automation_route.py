@@ -69,12 +69,14 @@ class SleepRequest(BaseModel):
 def mouse_move(request: MouseMoveRequest):
     """Move the mouse to the specified coordinates."""
     try:
+        print(f"[DEBUG] Moving mouse to ({request.x}, {request.y})")
         if request.delay_ms and request.delay_ms > 0:
             time.sleep(request.delay_ms / 1000.0)
         duration = request.duration_ms / 1000.0 if request.duration_ms else 0
         pyautogui.moveTo(request.x, request.y, duration=duration)
         return {"status": "ok", "x": request.x, "y": request.y}
     except Exception as e:
+        print(f"[ERROR] Mouse move failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -82,11 +84,13 @@ def mouse_move(request: MouseMoveRequest):
 def mouse_click(request: MouseClickRequest):
     """Perform a mouse click at the current position."""
     try:
+        print(f"[DEBUG] Clicking mouse: {request.button}, clicks={request.clicks}")
         if request.delay_ms and request.delay_ms > 0:
             time.sleep(request.delay_ms / 1000.0)
         pyautogui.click(button=request.button, clicks=request.clicks or 1)
         return {"status": "ok", "button": request.button, "clicks": request.clicks or 1}
     except Exception as e:
+        print(f"[ERROR] Mouse click failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -142,24 +146,33 @@ def screenshot(save_image: bool = False):
         img = pyautogui.screenshot()
         width, height = img.size
 
-        if save_image:
-            save_dir = os.path.join(
-                os.path.dirname(__file__), "..", "user_data", "screenshots"
-            )
-            os.makedirs(save_dir, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{timestamp}_screenshot.png"
-            filepath = os.path.join(save_dir, filename)
-            img.save(filepath, format="PNG")
-            return {
-                "screen_size": {"width": width, "height": height},
-                "file_path": filepath,
-            }
-        else:
-            buffer = io.BytesIO()
-            img.save(buffer, format="PNG")
-            buffer.seek(0)
+        # Always prepare buffer for base64
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+        
+        # If not saving image, return direct response
+        if not save_image:
             return Response(content=buffer.getvalue(), media_type="image/png")
+            
+        # If saving image, prepare JSON response with both path and base64 (if needed by client logic, though client typically uses one or other)
+        # But wait, the standard /screenshot returns binary data typically. 
+        # For consistency with other JSON endpoints, if save_image=True, we return JSON.
+        
+        save_dir = os.path.join(
+            os.path.dirname(__file__), "..", "user_data", "screenshots"
+        )
+        os.makedirs(save_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_screenshot.png"
+        filepath = os.path.join(save_dir, filename)
+        img.save(filepath, format="PNG")
+        
+        return {
+            "screen_size": {"width": width, "height": height},
+            "file_path": filepath,
+            "base64": base64.b64encode(buffer.getvalue()).decode("utf-8")
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -219,7 +232,10 @@ def screenshot_grid(save_image: bool = False):
             )
 
         result = {"screen_size": {"width": width, "height": height}, "rectangles": []}
-
+        
+        save_dir = None
+        timestamp = None
+        
         if save_image:
             save_dir = os.path.join(
                 os.path.dirname(__file__), "..", "user_data", "screenshots"
@@ -227,39 +243,29 @@ def screenshot_grid(save_image: bool = False):
             os.makedirs(save_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            for rect in rectangles:
-                cropped = img.crop(rect["box"])
+        for rect in rectangles:
+            cropped = img.crop(rect["box"])
 
-                rect_data = {
-                    "name": rect["name"],
-                    "top_left": rect["top_left"],
-                    "bottom_right": rect["bottom_right"],
-                }
+            rect_data = {
+                "name": rect["name"],
+                "top_left": rect["top_left"],
+                "bottom_right": rect["bottom_right"],
+            }
 
+            # Generate base64
+            buffer = io.BytesIO()
+            cropped.save(buffer, format="PNG")
+            buffer.seek(0)
+            rect_data["image_base64"] = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+            # Save to disk if requested
+            if save_image:
                 filename = f"{timestamp}_{rect['name']}.png"
                 filepath = os.path.join(save_dir, filename)
                 cropped.save(filepath, format="PNG")
                 rect_data["file_path"] = filepath
 
-                result["rectangles"].append(rect_data)
-        else:
-            for rect in rectangles:
-                cropped = img.crop(rect["box"])
-
-                rect_data = {
-                    "name": rect["name"],
-                    "top_left": rect["top_left"],
-                    "bottom_right": rect["bottom_right"],
-                }
-
-                buffer = io.BytesIO()
-                cropped.save(buffer, format="PNG")
-                buffer.seek(0)
-                rect_data["image_base64"] = base64.b64encode(buffer.getvalue()).decode(
-                    "utf-8"
-                )
-
-                result["rectangles"].append(rect_data)
+            result["rectangles"].append(rect_data)
 
         return result
     except Exception as e:
@@ -380,6 +386,17 @@ async def image_numbered_grid(
             "total_cells": grid_size * grid_size,
         }
 
+        # Generate Base64
+        original_buffer = io.BytesIO()
+        img.save(original_buffer, format="PNG")
+        original_buffer.seek(0)
+        result["original_image_base64"] = base64.b64encode(original_buffer.getvalue()).decode("utf-8")
+
+        grid_buffer = io.BytesIO()
+        grid_img.save(grid_buffer, format="PNG")
+        grid_buffer.seek(0)
+        result["grid_image_base64"] = base64.b64encode(grid_buffer.getvalue()).decode("utf-8")
+
         if save_image:
             save_dir = os.path.join(
                 os.path.dirname(__file__), "..", "user_data", "screenshots"
@@ -396,16 +413,6 @@ async def image_numbered_grid(
             grid_filepath = os.path.join(save_dir, grid_filename)
             grid_img.save(grid_filepath, format="PNG")
             result["grid_image_path"] = grid_filepath
-        else:
-            original_buffer = io.BytesIO()
-            img.save(original_buffer, format="PNG")
-            original_buffer.seek(0)
-            result["original_image_base64"] = base64.b64encode(original_buffer.getvalue()).decode("utf-8")
-
-            grid_buffer = io.BytesIO()
-            grid_img.save(grid_buffer, format="PNG")
-            grid_buffer.seek(0)
-            result["grid_image_base64"] = base64.b64encode(grid_buffer.getvalue()).decode("utf-8")
 
         return result
     except Exception as e:
@@ -517,9 +524,25 @@ def screenshot_numbered_grid(
 
         result = {
             "image_size": {"width": width, "height": height},
+            "screen_size": {"width": pyautogui.size().width, "height": pyautogui.size().height},
+            "scale_factor": width / pyautogui.size().width,
             "grid_size": grid_size,
             "total_cells": grid_size * grid_size,
         }
+        
+        print(f"[DEBUG] Screenshot taken: Image({width}x{height}), Screen({pyautogui.size().width}x{pyautogui.size().height}), Scale({width / pyautogui.size().width})")
+
+        # Generate Base64 for original
+        original_buffer = io.BytesIO()
+        img.save(original_buffer, format="PNG")
+        original_buffer.seek(0)
+        result["original_image_base64"] = base64.b64encode(original_buffer.getvalue()).decode("utf-8")
+
+        # Generate Base64 for grid
+        grid_buffer = io.BytesIO()
+        grid_img.save(grid_buffer, format="PNG")
+        grid_buffer.seek(0)
+        result["grid_image_base64"] = base64.b64encode(grid_buffer.getvalue()).decode("utf-8")
 
         if save_image:
             save_dir = os.path.join(
@@ -537,18 +560,268 @@ def screenshot_numbered_grid(
             grid_filepath = os.path.join(save_dir, grid_filename)
             grid_img.save(grid_filepath, format="PNG")
             result["grid_image_path"] = grid_filepath
-        else:
-            original_buffer = io.BytesIO()
-            img.save(original_buffer, format="PNG")
-            original_buffer.seek(0)
-            result["original_image_base64"] = base64.b64encode(original_buffer.getvalue()).decode("utf-8")
-
-            grid_buffer = io.BytesIO()
-            grid_img.save(grid_buffer, format="PNG")
-            grid_buffer.seek(0)
-            result["grid_image_base64"] = base64.b64encode(grid_buffer.getvalue()).decode("utf-8")
 
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Image Crop Cell Endpoint
+# ============================================================================
+
+
+class CropCellRequest(BaseModel):
+    cell_number: int = Field(ge=1, description="Cell number (1-based)")
+    grid_size: int = Field(default=6, ge=2, le=10, description="Grid size n for n×n grid")
+    create_sub_grid: bool = Field(default=True, description="Whether to create sub-grid overlay on cropped cell")
+    sub_grid_size: int = Field(default=6, ge=2, le=10, description="Sub-grid size for cropped cell")
+
+
+@automation_router.post("/image/crop-cell")
+async def image_crop_cell(
+    image: UploadFile = File(..., description="Image file to process"),
+    cell_number: int = Query(..., ge=1, description="Cell number (1-based)"),
+    grid_size: int = Query(default=6, ge=2, le=10, description="Grid size n for n×n grid"),
+    create_sub_grid: bool = Query(default=True, description="Whether to create sub-grid overlay"),
+    sub_grid_size: int = Query(default=6, ge=2, le=10, description="Sub-grid size"),
+    save_image: bool = Query(default=False, description="Whether to save the cropped image for debugging")
+):
+    """
+    Crop a specific cell from an image and optionally create a sub-grid overlay.
+    
+    Args:
+        image: Uploaded image file
+        cell_number: Cell number to crop (1-based, left-to-right, top-to-bottom)
+        grid_size: Original grid size
+        create_sub_grid: Whether to overlay a new grid on the cropped cell
+        sub_grid_size: Size of sub-grid to create on cropped cell
+        save_image: If True, saves images locally
+    
+    Returns:
+        - cropped_image: The cropped cell (with optional sub-grid)
+        - cell_bounds: Original image coordinates of the cell
+    """
+    try:
+        import base64
+        import os
+        from datetime import datetime
+        
+        if cell_number > grid_size * grid_size:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cell number {cell_number} exceeds grid size {grid_size}x{grid_size}"
+            )
+        
+        contents = await image.read()
+        img = Image.open(io.BytesIO(contents))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        width, height = img.size
+        
+        cell_width = width / grid_size
+        cell_height = height / grid_size
+        
+        row = (cell_number - 1) // grid_size
+        col = (cell_number - 1) % grid_size
+        
+        x1 = int(col * cell_width)
+        y1 = int(row * cell_height)
+        x2 = int((col + 1) * cell_width) if col < grid_size - 1 else width
+        y2 = int((row + 1) * cell_height) if row < grid_size - 1 else height
+        
+        cropped = img.crop((x1, y1, x2, y2))
+        cropped_width, cropped_height = cropped.size
+        
+        result = {
+            "cell_bounds": {
+                "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                "width": x2 - x1, "height": y2 - y1
+            },
+            "original_size": {"width": width, "height": height},
+            "cropped_size": {"width": cropped_width, "height": cropped_height}
+        }
+        
+        if create_sub_grid:
+            grid_img = cropped.copy().convert("RGBA")
+            overlay = Image.new("RGBA", grid_img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            
+            sub_cell_width = cropped_width / sub_grid_size
+            sub_cell_height = cropped_height / sub_grid_size
+            
+            line_color = (255, 0, 0, 255)
+            outline_color = (0, 0, 0, 255)
+            
+            reference_diagonal = 2200
+            current_diagonal = (cropped_width ** 2 + cropped_height ** 2) ** 0.5
+            scale_factor = max(0.3, min(1.5, current_diagonal / reference_diagonal))
+            
+            line_width = max(2, int(10 * scale_factor))
+            outline_width = max(1, int(2 * scale_factor))
+            text_outline_range = max(1, int(4 * scale_factor))
+            
+            for i in range(1, sub_grid_size):
+                x = int(i * sub_cell_width)
+                draw.line([(x, 0), (x, cropped_height)], fill=outline_color, width=line_width + outline_width * 2)
+            for i in range(1, sub_grid_size):
+                x = int(i * sub_cell_width)
+                draw.line([(x, 0), (x, cropped_height)], fill=line_color, width=line_width)
+            
+            for i in range(1, sub_grid_size):
+                y = int(i * sub_cell_height)
+                draw.line([(0, y), (cropped_width, y)], fill=outline_color, width=line_width + outline_width * 2)
+            for i in range(1, sub_grid_size):
+                y = int(i * sub_cell_height)
+                draw.line([(0, y), (cropped_width, y)], fill=line_color, width=line_width)
+            
+            draw.rectangle([(0, 0), (cropped_width - 1, cropped_height - 1)], outline=outline_color, width=line_width + outline_width * 2)
+            draw.rectangle([(outline_width, outline_width), (cropped_width - 1 - outline_width, cropped_height - 1 - outline_width)], outline=line_color, width=line_width)
+            
+            font_size = int(min(sub_cell_width, sub_cell_height) * 0.6)
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            except:
+                try:
+                    font = ImageFont.truetype("/System/Library/Fonts/SFNSMono.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+            
+            text_color = (255, 255, 255, 100)
+            outline_text_color = (0, 0, 0, 200)
+            
+            cell_num = 1
+            for r in range(sub_grid_size):
+                for c in range(sub_grid_size):
+                    center_x = int(c * sub_cell_width + sub_cell_width / 2)
+                    center_y = int(r * sub_cell_height + sub_cell_height / 2)
+                    
+                    text = str(cell_num)
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_w = bbox[2] - bbox[0]
+                    text_h = bbox[3] - bbox[1]
+                    
+                    text_x = center_x - text_w // 2
+                    text_y = center_y - text_h // 2
+                    
+                    offsets = list(range(-text_outline_range, text_outline_range + 1))
+                    for dx in offsets:
+                        for dy in offsets:
+                            if dx != 0 or dy != 0:
+                                draw.text((text_x + dx, text_y + dy), text, font=font, fill=outline_text_color)
+                    
+                    draw.text((text_x, text_y), text, font=font, fill=text_color)
+                    cell_num += 1
+            
+            grid_img = Image.alpha_composite(grid_img, overlay).convert("RGB")
+            
+            # Generate Base64
+            buffer = io.BytesIO()
+            grid_img.save(buffer, format="PNG")
+            buffer.seek(0)
+            result["cropped_image_base64"] = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            result["sub_grid_size"] = sub_grid_size
+
+            # Save if requested
+            if save_image:
+                save_dir = os.path.join(
+                    os.path.dirname(__file__), "..", "user_data", "screenshots"
+                )
+                os.makedirs(save_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                filename = f"{timestamp}_cropped_cell_{cell_number}.png"
+                filepath = os.path.join(save_dir, filename)
+                grid_img.save(filepath, format="PNG")
+                result["cropped_image_path"] = filepath
+            
+        else:
+            # Generate Base64
+            buffer = io.BytesIO()
+            cropped.save(buffer, format="PNG")
+            buffer.seek(0)
+            result["cropped_image_base64"] = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            
+            # Save if requested
+            if save_image:
+                save_dir = os.path.join(
+                    os.path.dirname(__file__), "..", "user_data", "screenshots"
+                )
+                os.makedirs(save_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                filename = f"{timestamp}_cropped_cell_{cell_number}_raw.png"
+                filepath = os.path.join(save_dir, filename)
+                cropped.save(filepath, format="PNG")
+                result["cropped_image_path"] = filepath
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Grid Cell Center Endpoint
+# ============================================================================
+
+
+@automation_router.get("/grid/cell-center")
+def grid_cell_center(
+    width: int = Query(..., ge=1, description="Image/screen width"),
+    height: int = Query(..., ge=1, description="Image/screen height"),
+    grid_size: int = Query(..., ge=2, le=10, description="Grid size n for n×n grid"),
+    cell_number: int = Query(..., ge=1, description="Cell number (1-based)"),
+    offset_x: int = Query(default=0, description="X offset for nested cells"),
+    offset_y: int = Query(default=0, description="Y offset for nested cells")
+):
+    """
+    Calculate the center coordinates of a grid cell.
+    
+    For nested cells (two-pass refinement), use offset_x and offset_y to specify
+    the top-left corner of the parent cell in screen coordinates.
+    
+    Args:
+        width: Width of the image/region
+        height: Height of the image/region
+        grid_size: Grid size (n for n×n grid)
+        cell_number: Cell number (1-based, left-to-right, top-to-bottom)
+        offset_x: X offset for the region in screen coordinates
+        offset_y: Y offset for the region in screen coordinates
+    
+    Returns:
+        Center coordinates {x, y} in screen coordinates
+    """
+    try:
+        if cell_number > grid_size * grid_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cell number {cell_number} exceeds grid size {grid_size}x{grid_size}"
+            )
+        
+        cell_width = width / grid_size
+        cell_height = height / grid_size
+        
+        row = (cell_number - 1) // grid_size
+        col = (cell_number - 1) % grid_size
+        
+        center_x = int(offset_x + col * cell_width + cell_width / 2)
+        center_y = int(offset_y + row * cell_height + cell_height / 2)
+        
+        return {
+            "x": center_x,
+            "y": center_y,
+            "cell_number": cell_number,
+            "cell_bounds": {
+                "x1": int(offset_x + col * cell_width),
+                "y1": int(offset_y + row * cell_height),
+                "x2": int(offset_x + (col + 1) * cell_width),
+                "y2": int(offset_y + (row + 1) * cell_height)
+            }
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

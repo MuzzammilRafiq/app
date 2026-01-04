@@ -75,6 +75,56 @@ interface Window {
     cancelStream: (sessionId: string) => Promise<void>;
 
     /**
+     * Vision click: analyze image with grid to find target cell
+     * @param apiKey OpenRouter API key
+     * @param imageBase64 Base64 encoded image
+     * @param prompt The prompt describing what to find
+     * @param imageModelOverride Optional model override
+     */
+    visionClickAnalyze: (
+      apiKey: string,
+      imageBase64: string,
+      prompt: string,
+      imageModelOverride?: string
+    ) => Promise<{ success: boolean; response?: string; error?: string }>;
+
+    // Automation APIs (run in main process to bypass CSP)
+    automationExecuteVisionClick: (
+      apiKey: string,
+      targetDescription: string,
+      clickType: "left" | "right" | "double",
+      imageModelOverride?: string,
+      debug?: boolean
+    ) => Promise<{
+      success: boolean;
+      data?: {
+        firstCell: { cell: number; confidence: string; reason: string };
+        secondCell: { cell: number; confidence: string; reason: string };
+        coordinates: { x: number; y: number };
+      };
+      error?: string;
+    }>;
+
+    onAutomationStatus: (
+      callback: (data: { step: string; message: string }) => void
+    ) => void;
+    removeAutomationStatusListener: () => void;
+
+    onAutomationLog: (
+      callback: (data: {
+        type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
+        title: string;
+        content: string;
+      }) => void
+    ) => void;
+    removeAutomationLogListener: () => void;
+
+    onAutomationImagePreview: (
+      callback: (data: { title: string; imageBase64: string }) => void
+    ) => void;
+    removeAutomationImagePreviewListener: () => void;
+
+    /**
      * Opens a dialog to select a folder
      *
      * @returns {Promise<string | null>} The selected folder path
@@ -329,6 +379,8 @@ interface Window {
     windowClose: () => Promise<void>;
     windowIsMaximized: () => Promise<boolean>;
     windowGetPlatform: () => Promise<string>;
+    windowHide: () => Promise<boolean>;
+    windowShow: () => Promise<boolean>;
 
     /**
      * Terminal command confirmation APIs

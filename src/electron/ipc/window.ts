@@ -28,4 +28,18 @@ export function setupWindowHandlers() {
   ipcMain.handle("window:get-platform", () => {
     return process.platform;
   });
+
+  ipcMain.handle("window:hide", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    window?.hide();
+    return true;
+  });
+
+  ipcMain.handle("window:show", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    window?.show();
+    window?.focus();
+    return true;
+  });
 }
+

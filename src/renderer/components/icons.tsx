@@ -435,6 +435,24 @@ export const WebSearchSVG = (
   </svg>
 );
 
+export const CrosshairSVG = (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <circle cx="12" cy="12" r="8" strokeWidth={1.5} />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M12 2v4M12 18v4M2 12h4M18 12h4"
+    />
+    <circle cx="12" cy="12" r="2" strokeWidth={1.5} />
+  </svg>
+);
+
 export const LinkExternalIcon = ({
   className = "w-3 h-3",
 }: {

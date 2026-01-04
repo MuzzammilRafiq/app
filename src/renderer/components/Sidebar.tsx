@@ -1,4 +1,4 @@
-import { PlusSVG, TrashSVG, MenuSVG, GearSVG } from "./icons";
+import { PlusSVG, TrashSVG, MenuSVG, GearSVG, CrosshairSVG } from "./icons";
 import {
   useCurrentViewStore,
   useSidebarCollapsedStore,
@@ -12,6 +12,7 @@ const iconBtnClass =
 
 function SidebarInner() {
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
+  const currentView = useCurrentViewStore((s) => s.currentView);
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
   const populateSessions = useStore((s) => s.populateSessions);
   const currentSession = useStore((s) => s.currentSession);
@@ -86,10 +87,41 @@ function SidebarInner() {
           </button>
         </div>
 
+        {/* Chat/Vision Toggle */}
+        <div className="px-3 pb-3">
+          <div className="flex bg-slate-100 rounded-xl p-1">
+            <button
+              onClick={() => setCurrentView("chat")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                currentView === "chat" || currentView === "settings"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Chat
+            </button>
+            <button
+              onClick={() => setCurrentView("vision")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                currentView === "vision"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {CrosshairSVG}
+              Vision
+            </button>
+          </div>
+        </div>
+
         <div className="px-3 pb-2">
           <button
             onClick={onNewSession}
-            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-2.5 px-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 font-medium text-sm"
+            disabled={currentView === "vision"}
+            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-2.5 px-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {PlusSVG}
             <span>New Chat</span>
