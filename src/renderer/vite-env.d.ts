@@ -94,16 +94,32 @@ interface Window {
       targetDescription: string,
       clickType: "left" | "right" | "double",
       imageModelOverride?: string,
-      debug?: boolean
+      debug?: boolean,
+      actionType?: "click" | "type" | "press",
+      actionData?: string
     ) => Promise<{
       success: boolean;
       data?: {
         firstCell: { cell: number; confidence: string; reason: string };
         secondCell: { cell: number; confidence: string; reason: string };
         coordinates: { x: number; y: number };
+        actionType?: string;
+        actionData?: string;
       };
       error?: string;
     }>;
+
+    // Keyboard automation
+    automationKeyboardType: (
+      text: string,
+      intervalMs?: number,
+      delayMs?: number
+    ) => Promise<{ success: boolean; data?: any; error?: string }>;
+
+    automationKeyboardPress: (
+      key: string,
+      delayMs?: number
+    ) => Promise<{ success: boolean; data?: any; error?: string }>;
 
     onAutomationStatus: (
       callback: (data: { step: string; message: string }) => void

@@ -39,7 +39,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     targetDescription: string,
     clickType: "left" | "right" | "double",
     imageModelOverride?: string,
-    debug: boolean = false
+    debug: boolean = false,
+    actionType: "click" | "type" | "press" = "click",
+    actionData?: string
   ) =>
     ipcRenderer.invoke(
       "automation:execute-vision-click",
@@ -47,8 +49,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
       targetDescription,
       clickType,
       imageModelOverride,
-      debug
+      debug,
+      actionType,
+      actionData
     ),
+
+  // Keyboard automation
+  automationKeyboardType: (text: string, intervalMs: number = 0, delayMs: number = 0) =>
+    ipcRenderer.invoke("automation:keyboard-type", text, intervalMs, delayMs),
+
+  automationKeyboardPress: (key: string, delayMs: number = 0) =>
+    ipcRenderer.invoke("automation:keyboard-press", key, delayMs),
 
   // Automation progress listener
   onAutomationStatus: (

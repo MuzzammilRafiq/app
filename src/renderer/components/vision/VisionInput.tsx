@@ -1,15 +1,30 @@
 import { useState, useRef, useEffect } from "react";
-import { CrosshairSVG, LoadingSVG, SendSVG } from "../icons";
+import { LoadingSVG, SendSVG } from "../icons";
 import { useVisionLogStore } from "./VisionLogStore";
 import { loadSettings } from "../../services/settingsStorage";
 
-type ClickType = "left" | "right" | "double";
+type ActionMode = "click" | "double-click" | "right-click" | "type" | "press";
 
-const DEBUG_MODE = true; // Toggle this to save intermediate images for debugging
+const DEBUG_MODE = true;
+
+// Common keys for the press key action
+const KEYBOARD_KEYS = [
+  { value: "enter", label: "Enter ↵" },
+  { value: "tab", label: "Tab ⇥" },
+  { value: "space", label: "Space" },
+  { value: "escape", label: "Escape" },
+  { value: "backspace", label: "Backspace" },
+  { value: "up", label: "↑" },
+  { value: "down", label: "↓" },
+  { value: "left", label: "←" },
+  { value: "right", label: "→" },
+];
 
 export default function VisionInput() {
   const [content, setContent] = useState("");
-  const [clickType, setClickType] = useState<ClickType>("left");
+  const [actionMode, setActionMode] = useState<ActionMode>("click");
+  const [typeText, setTypeText] = useState("");
+  const [pressKey, setPressKey] = useState("enter");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isExecuting = useVisionLogStore((s) => s.isExecuting);
@@ -17,7 +32,6 @@ export default function VisionInput() {
   const clearLogs = useVisionLogStore((s) => s.clearLogs);
   const setExecuting = useVisionLogStore((s) => s.setExecuting);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -26,14 +40,9 @@ export default function VisionInput() {
     }
   }, [content]);
 
-  // Setup IPC listeners for automation events
   useEffect(() => {
     const handleStatus = (data: { step: string; message: string }) => {
-      addLog({
-        type: "status",
-        title: `Step: ${data.step}`,
-        content: data.message,
-      });
+      addLog({ type: "status", title: `Step: ${data.step}`, content: data.message });
     };
 
     const handleLog = (data: {
@@ -41,23 +50,11 @@ export default function VisionInput() {
       title: string;
       content: string;
     }) => {
-      addLog({
-        type: data.type,
-        title: data.title,
-        content: data.content,
-      });
+      addLog({ type: data.type, title: data.title, content: data.content });
     };
 
-    const handleImagePreview = (data: {
-      title: string;
-      imageBase64: string;
-    }) => {
-      addLog({
-        type: "image-preview",
-        title: data.title,
-        content: "",
-        imageBase64: data.imageBase64,
-      });
+    const handleImagePreview = (data: { title: string; imageBase64: string }) => {
+      addLog({ type: "image-preview", title: data.title, content: "", imageBase64: data.imageBase64 });
     };
 
     window.electronAPI.onAutomationStatus(handleStatus);
@@ -82,23 +79,29 @@ export default function VisionInput() {
     const trimmedContent = content.trim();
     if (!trimmedContent || isExecuting) return;
 
+    if (actionMode === "type" && !typeText.trim()) {
+      addLog({ type: "error", title: "Missing Input", content: "Enter text to type" });
+      return;
+    }
+
     const settings = loadSettings();
     if (!settings.openrouterApiKey) {
-      addLog({
-        type: "error",
-        title: "Configuration Error",
-        content: "OpenRouter API key not found in settings",
-      });
+      addLog({ type: "error", title: "Error", content: "API key not configured" });
       return;
     }
 
     clearLogs();
     setExecuting(true);
 
+    // Map actionMode to clickType and actionType
+    const clickType = actionMode === "double-click" ? "double" : actionMode === "right-click" ? "right" : "left";
+    const actionType = actionMode === "type" ? "type" : actionMode === "press" ? "press" : "click";
+    const actionData = actionMode === "type" ? typeText : actionMode === "press" ? pressKey : undefined;
+
     addLog({
       type: "status",
-      title: "Vision Click Started",
-      content: `Target: "${trimmedContent}" | Click type: ${clickType}`,
+      title: "Started",
+      content: `Target: "${trimmedContent}" | Action: ${actionMode}`,
     });
 
     try {
@@ -107,128 +110,126 @@ export default function VisionInput() {
         trimmedContent,
         clickType,
         settings.imageModel || undefined,
-        DEBUG_MODE
+        DEBUG_MODE,
+        actionType,
+        actionData
       );
 
       if (!result.success) {
-        addLog({
-          type: "error",
-          title: "Vision Click Failed",
-          content: result.error || "Unknown error occurred",
-        });
+        addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
       } else {
         addLog({
           type: "status",
-          title: "Vision Click Completed",
-          content: `Successfully clicked at (${result.data?.coordinates?.x}, ${result.data?.coordinates?.y})`,
+          title: "Complete",
+          content: `Action performed at (${result.data?.coordinates?.x}, ${result.data?.coordinates?.y})`,
         });
       }
     } catch (err) {
-      addLog({
-        type: "error",
-        title: "Execution Error",
-        content: err instanceof Error ? err.message : "Unknown error",
-      });
+      addLog({ type: "error", title: "Error", content: err instanceof Error ? err.message : "Unknown error" });
     } finally {
       setExecuting(false);
     }
   };
 
-  const handleCancel = async () => {
-    // For now, just mark as not executing
-    // A more complete implementation would abort the IPC call
+  const handleCancel = () => {
     setExecuting(false);
-    addLog({
-      type: "status",
-      title: "Cancelled",
-      content: "Vision click was cancelled by user",
-    });
+    addLog({ type: "status", title: "Cancelled", content: "Action cancelled" });
   };
 
-  const actionBtnBase =
-    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200";
+  const actionModes: { value: ActionMode; label: string }[] = [
+    { value: "click", label: "Click" },
+    { value: "double-click", label: "Double" },
+    { value: "right-click", label: "Right" },
+    { value: "type", label: "Type" },
+    { value: "press", label: "Key" },
+  ];
 
   return (
     <div className="shrink-0 px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-3xl bg-white rounded-3xl shadow-float border border-transparent">
-        {/* Header */}
-        <div className="px-5 pt-4 pb-2 border-b border-slate-100 flex items-center gap-3">
-          <div className="p-2 bg-primary-light/20 rounded-xl text-primary">
-            {CrosshairSVG}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              Vision Click
-            </h2>
-            <p className="text-xs text-slate-500">
-              Describe what to click on screen
-            </p>
-          </div>
-        </div>
-
-        {/* Textarea */}
-        <div className="relative px-5 py-3">
+      <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow-float">
+        {/* Target Description */}
+        <div className="px-4 pt-4">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="e.g. Click the blue 'Submit' button..."
+            placeholder="Describe what to interact with..."
             disabled={isExecuting}
-            className="w-full bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-32 min-h-12 leading-relaxed"
+            className="w-full bg-slate-50 rounded-xl px-4 py-3 text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-2 focus:ring-primary/20 focus:outline-none max-h-24 min-h-[52px] leading-relaxed border border-slate-200"
             rows={1}
           />
         </div>
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-5 pb-4 pt-1">
-          {/* Click type selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 mr-1">
-              Click:
-            </span>
-            {(["left", "right", "double"] as ClickType[]).map((type) => (
+        {/* Action Mode + Additional Input (if needed) + Send */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          {/* Action Mode Pills */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            {actionModes.map((mode) => (
               <button
-                key={type}
-                onClick={() => setClickType(type)}
+                key={mode.value}
+                onClick={() => setActionMode(mode.value)}
                 disabled={isExecuting}
-                className={`${actionBtnBase} ${
-                  clickType === type
-                    ? "bg-primary text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  actionMode === mode.value
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
                 } disabled:opacity-50`}
               >
-                {type === "double" ? "Double" : type.charAt(0).toUpperCase() + type.slice(1)}
+                {mode.label}
               </button>
             ))}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {isExecuting && (
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-              >
-                Cancel
-              </button>
-            )}
-            <button
-              onClick={isExecuting ? handleCancel : handleExecute}
-              disabled={!content.trim() && !isExecuting}
-              className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center shadow-md ${
-                content.trim() || isExecuting
-                  ? "bg-primary text-white hover:bg-primary-hover hover:scale-105"
-                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
-              }`}
+          {/* Type input */}
+          {actionMode === "type" && (
+            <input
+              type="text"
+              value={typeText}
+              onChange={(e) => setTypeText(e.target.value)}
+              placeholder="Text to type..."
+              disabled={isExecuting}
+              className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+            />
+          )}
+
+          {/* Key selector */}
+          {actionMode === "press" && (
+            <select
+              value={pressKey}
+              onChange={(e) => setPressKey(e.target.value)}
+              disabled={isExecuting}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
             >
-              {isExecuting ? (
-                <span className="animate-spin">{LoadingSVG}</span>
-              ) : (
-                SendSVG
-              )}
+              {KEYBOARD_KEYS.map((key) => (
+                <option key={key.value} value={key.value}>{key.label}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Cancel + Send */}
+          {isExecuting && (
+            <button
+              onClick={handleCancel}
+              className="px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            >
+              Cancel
             </button>
-          </div>
+          )}
+          <button
+            onClick={handleExecute}
+            disabled={!content.trim() || isExecuting}
+            className={`p-2.5 rounded-xl transition-all flex items-center justify-center ${
+              content.trim() && !isExecuting
+                ? "bg-primary text-white hover:bg-primary-hover shadow-md hover:scale-105"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            {isExecuting ? <span className="animate-spin">{LoadingSVG}</span> : SendSVG}
+          </button>
         </div>
       </div>
     </div>

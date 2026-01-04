@@ -184,7 +184,59 @@ export function setupAutomationHandlers() {
     }
   );
 
-  // Vision Click Automation
+  // Type text
+  ipcMain.handle(
+    "automation:keyboard-type",
+    async (_event, text: string, intervalMs: number = 0, delayMs: number = 0) => {
+      try {
+        const response = await fetch(`${AUTOMATION_SERVER_URL}/keyboard/type`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, interval_ms: intervalMs, delay_ms: delayMs }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          return { success: false, error: `Failed to type text: ${error}` };
+        }
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }
+  );
+
+  // Press key
+  ipcMain.handle(
+    "automation:keyboard-press",
+    async (_event, key: string, delayMs: number = 0) => {
+      try {
+        const response = await fetch(`${AUTOMATION_SERVER_URL}/keyboard/press`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, delay_ms: delayMs }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          return { success: false, error: `Failed to press key: ${error}` };
+        }
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }
+  );
+
+  // Vision Click Automation (supports click, type, and press actions)
   ipcMain.handle(
     "automation:execute-vision-click",
     async (
@@ -193,7 +245,9 @@ export function setupAutomationHandlers() {
       targetDescription: string,
       clickType: "left" | "right" | "double",
       imageModelOverride?: string,
-      debug: boolean = false
+      debug: boolean = false,
+      actionType: "click" | "type" | "press" = "click",
+      actionData?: string // text to type or key to press
     ) => {
       // Helper to send progress updates
       const sendProgress = (step: string, message: string) => {
@@ -385,17 +439,64 @@ export function setupAutomationHandlers() {
           body: JSON.stringify(clickBody),
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Perform post-click action based on actionType
+        let actionResult = "";
+        if (actionType === "type" && actionData) {
+          // For typing: do a double-click RIGHT BEFORE typing to ensure focus on macOS
+          sendLog("server", "Focus Click", `Double-click to activate input field`);
+          await fetch(`${AUTOMATION_SERVER_URL}/mouse/click`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ button: "left", clicks: 2, delay_ms: 0 }),
+          });
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          
+          // Now type immediately while still focused
+          sendLog("server", "Keyboard Type", `Typing: "${actionData}"`);
+          await fetch(`${AUTOMATION_SERVER_URL}/keyboard/type`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: actionData, interval_ms: 0, delay_ms: 0 }),
+          });
+          actionResult = `Typed: "${actionData}"`;
+        } else if (actionType === "press" && actionData) {
+          // For key press: do a double-click RIGHT BEFORE pressing to ensure focus
+          sendLog("server", "Focus Click", `Double-click to activate input field`);
+          await fetch(`${AUTOMATION_SERVER_URL}/mouse/click`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ button: "left", clicks: 2, delay_ms: 0 }),
+          });
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          
+          // Now press key immediately
+          sendLog("server", "Keyboard Press", `Pressing key: ${actionData}`);
+          await fetch(`${AUTOMATION_SERVER_URL}/keyboard/press`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: actionData, delay_ms: 0 }),
+          });
+          actionResult = `Pressed: ${actionData}`;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
         window?.show();
         
-        sendProgress("done", `Clicked at (${screenX}, ${screenY})`);
+        const doneMessage = actionType === "click" 
+          ? `Clicked at (${screenX}, ${screenY})`
+          : `Clicked at (${screenX}, ${screenY}). ${actionResult}`;
+        sendProgress("done", doneMessage);
         
         return { 
           success: true, 
           data: { 
             firstCell: firstResult, 
             secondCell: secondResult, 
-            coordinates: { x: screenX, y: screenY } 
+            coordinates: { x: screenX, y: screenY },
+            actionType,
+            actionData
           } 
         };
 
