@@ -3,7 +3,7 @@ import { LoadingSVG, SendSVG } from "../icons";
 import { useVisionLogStore } from "./VisionLogStore";
 import { loadSettings } from "../../services/settingsStorage";
 
-type ActionMode = "click" | "double-click" | "right-click" | "type" | "press";
+type ActionMode = "agent" | "click" | "double-click" | "right-click" | "type" | "press";
 
 const DEBUG_MODE = true;
 
@@ -22,7 +22,7 @@ const KEYBOARD_KEYS = [
 
 export default function VisionInput() {
   const [content, setContent] = useState("");
-  const [actionMode, setActionMode] = useState<ActionMode>("click");
+  const [actionMode, setActionMode] = useState<ActionMode>("agent");
   const [typeText, setTypeText] = useState("");
   const [pressKey, setPressKey] = useState("enter");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -101,28 +101,51 @@ export default function VisionInput() {
     addLog({
       type: "status",
       title: "Started",
-      content: `Target: "${trimmedContent}" | Action: ${actionMode}`,
+      content: actionMode === "agent" 
+        ? `Goal: "${trimmedContent}"`
+        : `Target: "${trimmedContent}" | Action: ${actionMode}`,
     });
 
     try {
-      const result = await window.electronAPI.automationExecuteVisionClick(
-        settings.openrouterApiKey,
-        trimmedContent,
-        clickType,
-        settings.imageModel || undefined,
-        DEBUG_MODE,
-        actionType,
-        actionData
-      );
+      // Use orchestrated workflow for agent mode
+      if (actionMode === "agent") {
+        const result = await window.electronAPI.automationExecuteOrchestrated(
+          settings.openrouterApiKey,
+          trimmedContent,
+          settings.imageModel || undefined,
+          DEBUG_MODE
+        );
 
-      if (!result.success) {
-        addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
+        if (!result.success) {
+          addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
+        } else {
+          addLog({
+            type: "status",
+            title: "Complete",
+            content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
+          });
+        }
       } else {
-        addLog({
-          type: "status",
-          title: "Complete",
-          content: `Action performed at (${result.data?.coordinates?.x}, ${result.data?.coordinates?.y})`,
-        });
+        // Use single vision action for other modes
+        const result = await window.electronAPI.automationExecuteVisionClick(
+          settings.openrouterApiKey,
+          trimmedContent,
+          clickType,
+          settings.imageModel || undefined,
+          DEBUG_MODE,
+          actionType,
+          actionData
+        );
+
+        if (!result.success) {
+          addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
+        } else {
+          addLog({
+            type: "status",
+            title: "Complete",
+            content: `Action performed at (${result.data?.coordinates?.x}, ${result.data?.coordinates?.y})`,
+          });
+        }
       }
     } catch (err) {
       addLog({ type: "error", title: "Error", content: err instanceof Error ? err.message : "Unknown error" });
@@ -137,6 +160,7 @@ export default function VisionInput() {
   };
 
   const actionModes: { value: ActionMode; label: string }[] = [
+    { value: "agent", label: "Agent" },
     { value: "click", label: "Click" },
     { value: "double-click", label: "Double" },
     { value: "right-click", label: "Right" },
@@ -154,7 +178,7 @@ export default function VisionInput() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe what to interact with..."
+            placeholder={actionMode === "agent" ? "What do you want to do?" : "Describe what to interact with..."}
             disabled={isExecuting}
             className="w-full bg-slate-50 rounded-xl px-4 py-3 text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-2 focus:ring-primary/20 focus:outline-none max-h-24 min-h-[52px] leading-relaxed border border-slate-200"
             rows={1}
@@ -172,7 +196,9 @@ export default function VisionInput() {
                 disabled={isExecuting}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   actionMode === mode.value
-                    ? "bg-white text-slate-800 shadow-sm"
+                    ? mode.value === "agent" 
+                      ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                      : "bg-white text-slate-800 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
                 } disabled:opacity-50`}
               >

@@ -109,6 +109,21 @@ interface Window {
       error?: string;
     }>;
 
+    // Orchestrated multi-step workflow
+    automationExecuteOrchestrated: (
+      apiKey: string,
+      userPrompt: string,
+      imageModelOverride?: string,
+      debug?: boolean
+    ) => Promise<{
+      success: boolean;
+      stepsCompleted?: number;
+      totalSteps?: number;
+      results?: Array<{ step: number; action: string; success: boolean; result?: any }>;
+      error?: string;
+      reason?: string;
+    }>;
+
     // Keyboard automation
     automationKeyboardType: (
       text: string,

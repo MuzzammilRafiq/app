@@ -54,6 +54,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
       actionData
     ),
 
+  // Orchestrated multi-step workflow
+  automationExecuteOrchestrated: (
+    apiKey: string,
+    userPrompt: string,
+    imageModelOverride?: string,
+    debug: boolean = false
+  ) =>
+    ipcRenderer.invoke(
+      "automation:execute-orchestrated-workflow",
+      apiKey,
+      userPrompt,
+      imageModelOverride,
+      debug
+    ),
+
   // Keyboard automation
   automationKeyboardType: (text: string, intervalMs: number = 0, delayMs: number = 0) =>
     ipcRenderer.invoke("automation:keyboard-type", text, intervalMs, delayMs),
