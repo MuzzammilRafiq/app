@@ -32,10 +32,7 @@ export async function executeVisionAction(
   const window = BrowserWindow.fromWebContents(event.sender);
 
   try {
-    // Hide window and take screenshot
-    window?.hide();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
+    // Take screenshot
     const params = new URLSearchParams({
       grid_size: "6",
       save_image: debug.toString(),
@@ -134,9 +131,6 @@ export async function executeVisionAction(
     const screenX = Math.round(cellCenter.x / scaleFactor);
     const screenY = Math.round(cellCenter.y / scaleFactor);
 
-    // Window is already hidden from screenshot phase - keep it hidden for action
-    // This prevents focus from shifting away during type/press operations
-
     // Move mouse
     await fetch(`${AUTOMATION_SERVER_URL}/mouse/move`, {
       method: "POST",
@@ -197,10 +191,6 @@ export async function executeVisionAction(
     }
 
     await new Promise((resolve) => setTimeout(resolve, 200));
-    // Only show window if not in keepHidden mode (used by orchestrator)
-    if (!keepHidden) {
-      window?.show();
-    }
 
     return {
       success: true,
@@ -211,10 +201,6 @@ export async function executeVisionAction(
       },
     };
   } catch (error) {
-    // Only show window on error if not in keepHidden mode
-    if (!keepHidden) {
-      window?.show();
-    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

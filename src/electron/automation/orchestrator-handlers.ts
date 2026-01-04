@@ -49,10 +49,7 @@ export function setupOrchestratorHandlers() {
         LOG(TAG).INFO(`Starting workflow: "${userPrompt}"`);
         sendProgress("starting", `Analyzing request: "${userPrompt}"`);
 
-        // Step 1: Take initial screenshot for context validation and planning
-        window?.hide();
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
+        // Take full-screen screenshot for planning
         const screenshotResponse = await fetch(
           `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?grid_size=6&save_image=${debug}`
         );
@@ -65,8 +62,6 @@ export function setupOrchestratorHandlers() {
         LOG(TAG).INFO(
           `Screenshot captured: ${screenshot.image_size?.width}x${screenshot.image_size?.height}`
         );
-        // NOTE: Do NOT show window here - keep it hidden during planning
-        // Window will be shown only after plan is complete, before executing steps
 
         if (debug) {
           sendImagePreview("Initial Screenshot", screenshot.grid_image_base64);
@@ -130,8 +125,8 @@ export function setupOrchestratorHandlers() {
           LOG(TAG).INFO(`  ${i + 1}. ${s.action}: ${s.target || s.data || ""} - ${s.reason}`);
         });
 
-        // NOTE: Window stays hidden throughout the entire workflow
-        // Only shown at the very end after all steps complete
+        // NOTE: In vision mode, window stays visible in the right 1/4 of screen
+        // No need to show/hide - we use region-based screenshots
 
         // Step 3: Execute each step
         const stepResults: Array<{ step: number; action: string; success: boolean; result?: any }> =
@@ -156,7 +151,7 @@ export function setupOrchestratorHandlers() {
               LOG(TAG).INFO(`Wait complete`);
               stepResults.push({ step: i + 1, action: "wait", success: true });
             } else if (step.action === "click") {
-              // Click step - use vision click (window stays hidden)
+              // Click step - use vision click
               const clickResult = await executeVisionAction(
                 event,
                 apiKey,
@@ -184,7 +179,7 @@ export function setupOrchestratorHandlers() {
                 throw new Error(`Click failed: ${clickResult.error}`);
               }
             } else if (step.action === "type") {
-              // Type step - find input and type (window stays hidden)
+              // Type step - find input and type
               const typeResult = await executeVisionAction(
                 event,
                 apiKey,
@@ -241,7 +236,6 @@ export function setupOrchestratorHandlers() {
             const errorMessage = stepError instanceof Error ? stepError.message : "Unknown error";
             LOG(TAG).ERROR(`Step ${i + 1} failed: ${errorMessage}`);
             sendLog("error", `Step ${i + 1} Failed`, errorMessage);
-            window?.show();
             return {
               success: false,
               error: `Step ${i + 1} failed: ${errorMessage}`,
@@ -252,7 +246,6 @@ export function setupOrchestratorHandlers() {
           }
         }
 
-        window?.show();
         LOG(TAG).INFO(`Workflow completed successfully with ${steps.length} steps`);
         sendProgress("done", `Completed ${steps.length} steps successfully`);
 
@@ -263,7 +256,6 @@ export function setupOrchestratorHandlers() {
           results: stepResults,
         };
       } catch (error) {
-        window?.show();
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         sendLog("error", "Orchestration Failed", errorMessage);
         return {

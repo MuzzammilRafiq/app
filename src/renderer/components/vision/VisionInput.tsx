@@ -124,11 +124,6 @@ export default function VisionInput() {
 
         {/* Agent Label + Send Button */}
         <div className="flex items-center gap-3 px-4 py-3">
-          {/* Agent Mode Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg shadow-md">
-            <span className="text-xs font-medium uppercase tracking-wider">Agent</span>
-          </div>
-
           {/* Spacer */}
           <div className="flex-1" />
 

@@ -29,7 +29,7 @@ function createWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 1000,
-    minWidth: 600,
+    minWidth: 400,
     minHeight: 400,
     titleBarStyle: "hidden", // Hide default title bar on macOS
     trafficLightPosition: { x: 12, y: 16 }, // Position macOS traffic lights
