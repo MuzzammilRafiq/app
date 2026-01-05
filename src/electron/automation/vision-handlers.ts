@@ -55,11 +55,12 @@ export async function executeVisionAction(
     // NOTE: Do NOT show window here - keep it hidden to maintain focus on the target app
     // Window will be shown only after ALL actions complete to prevent focus shift issues
 
-    // First LLM analysis
+    // First LLM analysis - pass BOTH clean and grid images
     const firstPrompt = createCellIdentificationPrompt(targetDescription, false);
     const firstResult = await askLLMForCellWithLogging(
       apiKey,
-      screenshot.grid_image_base64,
+      screenshot.original_image_base64,  // Clean image
+      screenshot.grid_image_base64,       // Grid image
       firstPrompt,
       targetDescription,
       imageModelOverride,
@@ -95,11 +96,12 @@ export async function executeVisionAction(
       sendImagePreview("Cropped Cell", cropped.cropped_image_base64);
     }
 
-    // Second LLM analysis
+    // Second LLM analysis - pass BOTH clean and grid cropped images
     const secondPrompt = createCellIdentificationPrompt(targetDescription, true);
     const secondResult = await askLLMForCellWithLogging(
       apiKey,
-      cropped.cropped_image_base64,
+      cropped.clean_cropped_image_base64,  // Clean cropped image
+      cropped.cropped_image_base64,         // Grid cropped image
       secondPrompt,
       targetDescription,
       imageModelOverride,

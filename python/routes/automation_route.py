@@ -715,7 +715,13 @@ async def image_crop_cell(
             
             grid_img = Image.alpha_composite(grid_img, overlay).convert("RGB")
             
-            # Generate Base64
+            # Generate Base64 for CLEAN cropped image (without grid)
+            clean_buffer = io.BytesIO()
+            cropped.save(clean_buffer, format="PNG")
+            clean_buffer.seek(0)
+            result["clean_cropped_image_base64"] = base64.b64encode(clean_buffer.getvalue()).decode("utf-8")
+            
+            # Generate Base64 for GRID cropped image (with grid overlay)
             buffer = io.BytesIO()
             grid_img.save(buffer, format="PNG")
             buffer.seek(0)

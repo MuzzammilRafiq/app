@@ -7,7 +7,14 @@ import os from "os";
 import path from "path";
 import { ASK_IMAGE, ASK_TEXT, type ChatMessage } from "../services/model.js";
 import { GRID_SIZE, MAX_ORCHESTRATOR_STEPS } from "./types.js";
-import type { SendLogFn, CellIdentificationResult, OrchestratorStep } from "./types.js";
+import type {
+  SendLogFn,
+  CellIdentificationResult,
+  OrchestratorStep,
+  NextActionDecision,
+  VerificationResult,
+  ActionHistoryEntry,
+} from "./types.js";
 
 export async function askLLMForCell(
   apiKey: string,
@@ -67,24 +74,31 @@ export async function askLLMForCell(
 
 export async function askLLMForCellWithLogging(
   apiKey: string,
-  imageBase64: string,
+  cleanImageBase64: string,
+  gridImageBase64: string,
   prompt: string,
   targetDescription: string,
   imageModelOverride: string | undefined,
   sendLog: SendLogFn
 ): Promise<CellIdentificationResult> {
-  // Save base64 to temp file
+  // Save both images to temp files
   const tempDir = os.tmpdir();
-  const tempFilePath = path.join(tempDir, `vision-click-${Date.now()}.png`);
+  const timestamp = Date.now();
+  const cleanFilePath = path.join(tempDir, `vision-clean-${timestamp}.png`);
+  const gridFilePath = path.join(tempDir, `vision-grid-${timestamp}.png`);
 
   try {
-    const buffer = Buffer.from(imageBase64, "base64");
-    await fs.writeFile(tempFilePath, buffer);
+    // Write both images
+    const cleanBuffer = Buffer.from(cleanImageBase64, "base64");
+    const gridBuffer = Buffer.from(gridImageBase64, "base64");
+    await fs.writeFile(cleanFilePath, cleanBuffer);
+    await fs.writeFile(gridFilePath, gridBuffer);
 
     let responseContent = "";
     let thinkingContent = "";
 
-    for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
+    // Send BOTH images: clean first, then grid with numbers
+    for await (const chunk of ASK_IMAGE(apiKey, prompt, [cleanFilePath, gridFilePath], {
       overrideModel: imageModelOverride,
     })) {
       // Check for reasoning/thinking content (some models return this)
@@ -135,8 +149,12 @@ export async function askLLMForCellWithLogging(
 
     return parsed;
   } finally {
+    // Clean up both temp files
     try {
-      await fs.unlink(tempFilePath);
+      await fs.unlink(cleanFilePath);
+    } catch {}
+    try {
+      await fs.unlink(gridFilePath);
     } catch {}
   }
 }
@@ -144,26 +162,29 @@ export async function askLLMForCellWithLogging(
 export const createCellIdentificationPrompt = (
   targetDescription: string,
   isRefinement: boolean = false
-) => `You are a vision assistant that identifies UI elements in screenshots with numbered grid overlays.
+) => `You are a vision assistant that identifies UI elements in screenshots.
 
-The image shows a ${isRefinement ? "zoomed-in section of the screen" : "full screen"} divided into a ${GRID_SIZE}x${GRID_SIZE} grid with numbered cells (1-${GRID_SIZE * GRID_SIZE}).
+You are provided with TWO images:
+1. FIRST IMAGE: A clean ${isRefinement ? "zoomed-in section" : "screenshot"} without any overlay
+2. SECOND IMAGE: The same ${isRefinement ? "section" : "screenshot"} with a ${GRID_SIZE}x${GRID_SIZE} numbered grid overlay (cells 1-${GRID_SIZE * GRID_SIZE})
 
 The user wants to click on: "${targetDescription}"
 
-Analyze the image and identify which numbered cell contains the target element. Consider:
-1. Look for text labels, icons, or UI elements matching the description
-2. If the element spans multiple cells, you can pick ANY cell that contains part of the element - any choice is valid
-3. If you cannot find anything matching the description on the screen, respond with cell: 0
+Use the FIRST (clean) image to clearly see all UI elements without obstruction.
+Use the SECOND (grid) image to identify which numbered cell contains your target.
 
-IMPORTANT: Only respond with cell: 0 if you are certain the requested element does NOT exist on the screen. Do not guess or pick a random cell if you're unsure.
+Instructions:
+1. Find the target element in the clean image
+2. Match its position to a cell number in the grid image
+3. If the element spans multiple cells, pick ANY cell that contains part of it
+4. If the element is NOT visible on screen, respond with cell: 0
 
-Respond with ONLY a JSON object in this exact format:
+Respond with ONLY a JSON object:
 {"cell": <number>, "confidence": "<high|medium|low|none>", "reason": "<brief explanation>"}
 
-Example responses:
+Examples:
 {"cell": 15, "confidence": "high", "reason": "Found 'Settings' button in cell 15"}
-{"cell": 7, "confidence": "medium", "reason": "Blue button visible in cell 7, likely the target"}
-{"cell": 0, "confidence": "none", "reason": "No element matching '${targetDescription}' found on the screen"}`;
+{"cell": 0, "confidence": "none", "reason": "No element matching '${targetDescription}' found on screen"}`;
 
 export const createScreenDescriptionPrompt = (userPrompt: string) => `You are a screen context analyzer.
 The user wants to: "${userPrompt}"
@@ -250,8 +271,6 @@ export async function askLLMForPlanWithLogging(
     let responseContent = "";
     let thinkingContent = "";
 
-    // Note: We use the default model for ASK_TEXT unless specifically overridden logic is added later
-    // but here we just rely on ASK_TEXT's default or whatever is configured in model.ts
     for await (const chunk of ASK_TEXT(apiKey, messages)) {
       if (chunk.reasoning) {
         thinkingContent += chunk.reasoning;
@@ -273,6 +292,282 @@ export async function askLLMForPlanWithLogging(
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    return parsed;
+  } finally {
+    try {
+      await fs.unlink(tempFilePath);
+    } catch {}
+  }
+}
+
+// ============================================
+// Robust Orchestrator Prompts & Functions
+// ============================================
+
+/**
+ * Creates a prompt for generating a contextual (natural language) plan
+ */
+export const createContextualPlanPrompt = (userGoal: string) => `You are a screen automation assistant. Analyze this screenshot and create a plan to achieve the user's goal.
+
+User Goal: "${userGoal}"
+
+First, validate if the goal can be achieved from the current screen state.
+If the required application or context is NOT visible, respond with:
+{"valid": false, "reason": "explanation of what's missing"}
+
+If the context IS valid, describe your plan in natural language. This should be a clear, step-by-step description that will guide subsequent actions.
+
+Respond with a JSON object:
+{
+  "valid": true,
+  "plan": "To achieve this, I will: [describe the logical steps in natural language, e.g., 'First, I'll click on the search bar at the top of the page. Then I'll type the search query. Finally, I'll press Enter to submit the search.']",
+  "estimatedSteps": <number between 1 and 10>
+}
+
+Keep the plan concise but complete. Focus on what needs to be done, not technical details.`;
+
+/**
+ * Creates a prompt for deciding the next action
+ */
+export const createNextActionPrompt = (
+  goal: string,
+  plan: string,
+  actionHistory: ActionHistoryEntry[]
+) => {
+  const historyText = actionHistory.length > 0
+    ? actionHistory.map((h, i) => 
+        `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`
+      ).join("\n")
+    : "No actions taken yet.";
+
+  return `You are a screen automation sub-agent. Based on the current screen state, decide the SINGLE next action to take.
+
+GOAL: "${goal}"
+
+PLAN: ${plan}
+
+ACTIONS SO FAR:
+${historyText}
+
+Analyze the screenshot and determine:
+1. What is currently visible on screen?
+2. Based on the plan and actions taken, what is the NEXT single action needed?
+3. Is the goal already complete?
+
+Respond with a JSON object:
+{
+  "action": "click" | "type" | "press" | "wait" | "done",
+  "target": "element description (for click/type)" or null,
+  "data": "text to type / key to press / wait ms" or null,
+  "reason": "brief explanation of why this action",
+  "goalComplete": true | false
+}
+
+Rules:
+- Only return ONE action
+- If goal is complete, use action: "done" with goalComplete: true
+- For "click": describe the target element clearly (e.g., "the search bar at the top", "the blue Submit button")
+- For "type": target is the input field, data is the text to type
+- For "press": data is the key (enter, tab, escape, space, etc.)
+- For "wait": data is milliseconds (e.g., "1500")
+
+Respond with ONLY the JSON object.`;
+};
+
+/**
+ * Creates a prompt for verifying if an action succeeded
+ */
+export const createVerificationPrompt = (
+  action: string,
+  target: string | undefined,
+  data: string | undefined,
+  expectedResult: string
+) => `You are verifying if an automation action succeeded.
+
+ACTION PERFORMED: ${action}${target ? ` on "${target}"` : ""}${data ? ` with data "${data}"` : ""}
+
+EXPECTED RESULT: ${expectedResult}
+
+Analyze the screenshot and determine if the action was successful.
+
+Respond with a JSON object:
+{
+  "success": true or false,
+  "observation": "describe what you see (e.g., 'cursor is now in the search bar', 'text was typed correctly', 'search results are loading')",
+  "suggestion": "if failed, suggest how to retry (e.g., 'try clicking slightly to the right')" or null
+}
+
+Be objective - only mark success if you can clearly see evidence the action worked.`;
+
+/**
+ * Ask LLM for a contextual plan (natural language)
+ */
+export async function askLLMForContextualPlan(
+  apiKey: string,
+  imageBase64: string,
+  userGoal: string,
+  imageModelOverride: string | undefined,
+  sendLog: SendLogFn
+): Promise<{ valid: boolean; plan?: string; estimatedSteps?: number; reason?: string }> {
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, `contextual-plan-${Date.now()}.png`);
+
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    await fs.writeFile(tempFilePath, buffer);
+
+    sendLog("llm-request", "Contextual Planning", "Analyzing screen and creating plan...");
+
+    const prompt = createContextualPlanPrompt(userGoal);
+    let responseContent = "";
+    let thinkingContent = "";
+
+    for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
+      overrideModel: imageModelOverride,
+    })) {
+      if (chunk.reasoning) {
+        thinkingContent += chunk.reasoning;
+      }
+      if (chunk.content) {
+        responseContent += chunk.content;
+      }
+    }
+
+    if (thinkingContent) {
+      sendLog("thinking", "Planning Reasoning", thinkingContent);
+    }
+
+    const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      sendLog("error", "Parse Error", `Could not parse plan: ${responseContent}`);
+      throw new Error("Failed to parse contextual plan");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    
+    if (parsed.valid) {
+      sendLog("llm-response", "Plan Created", parsed.plan);
+    } else {
+      sendLog("error", "Context Invalid", parsed.reason || "Cannot achieve goal from current screen");
+    }
+
+    return parsed;
+  } finally {
+    try {
+      await fs.unlink(tempFilePath);
+    } catch {}
+  }
+}
+
+/**
+ * Ask LLM to decide the next action
+ */
+export async function askLLMForNextAction(
+  apiKey: string,
+  imageBase64: string,
+  goal: string,
+  plan: string,
+  actionHistory: ActionHistoryEntry[],
+  imageModelOverride: string | undefined,
+  sendLog: SendLogFn
+): Promise<NextActionDecision> {
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, `next-action-${Date.now()}.png`);
+
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    await fs.writeFile(tempFilePath, buffer);
+
+    sendLog("llm-request", "Deciding Next Action", `Step ${actionHistory.length + 1}`);
+
+    const prompt = createNextActionPrompt(goal, plan, actionHistory);
+    let responseContent = "";
+    let thinkingContent = "";
+
+    for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
+      overrideModel: imageModelOverride,
+    })) {
+      if (chunk.reasoning) {
+        thinkingContent += chunk.reasoning;
+      }
+      if (chunk.content) {
+        responseContent += chunk.content;
+      }
+    }
+
+    if (thinkingContent) {
+      sendLog("thinking", "Decision Reasoning", thinkingContent);
+    }
+
+    const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      sendLog("error", "Parse Error", `Could not parse action decision: ${responseContent}`);
+      throw new Error("Failed to parse next action decision");
+    }
+
+    const parsed: NextActionDecision = JSON.parse(jsonMatch[0]);
+    
+    const actionDesc = parsed.action === "done" 
+      ? "Goal Complete!" 
+      : `${parsed.action}${parsed.target ? ` -> "${parsed.target}"` : ""}${parsed.data ? ` (${parsed.data})` : ""}`;
+    sendLog("llm-response", "Next Action", `${actionDesc}\nReason: ${parsed.reason}`);
+
+    return parsed;
+  } finally {
+    try {
+      await fs.unlink(tempFilePath);
+    } catch {}
+  }
+}
+
+/**
+ * Ask LLM to verify if an action succeeded
+ */
+export async function askLLMForVerification(
+  apiKey: string,
+  imageBase64: string,
+  action: string,
+  target: string | undefined,
+  data: string | undefined,
+  expectedResult: string,
+  imageModelOverride: string | undefined,
+  sendLog: SendLogFn
+): Promise<VerificationResult> {
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, `verification-${Date.now()}.png`);
+
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    await fs.writeFile(tempFilePath, buffer);
+
+    sendLog("llm-request", "Verifying Action", `Checking if ${action} succeeded...`);
+
+    const prompt = createVerificationPrompt(action, target, data, expectedResult);
+    let responseContent = "";
+
+    for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
+      overrideModel: imageModelOverride,
+    })) {
+      if (chunk.content) {
+        responseContent += chunk.content;
+      }
+    }
+
+    const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      // Default to success if parsing fails (don't block on verification errors)
+      sendLog("error", "Parse Error", `Could not parse verification: ${responseContent}`);
+      return { success: true, observation: "Verification parse failed, assuming success" };
+    }
+
+    const parsed: VerificationResult = JSON.parse(jsonMatch[0]);
+    
+    sendLog(
+      parsed.success ? "llm-response" : "error",
+      parsed.success ? "Verification Passed" : "Verification Failed",
+      parsed.observation + (parsed.suggestion ? `\nSuggestion: ${parsed.suggestion}` : "")
+    );
+
     return parsed;
   } finally {
     try {

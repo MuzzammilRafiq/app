@@ -52,32 +52,32 @@ const LOG_TYPE_STYLES: Record<
 
 function LogEntry({ entry }: { entry: VisionLogEntry }) {
   const style = LOG_TYPE_STYLES[entry.type];
-  const time = new Date(entry.timestamp).toLocaleTimeString();
+  const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
     <div
-      className={`p-3 rounded-xl border ${style.bg} ${style.border} animate-fade-in`}
+      className={`p-2 rounded-lg border ${style.bg} ${style.border} animate-fade-in`}
     >
-      <div className="flex items-start gap-2">
-        <span className="text-base">{style.icon}</span>
+      <div className="flex items-start gap-1.5">
+        <span className="text-sm shrink-0">{style.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <p className={`text-sm font-medium ${style.titleColor}`}>
+          <div className="flex items-center justify-between gap-1">
+            <p className={`text-xs font-medium ${style.titleColor} truncate`}>
               {entry.title}
             </p>
-            <span className="text-[10px] text-slate-400 shrink-0">{time}</span>
+            <span className="text-[9px] text-slate-400 shrink-0">{time}</span>
           </div>
           {entry.content && (
-            <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap wrap-break-word font-mono">
+            <p className="text-[11px] text-slate-600 mt-0.5 whitespace-pre-wrap break-all font-mono leading-snug">
               {entry.content}
             </p>
           )}
           {entry.imageBase64 && (
-            <div className="mt-2">
+            <div className="mt-1.5">
               <img
                 src={`data:image/png;base64,${entry.imageBase64}`}
                 alt="Preview"
-                className="max-w-full max-h-48 rounded-lg border border-slate-200 shadow-sm"
+                className="w-full max-h-32 object-contain rounded-md border border-slate-200 shadow-sm"
               />
             </div>
           )}

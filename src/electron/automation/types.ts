@@ -34,3 +34,61 @@ export interface VisionActionParams {
   actionType: "click" | "type" | "press";
   actionData?: string;
 }
+
+// ============================================
+// Robust Orchestrator Types
+// ============================================
+
+/** Contextual execution state for the robust orchestrator */
+export interface ExecutionContext {
+  goal: string;
+  plan: string; // Natural language plan (not rigid JSON)
+  actionHistory: ActionHistoryEntry[];
+  retryCount: number;
+  maxRetries: number;
+  currentStep: number;
+  maxSteps: number;
+  consecutiveFailures: number;
+  maxConsecutiveFailures: number;
+}
+
+/** Record of an executed action */
+export interface ActionHistoryEntry {
+  action: string;
+  target?: string;
+  data?: string;
+  success: boolean;
+  observation: string;
+  timestamp: number;
+}
+
+/** Sub-agent's decision for the next action */
+export interface NextActionDecision {
+  action: "click" | "type" | "press" | "wait" | "done";
+  target?: string;
+  data?: string;
+  reason: string;
+  goalComplete: boolean;
+}
+
+/** Result of verifying an action */
+export interface VerificationResult {
+  success: boolean;
+  observation: string;
+  suggestion?: string; // Hint for retry attempts
+}
+
+/** Configuration for the robust orchestrator */
+export interface RobustOrchestratorConfig {
+  maxSteps: number;
+  maxRetries: number;
+  maxConsecutiveFailures: number;
+  debug: boolean;
+}
+
+export const DEFAULT_ORCHESTRATOR_CONFIG: RobustOrchestratorConfig = {
+  maxSteps: 10,
+  maxRetries: 2,
+  maxConsecutiveFailures: 3,
+  debug: false,
+};

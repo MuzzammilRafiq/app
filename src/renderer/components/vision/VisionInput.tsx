@@ -106,47 +106,50 @@ export default function VisionInput() {
   };
 
   return (
-    <div className="shrink-0 px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow-float">
-        {/* Goal Description */}
-        <div className="px-4 pt-4">
+    <div className="shrink-0 px-4 pb-4 pt-2">
+      <div className="mx-auto max-w-3xl bg-white rounded-3xl shadow-float border border-transparent">
+        {/* Textarea */}
+        <div className="relative">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="What do you want to do?"
+            placeholder="Describe what you want to automate..."
             disabled={isExecuting}
-            className="w-full bg-slate-50 rounded-xl px-4 py-3 text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-2 focus:ring-primary/20 focus:outline-none max-h-24 min-h-[52px] leading-relaxed border border-slate-200"
+            className="w-full px-5 py-4 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-24 min-h-14 leading-relaxed"
             rows={1}
           />
         </div>
 
-        {/* Agent Label + Send Button */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          {/* Spacer */}
-          <div className="flex-1" />
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-3 pb-3 pt-1">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 rounded-lg">
+            <span className="text-primary text-xs">✨</span>
+            <span className="text-xs font-medium text-primary/80">Vision Agent</span>
+          </div>
 
-          {/* Cancel + Send */}
-          {isExecuting && (
+          <div className="flex items-center gap-2">
+            {isExecuting && (
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              >
+                Stop
+              </button>
+            )}
             <button
-              onClick={handleCancel}
-              className="px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              onClick={handleExecute}
+              disabled={!content.trim() || isExecuting}
+              className={`p-2.5 rounded-xl transition-all flex items-center justify-center shadow-md ${
+                content.trim() && !isExecuting
+                  ? "bg-primary text-white hover:bg-primary-hover hover:scale-105"
+                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+              }`}
             >
-              Cancel
+              {isExecuting ? <span className="animate-spin">{LoadingSVG}</span> : SendSVG}
             </button>
-          )}
-          <button
-            onClick={handleExecute}
-            disabled={!content.trim() || isExecuting}
-            className={`p-2.5 rounded-xl transition-all flex items-center justify-center ${
-              content.trim() && !isExecuting
-                ? "bg-primary text-white hover:bg-primary-hover shadow-md hover:scale-105"
-                : "bg-slate-200 text-slate-400 cursor-not-allowed"
-            }`}
-          >
-            {isExecuting ? <span className="animate-spin">{LoadingSVG}</span> : SendSVG}
-          </button>
+          </div>
         </div>
       </div>
     </div>

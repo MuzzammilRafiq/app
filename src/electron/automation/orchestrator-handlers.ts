@@ -1,22 +1,67 @@
 /**
  * Orchestrator handlers
- * Handles multi-step automated workflows
+ * Handles multi-step automated workflows with dynamic execution and verification
  */
 
 import { ipcMain, BrowserWindow } from "electron";
-import { AUTOMATION_SERVER_URL, MAX_ORCHESTRATOR_STEPS } from "./types.js";
 import {
-  askLLMForPlanWithLogging,
+  AUTOMATION_SERVER_URL,
+  DEFAULT_ORCHESTRATOR_CONFIG,
+  type ExecutionContext,
+  type ActionHistoryEntry,
+  type SendLogFn,
+} from "./types.js";
+import {
+  askLLMForContextualPlan,
+  askLLMForNextAction,
+  askLLMForVerification,
 } from "./llm-helpers.js";
 import { executeVisionAction } from "./vision-handlers.js";
 import { LOG } from "../utils/logging.js";
-import type { OrchestratorStep, SendLogFn } from "./types.js";
 
-const TAG = "automation";
+const TAG = "orchestrator";
+
+/**
+ * Takes a screenshot and returns the base64 image data
+ */
+async function takeScreenshot(debug: boolean): Promise<{
+  original_image_base64: string;
+  grid_image_base64: string;
+  scale_factor: number;
+}> {
+  const response = await fetch(
+    `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?grid_size=6&save_image=${debug}`
+  );
+  if (!response.ok) {
+    throw new Error("Failed to capture screenshot");
+  }
+  return response.json();
+}
+
+/**
+ * Execute a wait action
+ */
+async function executeWait(ms: number, sendLog: SendLogFn): Promise<void> {
+  sendLog("server", "Wait", `Waiting ${ms}ms...`);
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Execute a press key action
+ */
+async function executePress(key: string, sendLog: SendLogFn): Promise<boolean> {
+  sendLog("server", "Press Key", `Pressing: ${key}`);
+  const response = await fetch(`${AUTOMATION_SERVER_URL}/keyboard/press`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, delay_ms: 0 }),
+  });
+  return response.ok;
+}
 
 export function setupOrchestratorHandlers() {
   // ====================================================================
-  // Orchestrated Workflow Handler (Multi-step Agent)
+  // Robust Orchestrated Workflow Handler (Dynamic Multi-step Agent)
   // ====================================================================
   ipcMain.handle(
     "automation:execute-orchestrated-workflow",
@@ -27,6 +72,8 @@ export function setupOrchestratorHandlers() {
       imageModelOverride?: string,
       debug: boolean = false
     ) => {
+      const config = { ...DEFAULT_ORCHESTRATOR_CONFIG, debug };
+
       const sendProgress = (step: string, message: string) => {
         event.sender.send("automation:status", { step, message });
       };
@@ -43,220 +90,241 @@ export function setupOrchestratorHandlers() {
         event.sender.send("automation:image-preview", { title, imageBase64 });
       };
 
-      const window = BrowserWindow.fromWebContents(event.sender);
-
       try {
-        LOG(TAG).INFO(`Starting workflow: "${userPrompt}"`);
+        LOG(TAG).INFO(`Starting robust workflow: "${userPrompt}"`);
         sendProgress("starting", `Analyzing request: "${userPrompt}"`);
 
-        // Take full-screen screenshot for planning
-        const screenshotResponse = await fetch(
-          `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?grid_size=6&save_image=${debug}`
-        );
+        // ============================================
+        // Phase 1: Take initial screenshot and create contextual plan
+        // ============================================
+        const initialScreenshot = await takeScreenshot(config.debug);
+        LOG(TAG).INFO(`Initial screenshot captured`);
 
-        if (!screenshotResponse.ok) {
-          throw new Error("Failed to capture initial screenshot");
+        if (config.debug) {
+          sendImagePreview("Initial Screenshot", initialScreenshot.grid_image_base64);
         }
 
-        const screenshot = await screenshotResponse.json();
-        LOG(TAG).INFO(
-          `Screenshot captured: ${screenshot.image_size?.width}x${screenshot.image_size?.height}`
-        );
+        sendProgress("planning", "Creating contextual plan...");
 
-        if (debug) {
-          sendImagePreview("Initial Screenshot", screenshot.grid_image_base64);
-        }
-
-        // Step 2: Ask LLM to validate context and generate plan
-        LOG(TAG).INFO(`Generating execution plan...`);
-        sendProgress("planning", "Generating execution plan...");
-
-        const planResult = await askLLMForPlanWithLogging(
+        const planResult = await askLLMForContextualPlan(
           apiKey,
-          screenshot.original_image_base64,
+          initialScreenshot.original_image_base64,
           userPrompt,
           imageModelOverride,
           sendLog
         );
 
-        // Check for context validation error
-        if (planResult.error) {
-          LOG(TAG).ERROR(`Context Error: ${planResult.error}`);
-          sendLog("error", "Context Error", planResult.error);
+        if (!planResult.valid) {
+          LOG(TAG).ERROR(`Context invalid: ${planResult.reason}`);
           return {
             success: false,
-            error: planResult.error,
-            reason: planResult.reason,
+            error: planResult.reason || "Cannot achieve goal from current screen",
+            stepsCompleted: 0,
+            totalSteps: 0,
           };
         }
 
-        const steps = planResult.steps || [];
+        // ============================================
+        // Phase 2: Initialize execution context
+        // ============================================
+        const context: ExecutionContext = {
+          goal: userPrompt,
+          plan: planResult.plan || "",
+          actionHistory: [],
+          retryCount: 0,
+          maxRetries: config.maxRetries,
+          currentStep: 0,
+          maxSteps: config.maxSteps,
+          consecutiveFailures: 0,
+          maxConsecutiveFailures: config.maxConsecutiveFailures,
+        };
 
-        // Validate step count
-        if (steps.length === 0) {
-          throw new Error("No steps generated for the request");
-        }
+        LOG(TAG).INFO(`Plan created: ${context.plan}`);
+        LOG(TAG).INFO(`Estimated steps: ${planResult.estimatedSteps}`);
 
-        if (steps.length > MAX_ORCHESTRATOR_STEPS) {
-          sendLog(
-            "error",
-            "Too Many Steps",
-            `Plan requires ${steps.length} steps, max allowed is ${MAX_ORCHESTRATOR_STEPS}`
-          );
-          return {
-            success: false,
-            error: `Request requires ${steps.length} steps, but maximum is ${MAX_ORCHESTRATOR_STEPS}. Please simplify your request.`,
-          };
-        }
+        // ============================================
+        // Phase 3: Dynamic execution loop
+        // ============================================
+        while (
+          context.currentStep < context.maxSteps &&
+          context.consecutiveFailures < context.maxConsecutiveFailures
+        ) {
+          context.currentStep++;
+          LOG(TAG).INFO(`=== Step ${context.currentStep} ===`);
+          sendProgress(`step-${context.currentStep}`, `Executing step ${context.currentStep}...`);
 
-        sendLog(
-          "llm-response",
-          "Execution Plan",
-          steps
-            .map(
-              (s: OrchestratorStep, i: number) =>
-                `${i + 1}. ${s.action}: ${s.target || s.data || ""} - ${s.reason}`
-            )
-            .join("\n")
-        );
+          // Take fresh screenshot for decision
+          const currentScreenshot = await takeScreenshot(config.debug);
 
-        LOG(TAG).INFO(`Plan generated with ${steps.length} steps:`);
-        steps.forEach((s: OrchestratorStep, i: number) => {
-          LOG(TAG).INFO(`  ${i + 1}. ${s.action}: ${s.target || s.data || ""} - ${s.reason}`);
-        });
+          if (config.debug) {
+            sendImagePreview(`Step ${context.currentStep} Screenshot`, currentScreenshot.grid_image_base64);
+          }
 
-        // NOTE: In vision mode, window stays visible in the right 1/4 of screen
-        // No need to show/hide - we use region-based screenshots
-
-        // Step 3: Execute each step
-        const stepResults: Array<{ step: number; action: string; success: boolean; result?: any }> =
-          [];
-
-        for (let i = 0; i < steps.length; i++) {
-          const step = steps[i] as OrchestratorStep;
-          LOG(TAG).INFO(
-            `Executing step ${i + 1}/${steps.length}: ${step.action} ${step.target || step.data || ""}`
-          );
-          sendProgress(
-            `step-${i + 1}`,
-            `Step ${i + 1}/${steps.length}: ${step.action} ${step.target || step.data || ""}`
+          // Ask LLM what action to take next
+          const decision = await askLLMForNextAction(
+            apiKey,
+            currentScreenshot.original_image_base64,
+            context.goal,
+            context.plan,
+            context.actionHistory,
+            imageModelOverride,
+            sendLog
           );
 
-          try {
-            if (step.action === "wait") {
-              // Wait step - just delay
-              const delayMs = parseInt(step.data || "1000", 10);
-              sendLog("server", `Wait Step ${i + 1}`, `Waiting ${delayMs}ms`);
-              await new Promise((resolve) => setTimeout(resolve, delayMs));
-              LOG(TAG).INFO(`Wait complete`);
-              stepResults.push({ step: i + 1, action: "wait", success: true });
-            } else if (step.action === "click") {
-              // Click step - use vision click
-              const clickResult = await executeVisionAction(
-                event,
-                apiKey,
-                step.target || "",
-                "double", // Use double-click for focus
-                imageModelOverride,
-                debug,
-                "click",
-                undefined,
-                sendProgress,
-                sendLog,
-                sendImagePreview,
-                true // keepHidden - don't show window after action
-              );
-              LOG(TAG).INFO(
-                `Click result: ${clickResult.success ? "success" : "failed"} at (${clickResult.data?.coordinates?.x}, ${clickResult.data?.coordinates?.y})`
-              );
-              stepResults.push({
-                step: i + 1,
-                action: "click",
-                success: clickResult.success,
-                result: clickResult,
-              });
-              if (!clickResult.success) {
-                throw new Error(`Click failed: ${clickResult.error}`);
-              }
-            } else if (step.action === "type") {
-              // Type step - find input and type
-              const typeResult = await executeVisionAction(
-                event,
-                apiKey,
-                step.target || "text input field",
-                "double",
-                imageModelOverride,
-                debug,
-                "type",
-                step.data || "",
-                sendProgress,
-                sendLog,
-                sendImagePreview,
-                true // keepHidden - don't show window after action
-              );
-              LOG(TAG).INFO(
-                `Type result: ${typeResult.success ? "success" : "failed"} - typed "${step.data}"`
-              );
-              stepResults.push({
-                step: i + 1,
-                action: "type",
-                success: typeResult.success,
-                result: typeResult,
-              });
-              if (!typeResult.success) {
-                throw new Error(`Type failed: ${typeResult.error}`);
-              }
-            } else if (step.action === "press") {
-              // Press step - press key directly (window is already hidden)
-              const keyToPress = step.data || "enter";
-              sendLog("server", `Press Key Step ${i + 1}`, `Pressing: ${keyToPress}`);
-
-              const pressResponse = await fetch(`${AUTOMATION_SERVER_URL}/keyboard/press`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ key: keyToPress, delay_ms: 0 }),
-              });
-
-              const pressSuccess = pressResponse.ok;
-              LOG(TAG).INFO(
-                `Press result: ${pressSuccess ? "success" : "failed"} - pressed "${keyToPress}"`
-              );
-              stepResults.push({ step: i + 1, action: "press", success: pressSuccess });
-
-              if (!pressSuccess) {
-                throw new Error(`Press failed: ${await pressResponse.text()}`);
-              }
-            }
-
-            // Add delay between steps (except after wait steps)
-            if (step.action !== "wait" && i < steps.length - 1) {
-              await new Promise((resolve) => setTimeout(resolve, 800));
-            }
-          } catch (stepError) {
-            const errorMessage = stepError instanceof Error ? stepError.message : "Unknown error";
-            LOG(TAG).ERROR(`Step ${i + 1} failed: ${errorMessage}`);
-            sendLog("error", `Step ${i + 1} Failed`, errorMessage);
+          // Check if goal is complete
+          if (decision.goalComplete || decision.action === "done") {
+            LOG(TAG).INFO("Goal complete!");
+            sendProgress("done", `Goal achieved in ${context.currentStep} steps`);
             return {
-              success: false,
-              error: `Step ${i + 1} failed: ${errorMessage}`,
-              stepsCompleted: i,
-              totalSteps: steps.length,
-              results: stepResults,
+              success: true,
+              stepsCompleted: context.currentStep,
+              totalSteps: context.currentStep,
+              results: context.actionHistory,
             };
           }
+
+          // Execute the action
+          let actionSuccess = false;
+          let observation = "";
+
+          try {
+            if (decision.action === "wait") {
+              const waitMs = parseInt(decision.data || "1500", 10);
+              await executeWait(waitMs, sendLog);
+              actionSuccess = true;
+              observation = `Waited ${waitMs}ms`;
+            } else if (decision.action === "press") {
+              const key = decision.data || "enter";
+              actionSuccess = await executePress(key, sendLog);
+              observation = actionSuccess ? `Pressed ${key}` : `Failed to press ${key}`;
+            } else if (decision.action === "click" || decision.action === "type") {
+              // Use vision-based action (two-pass: grid -> sub-grid)
+              const result = await executeVisionAction(
+                event,
+                apiKey,
+                decision.target || "",
+                "double",
+                imageModelOverride,
+                config.debug,
+                decision.action,
+                decision.data,
+                sendProgress,
+                sendLog,
+                sendImagePreview,
+                true // keepHidden
+              );
+              actionSuccess = result.success;
+              observation = actionSuccess
+                ? `${decision.action} on "${decision.target}" succeeded`
+                : `${decision.action} failed: ${result.error}`;
+            }
+          } catch (error) {
+            actionSuccess = false;
+            observation = error instanceof Error ? error.message : "Unknown error";
+          }
+
+          // Wait a moment for UI to update
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
+          // Verify the action (for non-wait actions)
+          if (decision.action !== "wait" && actionSuccess) {
+            const verifyScreenshot = await takeScreenshot(config.debug);
+
+            const expectedResult =
+              decision.action === "click"
+                ? `The element "${decision.target}" should now be selected or activated`
+                : decision.action === "type"
+                  ? `The text "${decision.data}" should now be visible in the input field`
+                  : `The ${decision.data} key press should have taken effect`;
+
+            const verification = await askLLMForVerification(
+              apiKey,
+              verifyScreenshot.original_image_base64,
+              decision.action,
+              decision.target,
+              decision.data,
+              expectedResult,
+              imageModelOverride,
+              sendLog
+            );
+
+            actionSuccess = verification.success;
+            observation = verification.observation;
+
+            if (!actionSuccess && verification.suggestion) {
+              LOG(TAG).WARN(`Verification failed: ${verification.suggestion}`);
+            }
+          }
+
+          // Record action in history
+          const historyEntry: ActionHistoryEntry = {
+            action: decision.action,
+            target: decision.target,
+            data: decision.data,
+            success: actionSuccess,
+            observation,
+            timestamp: Date.now(),
+          };
+          context.actionHistory.push(historyEntry);
+
+          // Update consecutive failures counter
+          if (actionSuccess) {
+            context.consecutiveFailures = 0;
+            LOG(TAG).INFO(`Step ${context.currentStep} succeeded: ${observation}`);
+          } else {
+            context.consecutiveFailures++;
+            LOG(TAG).WARN(
+              `Step ${context.currentStep} failed (${context.consecutiveFailures}/${context.maxConsecutiveFailures}): ${observation}`
+            );
+
+            // Check if we should abort
+            if (context.consecutiveFailures >= context.maxConsecutiveFailures) {
+              LOG(TAG).ERROR("Aborting: too many consecutive failures");
+              sendLog(
+                "error",
+                "Workflow Aborted",
+                `${context.consecutiveFailures} consecutive steps failed. The target application may have been closed or changed.`
+              );
+              return {
+                success: false,
+                error: "Too many consecutive failures - workflow aborted",
+                stepsCompleted: context.currentStep,
+                totalSteps: context.currentStep,
+                results: context.actionHistory,
+              };
+            }
+          }
+
+          // Small delay between steps
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
-        LOG(TAG).INFO(`Workflow completed successfully with ${steps.length} steps`);
-        sendProgress("done", `Completed ${steps.length} steps successfully`);
+        // If we've exhausted max steps without completing
+        if (context.currentStep >= context.maxSteps) {
+          LOG(TAG).WARN("Max steps reached without completing goal");
+          sendLog(
+            "error",
+            "Max Steps Reached",
+            `Completed ${context.currentStep} steps but goal not achieved. Consider simplifying the request.`
+          );
+          return {
+            success: false,
+            error: `Reached maximum ${context.maxSteps} steps without completing the goal`,
+            stepsCompleted: context.currentStep,
+            totalSteps: context.maxSteps,
+            results: context.actionHistory,
+          };
+        }
 
         return {
           success: true,
-          stepsCompleted: steps.length,
-          totalSteps: steps.length,
-          results: stepResults,
+          stepsCompleted: context.currentStep,
+          totalSteps: context.currentStep,
+          results: context.actionHistory,
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        LOG(TAG).ERROR(`Orchestration failed: ${errorMessage}`);
         sendLog("error", "Orchestration Failed", errorMessage);
         return {
           success: false,
