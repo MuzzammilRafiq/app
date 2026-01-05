@@ -156,6 +156,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbDeleteRagFolder: (folderPath: string) =>
     ipcRenderer.invoke("db:delete-rag-folder", folderPath),
 
+  // Vision session APIs
+  dbCreateVisionSession: (goal: string, id?: string) =>
+    ipcRenderer.invoke("db:create-vision-session", goal, id),
+  dbGetVisionSessions: () => ipcRenderer.invoke("db:get-vision-sessions"),
+  dbGetVisionSession: (id: string) =>
+    ipcRenderer.invoke("db:get-vision-session", id),
+  dbUpdateVisionSessionStatus: (id: string, status: string) =>
+    ipcRenderer.invoke("db:update-vision-session-status", id, status),
+  dbDeleteVisionSession: (id: string) =>
+    ipcRenderer.invoke("db:delete-vision-session", id),
+
+  // Vision log APIs
+  dbAddVisionLog: (log: any) => ipcRenderer.invoke("db:add-vision-log", log),
+  dbGetVisionLogs: (sessionId: string) =>
+    ipcRenderer.invoke("db:get-vision-logs", sessionId),
+  dbGetVisionSessionsWithLogs: (limit: number) =>
+    ipcRenderer.invoke("db:get-vision-sessions-with-logs", limit),
+
   //-------------------------openrouter---------------------------
   getOpenRouterModels: (apiKey: string) =>
     ipcRenderer.invoke("get-openrouter-models", apiKey),

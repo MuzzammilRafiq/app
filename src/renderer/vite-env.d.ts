@@ -398,6 +398,38 @@ interface Window {
     dbDeleteRagFolder: (folderPath: string) => Promise<boolean>;
 
     /**
+     * Vision session persistence APIs
+     */
+    dbCreateVisionSession: (
+      goal: string,
+      id?: string
+    ) => Promise<import("../common/types").VisionSessionRecord>;
+    dbGetVisionSessions: () => Promise<
+      import("../common/types").VisionSessionRecord[]
+    >;
+    dbGetVisionSession: (
+      id: string
+    ) => Promise<import("../common/types").VisionSessionRecord | null>;
+    dbUpdateVisionSessionStatus: (
+      id: string,
+      status: import("../common/types").VisionSessionStatus
+    ) => Promise<boolean>;
+    dbDeleteVisionSession: (id: string) => Promise<boolean>;
+
+    /**
+     * Vision log persistence APIs
+     */
+    dbAddVisionLog: (
+      log: import("../common/types").VisionLogRecord
+    ) => Promise<import("../common/types").VisionLogRecord>;
+    dbGetVisionLogs: (
+      sessionId: string
+    ) => Promise<import("../common/types").VisionLogRecord[]>;
+    dbGetVisionSessionsWithLogs: (
+      limit: number
+    ) => Promise<import("../common/types").VisionSessionWithLogs[]>;
+
+    /**
      * OpenRouter API: get available models from OpenRouter
      */
     getOpenRouterModels: (

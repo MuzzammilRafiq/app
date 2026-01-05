@@ -54,6 +54,40 @@ interface VideoInfoResult {
   generate_summary: boolean;
 }
 
+// Vision types
+type VisionLogType =
+  | "server"
+  | "llm-request"
+  | "llm-response"
+  | "thinking"
+  | "status"
+  | "error"
+  | "image-preview";
+
+type VisionSessionStatus = "running" | "completed" | "failed" | "cancelled";
+
+interface VisionSessionRecord {
+  id: string;
+  goal: string;
+  createdAt: number;
+  updatedAt: number;
+  status: VisionSessionStatus;
+}
+
+interface VisionLogRecord {
+  id: string;
+  sessionId: string;
+  type: VisionLogType;
+  title: string;
+  content: string;
+  imagePath: string | null;
+  timestamp: number;
+}
+
+interface VisionSessionWithLogs extends VisionSessionRecord {
+  logs: VisionLogRecord[];
+}
+
 interface ChatMessageRecord {
   id: string;
   sessionId: string;
@@ -125,4 +159,9 @@ export type {
   UniqueResult,
   StreamMessageConfig,
   OpenRouterModel,
+  VisionLogType,
+  VisionSessionStatus,
+  VisionSessionRecord,
+  VisionLogRecord,
+  VisionSessionWithLogs,
 };

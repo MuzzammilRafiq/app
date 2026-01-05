@@ -54,6 +54,13 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
   const style = LOG_TYPE_STYLES[entry.type];
   const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+  // Determine image source - use base64 if available, otherwise use file path
+  const imageSrc = entry.imageBase64 
+    ? `data:image/png;base64,${entry.imageBase64}`
+    : entry.imagePath 
+      ? `file://${entry.imagePath}` 
+      : null;
+
   return (
     <div
       className={`p-2 rounded-lg border ${style.bg} ${style.border} animate-fade-in`}
@@ -72,10 +79,10 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
               {entry.content}
             </p>
           )}
-          {entry.imageBase64 && (
+          {imageSrc && (
             <div className="mt-1.5">
               <img
-                src={`data:image/png;base64,${entry.imageBase64}`}
+                src={imageSrc}
                 alt="Preview"
                 className="w-full max-h-32 object-contain rounded-md border border-slate-200 shadow-sm"
               />

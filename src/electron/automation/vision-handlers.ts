@@ -27,29 +27,37 @@ export async function executeVisionAction(
   sendProgress: (step: string, message: string) => void,
   sendLog: SendLogFn,
   sendImagePreview: (title: string, imageBase64: string) => void,
-  keepHidden: boolean = false
+  keepHidden: boolean = false,
+  existingScreenshot?: { original_image_base64: string; grid_image_base64: string; scale_factor: number }
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   const window = BrowserWindow.fromWebContents(event.sender);
 
   try {
-    // Take screenshot
-    const params = new URLSearchParams({
-      grid_size: "6",
-      save_image: debug.toString(),
-    });
+    // Use existing screenshot if provided (from orchestrator), otherwise take a new one
+    let screenshot: { original_image_base64: string; grid_image_base64: string; scale_factor: number };
 
-    const screenshotResponse = await fetch(
-      `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?${params}`
-    );
+    if (existingScreenshot) {
+      screenshot = existingScreenshot;
+    } else {
+      // Take screenshot only when called standalone (not from orchestrator)
+      const params = new URLSearchParams({
+        grid_size: "6",
+        save_image: debug.toString(),
+      });
 
-    if (!screenshotResponse.ok) {
-      throw new Error("Failed to capture screenshot");
-    }
+      const screenshotResponse = await fetch(
+        `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?${params}`
+      );
 
-    const screenshot = await screenshotResponse.json();
+      if (!screenshotResponse.ok) {
+        throw new Error("Failed to capture screenshot");
+      }
 
-    if (debug) {
-      sendImagePreview(`Screenshot for: ${targetDescription}`, screenshot.grid_image_base64);
+      screenshot = await screenshotResponse.json();
+
+      if (debug) {
+        sendImagePreview(`Screenshot for: ${targetDescription}`, screenshot.grid_image_base64);
+      }
     }
 
     // NOTE: Do NOT show window here - keep it hidden to maintain focus on the target app

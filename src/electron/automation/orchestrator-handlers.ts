@@ -199,6 +199,7 @@ export function setupOrchestratorHandlers() {
               observation = actionSuccess ? `Pressed ${key}` : `Failed to press ${key}`;
             } else if (decision.action === "click" || decision.action === "type") {
               // Use vision-based action (two-pass: grid -> sub-grid)
+              // Pass the existing screenshot to avoid redundant capture
               const result = await executeVisionAction(
                 event,
                 apiKey,
@@ -211,7 +212,8 @@ export function setupOrchestratorHandlers() {
                 sendProgress,
                 sendLog,
                 sendImagePreview,
-                true // keepHidden
+                true, // keepHidden
+                currentScreenshot // Pass existing screenshot
               );
               actionSuccess = result.success;
               observation = actionSuccess

@@ -7,6 +7,11 @@ import {
   ChatType,
   ChatSessionWithMessages,
   MakePlanResponse,
+  VisionSessionRecord,
+  VisionLogRecord,
+  VisionLogType,
+  VisionSessionStatus,
+  VisionSessionWithLogs,
 } from "../../common/types.js";
 import { getDirs } from "../get-folder.js";
 import path from "node:path";
@@ -195,6 +200,56 @@ export class DatabaseService {
     } catch (error) {
       this.db.exec("ROLLBACK");
       LOG(TAG).ERROR(`Failed to ensure rag_folders schema: ${error}`);
+      throw error;
+    }
+
+    // Vision sessions table for tracking automation workflows
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS vision_sessions (
+          id TEXT PRIMARY KEY,
+          goal TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('running','completed','failed','cancelled'))
+        );
+      `);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_vision_sessions_status ON vision_sessions(status);`,
+      );
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to ensure vision_sessions schema: ${error}`);
+      throw error;
+    }
+
+    // Vision logs table for storing automation step logs
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS vision_logs (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('server','llm-request','llm-response','thinking','status','error','image-preview')),
+          title TEXT NOT NULL,
+          content TEXT DEFAULT '',
+          image_path TEXT DEFAULT NULL,
+          timestamp INTEGER NOT NULL,
+          FOREIGN KEY(session_id) REFERENCES vision_sessions(id) ON DELETE CASCADE
+        );
+      `);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_vision_logs_session ON vision_logs(session_id);`,
+      );
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_vision_logs_session_time ON vision_logs(session_id, timestamp);`,
+      );
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to ensure vision_logs schema: ${error}`);
       throw error;
     }
   }
@@ -770,6 +825,304 @@ export class DatabaseService {
     } catch (error) {
       LOG(TAG).ERROR(`Failed to delete RAG folder: ${error}`);
       throw error;
+    }
+  }
+
+  // ---------------- Vision Session APIs ----------------
+
+  createVisionSession(goal: string, id: string = randomUUID()): VisionSessionRecord {
+    this.validateInput(goal, "goal");
+    this.validateInput(id, "id");
+
+    const now = Date.now();
+    const stmt = this.db.prepare(
+      `INSERT INTO vision_sessions (id, goal, created_at, updated_at, status) VALUES (?, ?, ?, ?, ?)`,
+    );
+    const record: VisionSessionRecord = {
+      id,
+      goal,
+      createdAt: now,
+      updatedAt: now,
+      status: "running",
+    };
+
+    try {
+      stmt.run(record.id, record.goal, record.createdAt, record.updatedAt, record.status);
+      return record;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to create vision session: ${error}`);
+      throw new Error(`Failed to create vision session: ${error}`);
+    }
+  }
+
+  getVisionSessions(): VisionSessionRecord[] {
+    try {
+      const stmt = this.db.prepare(
+        `SELECT id, goal, created_at as createdAt, updated_at as updatedAt, status FROM vision_sessions ORDER BY updated_at DESC`,
+      );
+      const rows = stmt.all() as Array<{
+        id: string;
+        goal: string;
+        createdAt: number;
+        updatedAt: number;
+        status: VisionSessionStatus;
+      }>;
+      return rows.map((row) => ({
+        id: row.id,
+        goal: row.goal,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        status: row.status,
+      }));
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get vision sessions: ${error}`);
+      throw new Error(`Failed to get vision sessions: ${error}`);
+    }
+  }
+
+  getVisionSessionById(id: string): VisionSessionRecord | null {
+    this.validateInput(id, "id");
+
+    try {
+      const stmt = this.db.prepare(
+        `SELECT id, goal, created_at as createdAt, updated_at as updatedAt, status FROM vision_sessions WHERE id = ?`,
+      );
+      const row = stmt.get(id) as VisionSessionRecord | undefined;
+      return row ?? null;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get vision session by id: ${error}`);
+      throw new Error(`Failed to get vision session by id: ${error}`);
+    }
+  }
+
+  updateVisionSessionStatus(id: string, status: VisionSessionStatus): boolean {
+    this.validateInput(id, "id");
+    const validStatuses: VisionSessionStatus[] = ["running", "completed", "failed", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(", ")}`);
+    }
+
+    try {
+      const updatedAt = Date.now();
+      const stmt = this.db.prepare(
+        `UPDATE vision_sessions SET status = ?, updated_at = ? WHERE id = ?`,
+      );
+      const result = stmt.run(status, updatedAt, id);
+      return result.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to update vision session status: ${error}`);
+      throw new Error(`Failed to update vision session status: ${error}`);
+    }
+  }
+
+  deleteVisionSession(id: string): boolean {
+    this.validateInput(id, "id");
+
+    try {
+      const stmt = this.db.prepare(`DELETE FROM vision_sessions WHERE id = ?`);
+      const result = stmt.run(id);
+      return result.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to delete vision session: ${error}`);
+      throw new Error(`Failed to delete vision session: ${error}`);
+    }
+  }
+
+  // ---------------- Vision Log APIs ----------------
+
+  addVisionLog(log: VisionLogRecord): VisionLogRecord {
+    this.validateInput(log.id, "log.id");
+    this.validateInput(log.sessionId, "log.sessionId");
+    this.validateInput(log.type, "log.type");
+    this.validateInput(log.title, "log.title");
+
+    if (typeof log.timestamp !== "number" || log.timestamp <= 0) {
+      throw new Error("log.timestamp must be a positive number");
+    }
+
+    const validTypes: VisionLogType[] = [
+      "server",
+      "llm-request",
+      "llm-response",
+      "thinking",
+      "status",
+      "error",
+      "image-preview",
+    ];
+
+    if (!validTypes.includes(log.type)) {
+      throw new Error(
+        `Invalid type: ${log.type}. Must be one of: ${validTypes.join(", ")}`,
+      );
+    }
+
+    const stmt = this.db.prepare(
+      `INSERT INTO vision_logs (id, session_id, type, title, content, image_path, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+
+      stmt.run(
+        log.id,
+        log.sessionId,
+        log.type,
+        log.title,
+        log.content || "",
+        log.imagePath,
+        log.timestamp,
+      );
+
+      // Update session timestamp
+      const updateStmt = this.db.prepare(
+        `UPDATE vision_sessions SET updated_at = ? WHERE id = ?`,
+      );
+      updateStmt.run(log.timestamp, log.sessionId);
+
+      this.db.exec("COMMIT");
+
+      return {
+        id: log.id,
+        sessionId: log.sessionId,
+        type: log.type,
+        title: log.title,
+        content: log.content || "",
+        imagePath: log.imagePath,
+        timestamp: log.timestamp,
+      };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to add vision log: ${error}`);
+      throw new Error(`Failed to add vision log: ${error}`);
+    }
+  }
+
+  getVisionLogsBySession(sessionId: string): VisionLogRecord[] {
+    this.validateInput(sessionId, "sessionId");
+
+    try {
+      const stmt = this.db.prepare(
+        `SELECT id,
+                session_id as sessionId,
+                type,
+                title,
+                content,
+                image_path as imagePath,
+                timestamp
+         FROM vision_logs
+         WHERE session_id = ?
+         ORDER BY timestamp ASC`,
+      );
+
+      const rows = stmt.all(sessionId) as Array<{
+        id: string;
+        sessionId: string;
+        type: VisionLogType;
+        title: string;
+        content: string;
+        imagePath: string | null;
+        timestamp: number;
+      }>;
+
+      return rows.map((row) => ({
+        id: row.id,
+        sessionId: row.sessionId,
+        type: row.type,
+        title: row.title,
+        content: row.content,
+        imagePath: row.imagePath,
+        timestamp: row.timestamp,
+      }));
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get vision logs by session: ${error}`);
+      throw new Error(`Failed to get vision logs by session: ${error}`);
+    }
+  }
+
+  /**
+   * Retrieve vision sessions with their logs using a single optimized SQL query.
+   * Sessions are ordered by updatedAt descending and limited by the provided limit.
+   * Logs within each session are ordered ascending by timestamp.
+   */
+  getVisionSessionsWithLogs(limit: number = -1): VisionSessionWithLogs[] {
+    if (limit !== -1 && (typeof limit !== "number" || limit <= 0)) {
+      throw new Error("limit must be -1 or a positive number");
+    }
+
+    try {
+      const baseSessionQuery = `SELECT id FROM vision_sessions ORDER BY updated_at DESC`;
+      const sessionQuery =
+        limit === -1 ? baseSessionQuery : `${baseSessionQuery} LIMIT ?`;
+
+      const query = `
+        SELECT 
+          s.id as sessionId,
+          s.goal,
+          s.created_at as sessionCreatedAt,
+          s.updated_at as sessionUpdatedAt,
+          s.status,
+          l.id as logId,
+          l.type as logType,
+          l.title as logTitle,
+          l.content as logContent,
+          l.image_path as imagePath,
+          l.timestamp as logTimestamp
+        FROM (${sessionQuery}) limited_sessions
+        JOIN vision_sessions s ON s.id = limited_sessions.id
+        LEFT JOIN vision_logs l ON s.id = l.session_id
+        ORDER BY s.updated_at DESC, l.timestamp ASC
+      `;
+
+      const stmt = this.db.prepare(query);
+      const rows = (limit === -1 ? stmt.all() : stmt.all(limit)) as Array<{
+        sessionId: string;
+        goal: string;
+        sessionCreatedAt: number;
+        sessionUpdatedAt: number;
+        status: VisionSessionStatus;
+        logId: string | null;
+        logType: VisionLogType | null;
+        logTitle: string | null;
+        logContent: string | null;
+        imagePath: string | null;
+        logTimestamp: number | null;
+      }>;
+
+      // Group the results by session
+      const sessionsMap = new Map<string, VisionSessionWithLogs>();
+
+      for (const row of rows) {
+        if (!sessionsMap.has(row.sessionId)) {
+          sessionsMap.set(row.sessionId, {
+            id: row.sessionId,
+            goal: row.goal,
+            createdAt: row.sessionCreatedAt,
+            updatedAt: row.sessionUpdatedAt,
+            status: row.status,
+            logs: [],
+          });
+        }
+
+        // Add log if it exists
+        if (row.logId) {
+          const session = sessionsMap.get(row.sessionId)!;
+          session.logs.push({
+            id: row.logId,
+            sessionId: row.sessionId,
+            type: row.logType!,
+            title: row.logTitle!,
+            content: row.logContent || "",
+            imagePath: row.imagePath,
+            timestamp: row.logTimestamp!,
+          });
+        }
+      }
+
+      return Array.from(sessionsMap.values());
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get vision sessions with logs: ${error}`);
+      throw new Error(`Failed to get vision sessions with logs: ${error}`);
     }
   }
 

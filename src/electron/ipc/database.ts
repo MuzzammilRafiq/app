@@ -109,4 +109,47 @@ export function setupDatabaseHandlers() {
   ipcMain.handle("db:delete-rag-folder", async (_event, folderPath: string) => {
     return dbService.deleteRagFolder(folderPath);
   });
+
+  // Vision sessions
+  ipcMain.handle(
+    "db:create-vision-session",
+    async (_event, goal: string, id?: string) => {
+      return dbService.createVisionSession(goal, id);
+    },
+  );
+
+  ipcMain.handle("db:get-vision-sessions", async () => {
+    return dbService.getVisionSessions();
+  });
+
+  ipcMain.handle("db:get-vision-session", async (_event, id: string) => {
+    return dbService.getVisionSessionById(id);
+  });
+
+  ipcMain.handle(
+    "db:update-vision-session-status",
+    async (_event, id: string, status: string) => {
+      return dbService.updateVisionSessionStatus(id, status as any);
+    },
+  );
+
+  ipcMain.handle("db:delete-vision-session", async (_event, id: string) => {
+    return dbService.deleteVisionSession(id);
+  });
+
+  // Vision logs
+  ipcMain.handle("db:add-vision-log", async (_event, log: any) => {
+    return dbService.addVisionLog(log);
+  });
+
+  ipcMain.handle("db:get-vision-logs", async (_event, sessionId: string) => {
+    return dbService.getVisionLogsBySession(sessionId);
+  });
+
+  ipcMain.handle(
+    "db:get-vision-sessions-with-logs",
+    async (_event, limit: number) => {
+      return dbService.getVisionSessionsWithLogs(limit);
+    },
+  );
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { LoadingSVG, SendSVG } from "../icons";
 import { useVisionLogStore } from "./VisionLogStore";
 import { loadSettings } from "../../services/settingsStorage";
+import type { VisionSessionStatus } from "../../../common/types";
 
 const DEBUG_MODE = true;
 
@@ -13,6 +14,8 @@ export default function VisionInput() {
   const addLog = useVisionLogStore((s) => s.addLog);
   const clearLogs = useVisionLogStore((s) => s.clearLogs);
   const setExecuting = useVisionLogStore((s) => s.setExecuting);
+  const setCurrentSessionId = useVisionLogStore((s) => s.setCurrentSessionId);
+  const currentSessionId = useVisionLogStore((s) => s.currentSessionId);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -50,6 +53,19 @@ export default function VisionInput() {
     };
   }, [addLog]);
 
+  /**
+   * Update the session status in the database
+   */
+  const updateSessionStatus = async (status: VisionSessionStatus) => {
+    if (currentSessionId) {
+      try {
+        await window.electronAPI.dbUpdateVisionSessionStatus(currentSessionId, status);
+      } catch (err) {
+        console.error("Failed to update vision session status:", err);
+      }
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -70,6 +86,16 @@ export default function VisionInput() {
     clearLogs();
     setExecuting(true);
 
+    // Create a new vision session in the database
+    try {
+      const session = await window.electronAPI.dbCreateVisionSession(trimmedContent);
+      setCurrentSessionId(session.id);
+    } catch (err) {
+      console.error("Failed to create vision session:", err);
+      // Continue without persistence
+      setCurrentSessionId(null);
+    }
+
     addLog({
       type: "status",
       title: "Started",
@@ -86,23 +112,30 @@ export default function VisionInput() {
 
       if (!result.success) {
         addLog({ type: "error", title: "Failed", content: result.error || "Unknown error" });
+        await updateSessionStatus("failed");
       } else {
         addLog({
           type: "status",
           title: "Complete",
           content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
         });
+        await updateSessionStatus("completed");
       }
     } catch (err) {
       addLog({ type: "error", title: "Error", content: err instanceof Error ? err.message : "Unknown error" });
+      await updateSessionStatus("failed");
     } finally {
       setExecuting(false);
+      // Clear session ID after execution is done - logs are already persisted
+      setCurrentSessionId(null);
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     setExecuting(false);
     addLog({ type: "status", title: "Cancelled", content: "Action cancelled" });
+    await updateSessionStatus("cancelled");
+    setCurrentSessionId(null);
   };
 
   return (
