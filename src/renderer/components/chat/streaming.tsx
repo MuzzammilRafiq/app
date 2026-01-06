@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import type { StreamChunk } from "../../../common/types";
 import { PlanRenderer, LogRenderer, SourceRenderer } from "./renderers";
-import { WorkerMarkdownRenderer } from "./worker-renderers";
+import { MarkdownRenderer } from "./markdown-renderer";
 import { useStreamingStore } from "../../utils/store";
 
 interface Segment {
@@ -82,11 +82,9 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
         {/* Stream messages */}
         {streamSegments.map((msg) => (
           <div key={msg.id} className="prose prose-sm max-w-none">
-            <WorkerMarkdownRenderer
-              id={msg.id}
+            <MarkdownRenderer
               content={msg.content}
               isUser={false}
-              isStreaming={true}
             />
           </div>
         ))}

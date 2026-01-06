@@ -3,6 +3,7 @@ import MarkdownWorker from "../workers/markdown.worker?worker";
 
 class MarkdownWorkerManager {
   private worker: Worker;
+  private isReady: boolean = false;
   private listeners: Map<
     string,
     (result: { html: string; error?: string }) => void
@@ -13,28 +14,42 @@ class MarkdownWorkerManager {
   > = new Map();
 
   constructor() {
-    this.worker = new MarkdownWorker();
-    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const { id, html, error } = e.data;
+    console.log("[MarkdownWorker] Initializing worker...");
+    try {
+      this.worker = new MarkdownWorker();
+      console.log("[MarkdownWorker] Worker created successfully");
 
-      // Handle one-off promises (if used directly)
-      const promise = this.pending.get(id);
-      if (promise) {
-        if (error) {
-          console.error(`Markdown Worker Error [${id}]:`, error);
-          promise.reject(error);
-        } else {
-          promise.resolve(html);
+      this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+        const { id, html, error } = e.data;
+        console.log(`[MarkdownWorker] Received response for ${id}`, { htmlLength: html?.length, error });
+
+        // Handle one-off promises (if used directly)
+        const promise = this.pending.get(id);
+        if (promise) {
+          if (error) {
+            console.error(`Markdown Worker Error [${id}]:`, error);
+            promise.reject(error);
+          } else {
+            promise.resolve(html);
+          }
+          this.pending.delete(id);
         }
-        this.pending.delete(id);
-      }
 
-      // Handle subscription listeners (for React components)
-      const listener = this.listeners.get(id);
-      if (listener) {
-        listener({ html, error });
-      }
-    };
+        // Handle subscription listeners (for React components)
+        const listener = this.listeners.get(id);
+        if (listener) {
+          listener({ html, error });
+        }
+        this.isReady = true;
+      };
+
+      this.worker.onerror = (e: ErrorEvent) => {
+        console.error("[MarkdownWorker] Worker error:", e.message, e);
+      };
+    } catch (e) {
+      console.error("[MarkdownWorker] Failed to create worker:", e);
+      throw e;
+    }
   }
 
   public process(

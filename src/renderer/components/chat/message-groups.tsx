@@ -1,4 +1,4 @@
-import { WorkerMarkdownRenderer } from "./worker-renderers";
+import { MarkdownRenderer } from "./markdown-renderer";
 import type { ChatMessageRecord } from "../../../common/types";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useRef, useEffect, memo } from "react";
@@ -194,11 +194,9 @@ function AssistantMessageSection({
             key={msg.id}
             className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]"
           >
-            <WorkerMarkdownRenderer
-              id={msg.id}
+            <MarkdownRenderer
               content={msg.content}
               isUser={false}
-              isStreaming={isStreaming}
             />
           </div>
         ))}
@@ -257,8 +255,7 @@ function MessageGroups({
                     </div>
                   )}
                 <div className="prose prose-sm max-w-none text-white selection:bg-white/30 selection:text-white">
-                  <WorkerMarkdownRenderer
-                    id={group.userMessage.id}
+                  <MarkdownRenderer
                     content={group.userMessage.content}
                     isUser={true}
                   />

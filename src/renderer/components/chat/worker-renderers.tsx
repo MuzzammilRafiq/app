@@ -53,10 +53,13 @@ export function WorkerMarkdownRenderer({
     // We append content length to ID to ensure state updates if ID is reused (unlikely for msgs but good practice)
     const uniqueId = `${id}-${isUser ? "u" : "a"}`;
 
+    console.log(`[WorkerMarkdownRenderer] Subscribing with ID: ${uniqueId}, content length: ${throttledContent.length}`);
+
     // Reset error on new content/id
     setError(null);
 
     const unsub = markdownWorker.subscribe(uniqueId, (result) => {
+      console.log(`[WorkerMarkdownRenderer] Callback received for ${uniqueId}:`, result);
       // Result is now an object { html, error }
       // We need to update manager to pass this object
       if (typeof result === "string") {
@@ -65,6 +68,7 @@ export function WorkerMarkdownRenderer({
         if (result.error) {
           setError(result.error);
         } else {
+          console.log(`[WorkerMarkdownRenderer] Setting HTML, length: ${result.html?.length}`);
           setHtml(result.html);
         }
       }
@@ -72,6 +76,7 @@ export function WorkerMarkdownRenderer({
     });
 
     // Send task
+    console.log(`[WorkerMarkdownRenderer] Posting to worker: ${uniqueId}`);
     markdownWorker.post(uniqueId, throttledContent, isUser);
 
     return unsub;
