@@ -4,6 +4,7 @@ import { webSearchAnswer } from "../web-search/index.js";
 import { IpcMainInvokeEvent } from "electron";
 import { ChatMessageRecord } from "../../../common/types.js";
 import { LOG } from "../../utils/logging.js";
+import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 const TAG = "pre";
 
 export const preProcessMessage = async (
@@ -15,12 +16,10 @@ export const preProcessMessage = async (
 ) => {
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
+    const buffer = new StreamChunkBuffer(event.sender);
     try {
       LOG(TAG).INFO("generating image description using OpenRouter");
-      event.sender.send("stream-chunk", {
-        chunk: `*Analyzing image(s) with vision model...*`,
-        type: "log",
-      });
+      buffer.send(`*Analyzing image(s) with vision model...*`, "log");
 
       // Use ASK_IMAGE to describe the image
       const response = ASK_IMAGE(
@@ -40,10 +39,8 @@ export const preProcessMessage = async (
       }
 
       LOG(TAG).SUCCESS("image description generated");
-      event.sender.send("stream-chunk", {
-        chunk: `*Image description extracted successfully*`,
-        type: "log",
-      });
+      buffer.send(`*Image description extracted successfully*`, "log");
+      buffer.flush();
 
       lastUserMessage = {
         id: lastUserMessage.id,
@@ -84,7 +81,7 @@ export const preProcessMessage = async (
     const retreivedDocuments = await ragAnswer(
       event,
       apiKey,
-      lastUserMessage.content,
+      lastUserMessage.content
     );
     lastUserMessage.content =
       lastUserMessage.content +

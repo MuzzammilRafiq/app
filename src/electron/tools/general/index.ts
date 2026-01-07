@@ -1,6 +1,7 @@
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG, truncate } from "../../utils/logging.js";
 import { ChatMessageRecord } from "../../../common/types.js";
+import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 
 const TAG = "general";
 export const generalTool = async (
@@ -11,6 +12,8 @@ export const generalTool = async (
   config: any,
   signal?: AbortSignal
 ): Promise<{ output: string }> => {
+  const buffer = new StreamChunkBuffer(event.sender);
+
   try {
     LOG(TAG).INFO("taskDescription:", taskDescription);
     LOG(TAG).INFO("messages count:", messages.length);
@@ -42,24 +45,20 @@ Provide a clear, concise, well-formatted markdown response based on the conversa
     let c = "";
     for await (const { content, reasoning } of response) {
       if (signal?.aborted) {
+        buffer.flush();
         break;
       }
       if (content) {
         c += content;
       }
       if (reasoning) {
-        event.sender.send("stream-chunk", {
-          chunk: reasoning,
-          type: "log",
-        });
+        buffer.send(reasoning, "log");
       }
       if (content) {
-        event.sender.send("stream-chunk", {
-          chunk: content,
-          type: "stream",
-        });
+        buffer.send(content, "stream");
       }
     }
+    buffer.flush();
     LOG(TAG).INFO(`Response generated: ${truncate(c, 100)}`);
     // Streaming complete - no need to send final chunk
 

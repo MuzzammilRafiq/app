@@ -5,6 +5,7 @@ import {
   type ChatMessage,
 } from "../../services/model.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
+import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 
 const TAG = "web-search";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
@@ -68,18 +69,17 @@ User query: "${userQuery}"
     throw new Error("No response content received from LLM");
   }
 
+  const buffer = new StreamChunkBuffer(event.sender);
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
       c += content;
     }
     if (reasoning) {
-      event.sender.send("stream-chunk", {
-        chunk: reasoning,
-        type: "log",
-      });
+      buffer.send(reasoning, "log");
     }
   }
+  buffer.flush();
 
   try {
     const parsedResponse = JSON.parse(c);
@@ -108,9 +108,13 @@ function createAbortPromise(signal?: AbortSignal): Promise<never> {
       reject(new DOMException("Aborted", "AbortError"));
       return;
     }
-    signal.addEventListener("abort", () => {
-      reject(new DOMException("Aborted", "AbortError"));
-    }, { once: true });
+    signal.addEventListener(
+      "abort",
+      () => {
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true }
+    );
   });
 }
 
@@ -165,7 +169,10 @@ export async function webSearchAnswer(
 
   // Send search status event - generating queries
   event.sender.send("stream-chunk", {
-    chunk: JSON.stringify({ phase: "generating", message: "Generating search queries" }),
+    chunk: JSON.stringify({
+      phase: "generating",
+      message: "Generating search queries",
+    }),
     type: "search-status",
   });
 
@@ -186,7 +193,10 @@ export async function webSearchAnswer(
 
   // Send search status event - searching
   event.sender.send("stream-chunk", {
-    chunk: JSON.stringify({ phase: "searching", message: `Searching ${queries.length} queries` }),
+    chunk: JSON.stringify({
+      phase: "searching",
+      message: `Searching ${queries.length} queries`,
+    }),
     type: "search-status",
   });
 
@@ -209,7 +219,10 @@ export async function webSearchAnswer(
 
     if (successfulResults.length === 0) {
       event.sender.send("stream-chunk", {
-        chunk: JSON.stringify({ phase: "complete", message: "No results found" }),
+        chunk: JSON.stringify({
+          phase: "complete",
+          message: "No results found",
+        }),
         type: "search-status",
       });
       return "No relevant web search results found.";
@@ -217,7 +230,10 @@ export async function webSearchAnswer(
 
     // Send search status event - processing
     event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({ phase: "processing", message: `Found ${successfulResults.length} pages` }),
+      chunk: JSON.stringify({
+        phase: "processing",
+        message: `Found ${successfulResults.length} pages`,
+      }),
       type: "search-status",
     });
 
@@ -241,7 +257,10 @@ export async function webSearchAnswer(
 
     // Send search status event - extracting
     event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({ phase: "extracting", message: "Extracting relevant info" }),
+      chunk: JSON.stringify({
+        phase: "extracting",
+        message: "Extracting relevant info",
+      }),
       type: "search-status",
     });
 
@@ -274,13 +293,15 @@ export async function webSearchAnswer(
       LOG(TAG).INFO("Web search cancelled by user");
       return "";
     }
-    
+
     LOG(TAG).ERROR("Web search API error:", error);
     event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({ phase: "error", message: error instanceof Error ? error.message : "Search failed" }),
+      chunk: JSON.stringify({
+        phase: "error",
+        message: error instanceof Error ? error.message : "Search failed",
+      }),
       type: "search-status",
     });
     return `Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`;
   }
 }
-

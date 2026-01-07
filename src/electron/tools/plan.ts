@@ -3,6 +3,7 @@ import { terminalAgent } from "./terminal/index.js";
 import { ChatMessageRecord, MakePlanResponse } from "../../common/types.js";
 import { type ChatMessage, ASK_TEXT } from "../services/model.js";
 import { LOG } from "../utils/logging.js";
+import { StreamChunkBuffer } from "../utils/stream-buffer.js";
 const TAG = "plan";
 export const tools = {
   terminal_tool: {
@@ -139,18 +140,17 @@ export const getPlan = async (
     if (!response) {
       throw new Error("No response content received from LLM");
     }
+    const buffer = new StreamChunkBuffer(event.sender);
     let c = "";
     for await (const { content, reasoning } of response) {
       if (content) {
         c += content;
       }
       if (reasoning) {
-        event.sender.send("stream-chunk", {
-          chunk: reasoning,
-          type: "log",
-        });
+        buffer.send(reasoning, "log");
       }
     }
+    buffer.flush();
     const planData: {
       steps: MakePlanResponse[];
     } = JSON.parse(c);

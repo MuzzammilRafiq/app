@@ -2,6 +2,7 @@ import { IpcMainInvokeEvent } from "electron";
 
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG } from "../../utils/logging.js";
+import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
@@ -51,18 +52,17 @@ User query: "${userQuery}"
   if (!response) {
     throw new Error("No response content received from LLM");
   }
+  const buffer = new StreamChunkBuffer(event.sender);
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
       c += content;
     }
     if (reasoning) {
-      event.sender.send("stream-chunk", {
-        chunk: reasoning,
-        type: "log",
-      });
+      buffer.send(reasoning, "log");
     }
   }
+  buffer.flush();
   try {
     const parsedResponse = JSON.parse(c);
     return parsedResponse.queries;

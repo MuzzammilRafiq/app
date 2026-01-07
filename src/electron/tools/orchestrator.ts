@@ -9,6 +9,7 @@ import {
 import { IpcMainInvokeEvent, ipcMain } from "electron";
 import { terminalExecutor, checkCommandSecurity } from "./terminal/index.js";
 import { generalTool } from "./general/index.js";
+import { StreamChunkBuffer } from "../utils/stream-buffer.js";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -193,13 +194,15 @@ async function generatePlan(
       throw new Error("No response from LLM");
     }
 
+    const buffer = new StreamChunkBuffer(event.sender);
     let content = "";
     for await (const { content: chunk, reasoning } of response) {
       if (chunk) content += chunk;
       if (reasoning) {
-        event.sender.send("stream-chunk", { chunk: reasoning, type: "log" });
+        buffer.send(reasoning, "log");
       }
     }
+    buffer.flush();
 
     const parsed = JSON.parse(content);
     const steps: OrchestratorStep[] = parsed.steps.map(
