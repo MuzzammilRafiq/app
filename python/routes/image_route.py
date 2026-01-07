@@ -59,6 +59,32 @@ async def add_images_from_folder(request: AddRequest) -> Dict[str, Any]:
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
 
+
+class ScanFileRequest(BaseModel):
+    file_path: str
+
+
+@image_router.post("/image/scan-file")
+async def add_single_image_file(request: ScanFileRequest) -> Dict[str, Any]:
+    log_info(f"Received request to add single image file: {request.file_path}")
+    try:
+        if not request.file_path.strip():
+            log_warning("Received request with empty file path.")
+            raise HTTPException(status_code=400, detail="File path cannot be empty")
+        
+        result = imageCHroma.add_single_image_file(request.file_path)
+        return result
+    except ValueError as ve:
+        log_error(f"ValueError while adding image file {request.file_path}: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"An unexpected error occurred while adding image file {request.file_path}")
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+        )
+
 @image_router.post("/image/query")
 async def query_images(request: QueryRequest) -> List[str]:
     log_info(

@@ -74,8 +74,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("image-embeddings:delete-all"),
 
   selectFolder: () => ipcRenderer.invoke("image-embeddings:select-folder"),
+  selectImageFiles: () => ipcRenderer.invoke("image-embeddings:select-files"),
   scanFolder: (folder: string) =>
     ipcRenderer.invoke("image-embeddings:scan-folder", folder),
+  scanImageFile: (filePath: string) =>
+    ipcRenderer.invoke("image-embeddings:scan-file", filePath),
   deleteFolder: (folder: string) =>
     ipcRenderer.invoke("image-embeddings:delete-folder", folder),
 
@@ -99,8 +102,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteAllTextEmbeddings: () =>
     ipcRenderer.invoke("text-embeddings:delete-all"),
   selectTextFolder: () => ipcRenderer.invoke("text-embeddings:select-folder"),
+  selectTextFiles: () => ipcRenderer.invoke("text-embeddings:select-files"),
   scanTextFolder: (folder: string) =>
     ipcRenderer.invoke("text-embeddings:scan-folder", folder),
+  scanTextFile: (filePath: string) =>
+    ipcRenderer.invoke("text-embeddings:scan-file", filePath),
   deleteTextFolder: (folder: string) =>
     ipcRenderer.invoke("text-embeddings:delete-folder", folder),
 

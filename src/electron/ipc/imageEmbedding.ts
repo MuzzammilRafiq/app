@@ -28,6 +28,78 @@ export function setupImageEmbeddingHandlers() {
       }
     }
   );
+
+  ipcMain.handle(
+    "image-embeddings:select-files",
+    async (): Promise<string[] | null> => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ["openFile", "multiSelections"],
+          title: "Select Image Files to Index",
+          filters: [
+            {
+              name: "Image Files",
+              extensions: ["jpg", "jpeg", "png", "webp", "heic", "heif"],
+            },
+            { name: "All Files", extensions: ["*"] },
+          ],
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return null;
+        }
+
+        return result.filePaths;
+      } catch (error) {
+        LOG(TAG).ERROR(
+          "Error selecting files:",
+          error instanceof Error ? error.message : String(error)
+        );
+        return null;
+      }
+    }
+  );
+
+  ipcMain.handle(
+    "image-embeddings:scan-file",
+    async (event, file_path: string) => {
+      try {
+        if (!file_path) {
+          throw new Error("No file path provided");
+        }
+        const response = await fetch(`${URL}/image/scan-file`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ file_path }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.detail || `Server error: ${response.status}`
+          );
+        }
+        const results = await response.json();
+        return {
+          success: true,
+          error: null,
+          results,
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        LOG(TAG).ERROR("scan-file failed:", errorMessage);
+
+        return {
+          success: false,
+          error: errorMessage,
+          results: null,
+        };
+      }
+    }
+  );
   ipcMain.handle(
     "image-embeddings:scan-folder",
     async (event, folder_path: string) => {

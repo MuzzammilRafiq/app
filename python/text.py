@@ -223,4 +223,38 @@ class TextChroma:
         log_success(f"Operation completed: {total_added}/{total_files} files processed")
         return result
 
+    def add_single_text_file(self, file_path: str) -> dict:
+        """Process a single text file and add to ChromaDB"""
+        file_path = str(Path(file_path).resolve())
+        
+        if not os.path.exists(file_path):
+            raise ValueError(f"File path does not exist: {file_path}")
+        
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Path is not a file: {file_path}")
+        
+        if not self.is_supported_text_file(file_path):
+            raise ValueError(f"File type not supported: {file_path}")
+        
+        log_info(f"Processing single text file: {file_path}")
+        
+        try:
+            if file_path.endswith(".pdf"):
+                chunks = self.pdf_text_to_chunk(file_path)
+            else:
+                chunks = self.text_file_to_chunk_simple(file_path)
+            
+            self.CREATE(chunks)
+            log_success(f"Successfully indexed text file: {file_path}")
+            
+            return {
+                "file_path": file_path,
+                "chunks_added": len(chunks),
+                "status": "success"
+            }
+        except Exception as e:
+            log_error(f"Error processing text file {file_path}: {str(e)}")
+            raise
+
 textChroma = TextChroma()
+

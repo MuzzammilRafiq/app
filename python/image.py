@@ -130,5 +130,33 @@ class ImageChroma:
         )
         return result
 
+    def add_single_image_file(self, file_path: str) -> dict:
+        """Process a single image file and add to ChromaDB"""
+        file_path = str(Path(file_path).resolve())
+        
+        if not os.path.exists(file_path):
+            raise ValueError(f"File path does not exist: {file_path}")
+        
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Path is not a file: {file_path}")
+        
+        if not self.is_supported_image_file(file_path):
+            raise ValueError(f"File type not supported: {file_path}")
+        
+        log_info(f"Processing single image file: {file_path}")
+        
+        try:
+            self.CREATE([file_path])
+            log_success(f"Successfully indexed image file: {file_path}")
+            
+            return {
+                "file_path": file_path,
+                "status": "success"
+            }
+        except Exception as e:
+            log_error(f"Error processing image file {file_path}: {str(e)}")
+            raise
+
 
 imageCHroma = ImageChroma()
+

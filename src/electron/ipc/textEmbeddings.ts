@@ -30,6 +30,86 @@ export function setupTextEmbeddingHandlers() {
   );
 
   ipcMain.handle(
+    "text-embeddings:select-files",
+    async (): Promise<string[] | null> => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ["openFile", "multiSelections"],
+          title: "Select Text Files to Index",
+          filters: [
+            {
+              name: "Text Files",
+              extensions: [
+                "txt", "md", "csv", "tsv", "log", "ini", "cfg", "conf",
+                "yaml", "yml", "json", "xml", "c", "h", "cpp", "hpp", "cc",
+                "cs", "java", "py", "rb", "php", "swift", "go", "rs", "kt",
+                "kts", "scala", "pl", "sh", "bash", "zsh", "html", "htm",
+                "css", "js", "ts", "tsx", "jsx", "env", "toml", "properties",
+                "dockerfile", "gitignore", "gitattributes", "rst", "tex",
+                "asciidoc", "pdf"
+              ],
+            },
+            { name: "All Files", extensions: ["*"] },
+          ],
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return null;
+        }
+
+        return result.filePaths;
+      } catch (error) {
+        LOG(TAG).ERROR(
+          "Error selecting files:",
+          error instanceof Error ? error.message : String(error)
+        );
+        return null;
+      }
+    }
+  );
+
+  ipcMain.handle(
+    "text-embeddings:scan-file",
+    async (event, file_path: string) => {
+      try {
+        if (!file_path) {
+          throw new Error("No file path provided");
+        }
+        const response = await fetch(`${URL}/text/scan-file`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ file_path }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.detail || `Server error: ${response.status}`
+          );
+        }
+        const results = await response.json();
+        return {
+          success: true,
+          error: null,
+          results,
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        LOG(TAG).ERROR("scan-file failed:", errorMessage);
+
+        return {
+          success: false,
+          error: errorMessage,
+          results: null,
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
     "text-embeddings:scan-folder",
     async (event, folder_path: string) => {
       try {

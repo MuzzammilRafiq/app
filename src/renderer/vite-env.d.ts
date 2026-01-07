@@ -182,6 +182,23 @@ interface Window {
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
+     * Opens a dialog to select image files
+     *
+     * @returns {Promise<string[] | null>} The selected file paths or null if cancelled
+     */
+    selectImageFiles: () => Promise<string[] | null>;
+
+    /**
+     * Scans a single image file
+     *
+     * @param {string} filePath - The path to the file to scan
+     * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
+     */
+    scanImageFile: (
+      filePath: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
+
+    /**
      * Adds an image folder to be indexed for search
      *
      * @param {string} folderPath - The path to the folder to add
@@ -292,6 +309,21 @@ interface Window {
      */
     deleteTextFolder: (
       folder: string
+    ) => Promise<{ success: boolean; error: string | null; results: any }>;
+
+    /**
+     * Text embeddings API: opens a dialog to select text files
+     * @returns The selected file paths or null if cancelled
+     */
+    selectTextFiles: () => Promise<string[] | null>;
+
+    /**
+     * Text embeddings API: scans a single text file
+     * @param filePath The path to the file to scan
+     * @returns Scan results
+     */
+    scanTextFile: (
+      filePath: string
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**

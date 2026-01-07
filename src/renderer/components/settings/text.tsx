@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { FileSVG, RescanSVG, TrashSVG } from "../icons";
+import { RescanSVG, TrashSVG } from "../icons";
 import toast from "react-hot-toast";
 
-interface FolderInfo {
-  folderPath: string;
+interface PathInfo {
+  path: string;
+  isFile: boolean;
   lastScannedAt: number | null;
 }
 
@@ -13,33 +14,38 @@ type ScanningState = {
 } | null;
 
 export default function Text() {
-  const [folders, setFolders] = useState<FolderInfo[]>([]);
+  const [paths, setPaths] = useState<PathInfo[]>([]);
   const [scanningState, setScanningState] = useState<ScanningState>(null);
 
-  // Load folders from database on mount
+  // Load paths from database on mount
   useEffect(() => {
-    const loadFolders = async () => {
+    const loadPaths = async () => {
       try {
         const dbFolders = await window.electronAPI.dbGetRagFolders("text");
-        setFolders(dbFolders);
+        // All entries from DB are treated as folder paths (for now, we store files with their path in folder_path)
+        setPaths(dbFolders.map(f => ({
+          path: f.folderPath,
+          isFile: !f.folderPath.includes('.') ? false : true, // Heuristic: files have extensions
+          lastScannedAt: f.lastScannedAt
+        })));
       } catch (error) {
-        console.error("Failed to load text folders:", error);
-        toast.error("Failed to load text folders");
+        console.error("Failed to load text paths:", error);
+        toast.error("Failed to load indexed paths");
       }
     };
-    loadFolders();
+    loadPaths();
   }, []);
 
   const handleTextSelectFolder = async () => {
     try {
       const result = await window.electronAPI?.selectTextFolder();
       if (result) {
-        // Check if folder already exists
-        if (folders.some((f) => f.folderPath === result)) {
+        // Check if path already exists
+        if (paths.some((p) => p.path === result)) {
           toast.error("Folder already added");
           return;
         }
-        await handleTextScanFolder(result, true);
+        await handleTextScanPath(result, true, false);
       }
     } catch (error) {
       console.error("Failed to select folder:", error);
@@ -47,70 +53,94 @@ export default function Text() {
     }
   };
 
-  const handleTextScanFolder = async (folder: string, isNewFolder = false) => {
+  const handleTextSelectFiles = async () => {
     try {
-      setScanningState({ folder, action: isNewFolder ? "adding" : "scanning" });
-      console.log("scanning folder", folder);
+      const result = await window.electronAPI?.selectTextFiles();
+      if (result && result.length > 0) {
+        // Process each file
+        for (const filePath of result) {
+          if (paths.some((p) => p.path === filePath)) {
+            toast.error(`File already added: ${filePath.split('/').pop()}`);
+            continue;
+          }
+          await handleTextScanPath(filePath, true, true);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to select files:", error);
+      toast.error("Failed to select files");
+    }
+  };
 
-      // Python-first: scan folder first
-      const result = await window.electronAPI?.scanTextFolder(folder);
+  const handleTextScanPath = async (pathStr: string, isNew = false, isFile = false) => {
+    try {
+      setScanningState({ folder: pathStr, action: isNew ? "adding" : "scanning" });
+      console.log(isFile ? "scanning file" : "scanning folder", pathStr);
+
+      // Python-first: scan path first
+      let result;
+      if (isFile) {
+        result = await window.electronAPI?.scanTextFile(pathStr);
+      } else {
+        result = await window.electronAPI?.scanTextFolder(pathStr);
+      }
 
       if (!result?.success) {
-        throw new Error(result?.error || "Failed to scan folder");
+        throw new Error(result?.error || `Failed to scan ${isFile ? 'file' : 'folder'}`);
       }
 
       // If Python succeeded, update database
       const now = Date.now();
-      if (isNewFolder) {
-        await window.electronAPI.dbAddRagFolder(folder, "text", now);
+      if (isNew) {
+        await window.electronAPI.dbAddRagFolder(pathStr, "text", now);
       } else {
-        await window.electronAPI.dbUpdateRagFolderScanTime(folder, now);
+        await window.electronAPI.dbUpdateRagFolderScanTime(pathStr, now);
       }
 
       // Update local state
-      if (isNewFolder) {
-        setFolders((prev) => [
-          { folderPath: folder, lastScannedAt: now },
+      if (isNew) {
+        setPaths((prev) => [
+          { path: pathStr, isFile, lastScannedAt: now },
           ...prev,
         ]);
       } else {
-        setFolders((prev) =>
-          prev.map((f) =>
-            f.folderPath === folder ? { ...f, lastScannedAt: now } : f
+        setPaths((prev) =>
+          prev.map((p) =>
+            p.path === pathStr ? { ...p, lastScannedAt: now } : p
           )
         );
       }
 
-      toast.success(isNewFolder ? "Folder added and indexed" : "Folder rescanned");
+      toast.success(isNew ? `${isFile ? 'File' : 'Folder'} added and indexed` : `${isFile ? 'File' : 'Folder'} rescanned`);
     } catch (error: any) {
-      console.error("Error scanning folder:", error);
-      toast.error(error.message || "Failed to scan folder");
+      console.error("Error scanning path:", error);
+      toast.error(error.message || `Failed to scan ${isFile ? 'file' : 'folder'}`);
     } finally {
       setScanningState(null);
     }
   };
 
-  const handleTextRemoveFolder = async (folder: string) => {
+  const handleTextRemovePath = async (pathStr: string) => {
     try {
-      setScanningState({ folder, action: "deleting" });
+      setScanningState({ folder: pathStr, action: "deleting" });
 
       // Python-first: delete from ChromaDB first
-      const response = await window.electronAPI.deleteTextFolder(folder);
+      const response = await window.electronAPI.deleteTextFolder(pathStr);
 
       if (!response.success) {
-        throw new Error(response.error || "Failed to delete folder embeddings");
+        throw new Error(response.error || "Failed to delete embeddings");
       }
 
       // If Python succeeded, delete from database
-      await window.electronAPI.dbDeleteRagFolder(folder);
+      await window.electronAPI.dbDeleteRagFolder(pathStr);
 
       // Update local state
-      setFolders((prev) => prev.filter((f) => f.folderPath !== folder));
+      setPaths((prev) => prev.filter((p) => p.path !== pathStr));
 
-      toast.success("Folder removed successfully");
+      toast.success("Removed successfully");
     } catch (error: any) {
-      toast.error("Error removing folder: " + error.message);
-      console.error("Error removing folder:", error);
+      toast.error("Error removing: " + error.message);
+      console.error("Error removing path:", error);
     } finally {
       setScanningState(null);
     }
@@ -148,7 +178,7 @@ export default function Text() {
                 />
               </div>
               <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>
-                Adding folder and indexing files...
+                Adding and indexing...
               </span>
               <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden ml-2">
                 <div
@@ -163,24 +193,27 @@ export default function Text() {
           </div>
         )}
 
-        {folders.map((folder) => {
-          const isFolderProcessing = scanningState?.folder === folder.folderPath;
-          const isScanning = isFolderProcessing && scanningState?.action === "scanning";
-          const isDeleting = isFolderProcessing && scanningState?.action === "deleting";
+        {paths.map((pathInfo) => {
+          const isPathProcessing = scanningState?.folder === pathInfo.path;
+          const isScanning = isPathProcessing && scanningState?.action === "scanning";
+          const isDeleting = isPathProcessing && scanningState?.action === "deleting";
 
           return (
             <div
-              key={folder.folderPath}
+              key={pathInfo.path}
               className="bg-surface px-3 py-2 rounded-md transition-all duration-200"
               style={{
-                boxShadow: isFolderProcessing ? "0 0 0 2px var(--color-primary-light)" : undefined,
+                boxShadow: isPathProcessing ? "0 0 0 2px var(--color-primary-light)" : undefined,
               }}
             >
-              <div className="text-sm text-gray-700 mb-2 truncate" title={folder.folderPath}>
-                {folder.folderPath}
+              <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                <span>{pathInfo.isFile ? '📄' : '📁'}</span>
+                <span className="truncate" title={pathInfo.path}>
+                  {pathInfo.path}
+                </span>
               </div>
 
-              {isFolderProcessing ? (
+              {isPathProcessing ? (
                 <div className="flex items-center gap-2 py-1">
                   <div className="relative">
                     <div 
@@ -189,8 +222,8 @@ export default function Text() {
                     />
                   </div>
                   <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>
-                    {isScanning && "Rescanning folder..."}
-                    {isDeleting && "Removing folder..."}
+                    {isScanning && "Rescanning..."}
+                    {isDeleting && "Removing..."}
                   </span>
                   <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden ml-2">
                     <div
@@ -207,25 +240,25 @@ export default function Text() {
                   <div className="flex items-center space-x-2">
                     <button
                       disabled={isProcessing}
-                      onClick={() => handleTextScanFolder(folder.folderPath)}
+                      onClick={() => handleTextScanPath(pathInfo.path, false, pathInfo.isFile)}
                       className="hover:bg-primary-light p-1 rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       style={{ color: "var(--color-primary)" }}
-                      title="Rescan folder"
+                      title="Rescan"
                     >
                       {RescanSVG}
                     </button>
                     <button
                       disabled={isProcessing}
-                      onClick={() => handleTextRemoveFolder(folder.folderPath)}
+                      onClick={() => handleTextRemovePath(pathInfo.path)}
                       className="hover:bg-primary-light p-1 rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       style={{ color: "var(--color-primary)" }}
-                      title="Remove folder"
+                      title="Remove"
                     >
                       {TrashSVG}
                     </button>
                   </div>
                   <span className="text-sm text-gray-500">
-                    {formatDate(folder.lastScannedAt)}
+                    {formatDate(pathInfo.lastScannedAt)}
                   </span>
                 </div>
               )}
@@ -234,28 +267,40 @@ export default function Text() {
         })}
 
         {/* Empty state */}
-        {folders.length === 0 && !isProcessing && (
+        {paths.length === 0 && !isProcessing && (
           <div className="text-center py-8 text-gray-500">
             <div className="text-4xl mb-2">📄</div>
-            <p className="text-sm">No text folders indexed yet</p>
-            <p className="text-xs text-gray-400 mt-1">Select a folder to start indexing text files</p>
+            <p className="text-sm">No text files or folders indexed yet</p>
+            <p className="text-xs text-gray-400 mt-1">Select a folder or files to start indexing</p>
           </div>
         )}
       </div>
 
-      {/* Add Folder Button */}
-      <button
-        disabled={isProcessing}
-        onClick={handleTextSelectFolder}
-        className={`w-full px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-          isProcessing
-            ? "border-gray-200 text-gray-400 cursor-not-allowed"
-            : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
-        }`}
-      >
-        {FileSVG}
-        Select Text Folder
-      </button>
+      {/* Add Buttons */}
+      <div className="flex gap-2">
+        <button
+          disabled={isProcessing}
+          onClick={handleTextSelectFolder}
+          className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+            isProcessing
+              ? "border-gray-200 text-gray-400 cursor-not-allowed"
+              : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
+          }`}
+        >
+          📁 Select Folder
+        </button>
+        <button
+          disabled={isProcessing}
+          onClick={handleTextSelectFiles}
+          className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+            isProcessing
+              ? "border-gray-200 text-gray-400 cursor-not-allowed"
+              : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
+          }`}
+        >
+          📄 Select Files
+        </button>
+      </div>
 
       {/* Global CSS for progress animation */}
       <style>{`
