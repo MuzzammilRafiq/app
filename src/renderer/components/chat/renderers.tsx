@@ -345,7 +345,7 @@ export function SourceRenderer({ content }: { content: string }) {
                   className="block"
                 >
                   <div className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1">
-                    {s.title || "Untitled"}
+                    {/* {s.title || "Untitled"} */}
                     <svg
                       className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"
                       fill="none"
