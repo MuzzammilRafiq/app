@@ -139,10 +139,12 @@ export default function VisionInput() {
   };
 
   return (
-    <div className="shrink-0 px-4 pb-4 pt-2">
-      <div className="mx-auto max-w-3xl bg-white rounded-3xl shadow-float border border-transparent">
-        {/* Textarea */}
-        <div className="relative">
+    <div className="shrink-0 px-6 pb-6 pt-2">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-2xl shadow-float border border-slate-200/60">
+        {/* Textarea with inline controls */}
+        <div className="flex items-end gap-2 p-3">
+
+          {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={content}
@@ -150,40 +152,40 @@ export default function VisionInput() {
             onKeyDown={handleKeyDown}
             placeholder="Describe what you want to automate..."
             disabled={isExecuting}
-            className="w-full px-5 py-4 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-24 min-h-14 leading-relaxed"
+            className="flex-1 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
             rows={1}
           />
-        </div>
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-3 pb-3 pt-1">
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 rounded-lg">
-            <span className="text-primary text-xs">✨</span>
-            <span className="text-xs font-medium text-primary/80">Vision Agent</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isExecuting && (
-              <button
-                onClick={handleCancel}
-                className="px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
-              >
-                Stop
-              </button>
-            )}
+          {/* Action buttons */}
+          {isExecuting && (
             <button
-              onClick={handleExecute}
-              disabled={!content.trim() || isExecuting}
-              className={`p-2.5 rounded-xl transition-all flex items-center justify-center shadow-md ${
-                content.trim() && !isExecuting
-                  ? "bg-primary text-white hover:bg-primary-hover hover:scale-105"
-                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
-              }`}
+              onClick={handleCancel}
+              className="px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all self-center"
+              type="button"
             >
-              {isExecuting ? <span className="animate-spin">{LoadingSVG}</span> : SendSVG}
+              Stop
             </button>
-          </div>
+          )}
+
+          {/* Send button */}
+          <button
+            onClick={handleExecute}
+            disabled={!content.trim() || isExecuting}
+            className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
+              content.trim() && !isExecuting
+                ? "bg-primary text-white hover:bg-primary-hover"
+                : "bg-slate-100 text-slate-400 cursor-not-allowed"
+            }`}
+            type="button"
+          >
+            {isExecuting ? <span className="animate-spin">{LoadingSVG}</span> : SendSVG}
+          </button>
         </div>
+      </div>
+      <div className="text-center mt-3">
+        <p className="text-[10px] text-slate-400">
+          AI can make mistakes. Check important info.
+        </p>
       </div>
     </div>
   );
