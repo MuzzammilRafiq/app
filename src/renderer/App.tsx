@@ -6,7 +6,8 @@ import TitleBar from "./components/title-bar";
 import { Toaster } from "react-hot-toast";
 import { useCurrentViewStore, useSidebarCollapsedStore } from "./utils/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MenuSVG, GearSVG } from "./components/icons";
+import { MenuSVG, GearSVG, PlusSVG } from "./components/icons";
+import { useStore, useVisionLogStore } from "./utils/store";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,25 @@ function App() {
   const currentView = useCurrentViewStore((s) => s.currentView);
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
+
+  // Store actions for new session
+  const setCurrentSession = useStore((s) => s.setCurrentSession);
+  const clearLogs = useVisionLogStore((s) => s.clearLogs);
+  const setVisionSessionId = useVisionLogStore((s) => s.setCurrentSessionId);
+
+  const onNewSession = () => {
+    if (currentView === "vision") {
+      clearLogs();
+      setVisionSessionId(null);
+      // Determine if we need to notify any other components (like in SidebarInner)
+      // The SidebarInner does this via window hack, but here we can just clear state directly
+      if ((window as any).__visionSidebarNewSession) {
+        (window as any).__visionSidebarNewSession();
+      }
+    } else {
+      setCurrentSession(undefined);
+    }
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -53,6 +73,15 @@ function App() {
                     title="Open Sidebar"
                   >
                     {MenuSVG}
+                  </button>
+                  <button
+                    onClick={onNewSession}
+                    className="p-2 bg-white/90 backdrop-blur-sm text-slate-500 hover:text-primary hover:bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-slate-200/50"
+                    title={
+                      currentView === "vision" ? "New Vision Task" : "New Chat"
+                    }
+                  >
+                    {PlusSVG}
                   </button>
                   <button
                     onClick={() => setCurrentView("settings")}
