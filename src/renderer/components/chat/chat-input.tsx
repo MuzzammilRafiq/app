@@ -14,7 +14,7 @@ import {
   handlePaste,
   handleImageSelect,
 } from "../../services/chat-handlers";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 
 interface ChatInputProps {
   selectedImage: ImageData | null;
@@ -33,7 +33,7 @@ interface ChatInputProps {
   setIsWebSearchEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function ChatInput({
+function ChatInput({
   selectedImage,
   setSelectedImage,
   imagePaths,
@@ -305,3 +305,5 @@ export default function ChatInput({
     </div>
   );
 }
+
+export default memo(ChatInput);

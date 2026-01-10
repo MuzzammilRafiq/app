@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import toast from "react-hot-toast";
 import { Sparkles, Lightbulb, Search, Image, BookOpen } from "lucide-react";
@@ -94,11 +94,11 @@ export default function ChatContainer() {
     setPendingCommand(null);
   }, []);
 
-  const resetInputState = () => {
+  const resetInputState = useCallback(() => {
     setContent("");
     setImagePaths(null);
     setSelectedImage(null);
-  };
+  }, []);
 
   const djb2Hash = (str: string): string => {
     let hash = 5381;
@@ -166,7 +166,7 @@ export default function ChatContainer() {
     return plans;
   };
 
-  const openSidebar = (payload: {
+  const openSidebar = useCallback((payload: {
     plans: ChatMessageRecord[];
     logs: ChatMessageRecord[];
     sources: ChatMessageRecord[];
@@ -183,8 +183,8 @@ export default function ChatContainer() {
     setSidebarLogs(payload.logs || []);
     setSidebarSources(payload.sources || []);
     setSidebarOpen(true);
-  };
-  const closeSidebar = () => setSidebarOpen(false);
+  }, []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Auto-open sidebar when new assistant details arrive
   const prevCountRef = useRef(0);
@@ -270,7 +270,7 @@ export default function ChatContainer() {
       );
   }, [streamingDetailsSegments, currentSession?.id, messages]);
 
-  const computeLastAssistantGroup = () => {
+  const computeLastAssistantGroup = useCallback(() => {
     const allMessages = [...messages, ...getStreamingMessages()];
     if (!allMessages.length)
       return {
@@ -291,7 +291,7 @@ export default function ChatContainer() {
     const logs = assistantGroup.filter((m) => m.type === "log");
     const sources = assistantGroup.filter((m) => m.type === "source");
     return { plans, logs, sources };
-  };
+  }, [messages, getStreamingMessages]);
 
   useEffect(() => {
     const currLen = currentSession?.messages?.length ?? 0;
@@ -320,7 +320,7 @@ export default function ChatContainer() {
       setSidebarLogs([]);
       setSidebarSources([]);
     }
-  }, [currentSession?.id, isStreaming, streamingDetailsSegments, messages]);
+  }, [currentSession?.id, isStreaming, streamingDetailsSegments, messages, computeLastAssistantGroup]);
 
   // Effect to auto-open details sidebar for new messages
   // Conditions:
@@ -374,9 +374,9 @@ export default function ChatContainer() {
       }
     }
     prevCountRef.current = curr;
-  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened, isStreaming, streamingDetailsSegments]);
+  }, [messages, autoOpenEnabled, sidebarOpen, hasAutoOpened, isStreaming, streamingDetailsSegments, computeLastAssistantGroup]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     const settings = loadSettings();
     if (!settings.openrouterApiKey) {
       toast.error("OpenRouter API key not found in settings");
@@ -462,9 +462,9 @@ export default function ChatContainer() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [content, selectedImage, imagePaths, isLoading, isStreaming, currentSession, isRAGEnabled, isWebSearchEnabled, setupStreaming, cleanupStreaming, addMessage, resetInputState]);
 
-  const handleStopGeneration = async () => {
+  const handleStopGeneration = useCallback(async () => {
     if (currentSession?.id) {
       try {
         await window.electronAPI.cancelStream(currentSession.id);
@@ -474,7 +474,27 @@ export default function ChatContainer() {
         toast.error("Failed to stop generation");
       }
     }
-  };
+  }, [currentSession]);
+
+  // Memoize messages array to prevent unnecessary re-renders
+  const allMessages = useMemo(
+    () => [
+      ...(currentSession?.messages || []),
+      ...streamingSegments.map(
+        (seg): ChatMessageRecord => ({
+          id: seg.id,
+          sessionId: currentSession?.id || '',
+          content: seg.content,
+          role: "assistant",
+          timestamp: Date.now(),
+          isError: "",
+          imagePaths: null,
+          type: seg.type,
+        }),
+      ),
+    ],
+    [currentSession?.messages, streamingSegments, currentSession?.id]
+  );
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
@@ -484,21 +504,7 @@ export default function ChatContainer() {
         (currentSession?.messages?.length > 0 || isStreaming) ? (
           <div className="flex-1 min-h-0">
             <MessageGroups
-              messages={[
-                ...(currentSession.messages || []),
-                ...streamingSegments.map(
-                  (seg): ChatMessageRecord => ({
-                    id: seg.id,
-                    sessionId: currentSession.id,
-                    content: seg.content,
-                    role: "assistant",
-                    timestamp: Date.now(),
-                    isError: "",
-                    imagePaths: null,
-                    type: seg.type,
-                  }),
-                ),
-              ]}
+              messages={allMessages}
               onOpenDetails={openSidebar}
               isStreaming={isStreaming}
             />
