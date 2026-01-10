@@ -37,7 +37,10 @@ function SidebarInner() {
 
   if (sidebarCollapsed) {
     return (
-      <div className="w-14 h-full flex flex-col shrink-0 select-none overflow-hidden border-r border-slate-100 bg-linear-to-b from-slate-50 to-white">
+      <div
+        className="w-14 h-full flex flex-col shrink-0 select-none overflow-hidden border-r border-slate-100"
+        style={{ backgroundColor: "var(--bg-app)" }}
+      >
         <div className="flex-1 overflow-y-auto px-2 py-4 w-full flex flex-col items-center gap-3">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -70,7 +73,10 @@ function SidebarInner() {
     );
   } else {
     return (
-      <div className="w-72 h-full border-r border-slate-100 flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300 bg-linear-to-b from-slate-50 to-white">
+      <div
+        className="w-72 h-full border-r border-slate-100 flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300"
+        style={{ backgroundColor: "var(--bg-app)" }}
+      >
         {/* Header */}
         <div className="p-4 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
