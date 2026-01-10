@@ -64,10 +64,10 @@ export function PlanRenderer({ content }: { content: string }) {
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+            isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
-          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-mono max-h-[600px] overflow-y-auto">
+          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-mono max-h-150 overflow-y-auto">
             {content}
           </pre>
         </div>
@@ -94,10 +94,10 @@ export function PlanRenderer({ content }: { content: string }) {
       <div
         className={clsx(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+          isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0"
         )}
       >
-        <div className="space-y-3 max-h-[600px] overflow-y-auto px-2 pb-2">
+        <div className="space-y-3 max-h-150 overflow-y-auto px-2 pb-2">
           {extracted.steps.map((step, index) => (
             <div
               key={index}
@@ -263,10 +263,10 @@ export function SourceRenderer({ content }: { content: string }) {
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+            isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
-          <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
+          <ul className="space-y-2 px-2 pb-2 max-h-150 overflow-y-auto">
             {ragSources.map((s) => (
               <li
                 key={s.id}
@@ -329,10 +329,10 @@ export function SourceRenderer({ content }: { content: string }) {
         <div
           className={clsx(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[800px] opacity-100 mt-2" : "max-h-0 opacity-0"
+            isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0"
           )}
         >
-          <ul className="space-y-2 px-2 pb-2 max-h-[600px] overflow-y-auto">
+          <ul className="space-y-2 px-2 pb-2 max-h-150 overflow-y-auto">
             {webSources.map((s, index) => (
               <li
                 key={`${s.url}-${index}`}

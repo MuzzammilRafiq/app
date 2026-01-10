@@ -90,7 +90,6 @@ function ChatInput({
 
   // Chip toggle styles
   const chipBase = "px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer";
-  const chipInactive = `${chipBase} text-slate-400 hover:text-slate-600 hover:bg-slate-100`;
   const chipActive = `${chipBase} text-primary bg-primary-light/30`;
 
   return (
