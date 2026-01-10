@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { RescanSVG, TrashSVG } from "../../../components/icons";
 import toast from "react-hot-toast";
+import { Folder, Image, FolderPlus, ImagePlus } from "lucide-react";
 
 interface PathInfo {
   path: string;
@@ -228,7 +229,7 @@ export default function Images() {
               }}
             >
               <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                <span>{pathInfo.isFile ? "🖼️" : "📁"}</span>
+                {pathInfo.isFile ? <Image className="w-4 h-4 shrink-0" /> : <Folder className="w-4 h-4 shrink-0" />}
                 <span className="truncate" title={pathInfo.path}>
                   {pathInfo.path}
                 </span>
@@ -302,7 +303,7 @@ export default function Images() {
         {/* Empty state */}
         {paths.length === 0 && !isProcessing && (
           <div className="text-center py-8 text-gray-500">
-            <div className="text-4xl mb-2">🖼️</div>
+            <Image className="w-12 h-12 mx-auto mb-2" />
             <p className="text-sm">No images indexed yet</p>
             <p className="text-xs text-gray-400 mt-1">
               Select a folder or files to start indexing
@@ -322,7 +323,7 @@ export default function Images() {
               : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
-          📁 Select Folder
+          <FolderPlus className="w-4 h-4" /> Select Folder
         </button>
         <button
           disabled={isProcessing}
@@ -333,7 +334,7 @@ export default function Images() {
               : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
-          🖼️ Select Files
+          <ImagePlus className="w-4 h-4" /> Select Files
         </button>
       </div>
 
