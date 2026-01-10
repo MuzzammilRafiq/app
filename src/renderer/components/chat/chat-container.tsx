@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import toast from "react-hot-toast";
+import { Sparkles, Lightbulb, Search, Image, BookOpen } from "lucide-react";
 import {
   useStore,
   useSessionId,
@@ -503,10 +504,66 @@ export default function ChatContainer() {
             />
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-2xl mb-4 text-blue-700">
-              👋 How can I help you ?
-            </h1>
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="max-w-2xl text-center space-y-6">
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <Sparkles size={64} style={{ color: '#3e2723' }} strokeWidth={1.5} />
+                </div>
+                <h1 className="text-4xl font-semibold" style={{ color: '#3e2723' }}>
+                  How can I help you?
+                </h1>
+                <p className="text-lg" style={{ color: '#5d4037', opacity: 0.8 }}>
+                  Start a conversation by typing a message below
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
+                <div className="p-4 rounded-lg shadow-premium" style={{ 
+                  backgroundColor: '#fefefe',
+                  border: '1px solid rgba(62, 39, 35, 0.08)'
+                }}>
+                  <div className="mb-2">
+                    <Lightbulb size={28} style={{ color: '#3e2723' }} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="font-medium mb-1" style={{ color: '#3e2723' }}>Get Answers</h3>
+                  <p className="text-sm" style={{ color: '#5d4037', opacity: 0.7 }}>Ask questions and get intelligent responses</p>
+                </div>
+                
+                <div className="p-4 rounded-lg shadow-premium" style={{ 
+                  backgroundColor: '#fefefe',
+                  border: '1px solid rgba(62, 39, 35, 0.08)'
+                }}>
+                  <div className="mb-2">
+                    <Search size={28} style={{ color: '#3e2723' }} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="font-medium mb-1" style={{ color: '#3e2723' }}>Search the Web</h3>
+                  <p className="text-sm" style={{ color: '#5d4037', opacity: 0.7 }}>Enable web search for up-to-date information</p>
+                </div>
+                
+                <div className="p-4 rounded-lg shadow-premium" style={{ 
+                  backgroundColor: '#fefefe',
+                  border: '1px solid rgba(62, 39, 35, 0.08)'
+                }}>
+                  <div className="mb-2">
+                    <Image size={28} style={{ color: '#3e2723' }} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="font-medium mb-1" style={{ color: '#3e2723' }}>Analyze Images</h3>
+                  <p className="text-sm" style={{ color: '#5d4037', opacity: 0.7 }}>Upload and discuss images in your chat</p>
+                </div>
+                
+                <div className="p-4 rounded-lg shadow-premium" style={{ 
+                  backgroundColor: '#fefefe',
+                  border: '1px solid rgba(62, 39, 35, 0.08)'
+                }}>
+                  <div className="mb-2">
+                    <BookOpen size={28} style={{ color: '#3e2723' }} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="font-medium mb-1" style={{ color: '#3e2723' }}>RAG Search</h3>
+                  <p className="text-sm" style={{ color: '#5d4037', opacity: 0.7 }}>Search through your knowledge base</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
