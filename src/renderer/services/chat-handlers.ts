@@ -1,5 +1,9 @@
 import toast from "react-hot-toast";
-import { fileToBase64, validateImageFile, type ImageData } from "./imageUtils";
+import {
+  fileToBase64,
+  validateImageFile,
+  type ImageData,
+} from "../utils/image";
 
 interface ImageUploadHandlerProps {
   event: React.ChangeEvent<HTMLInputElement>;
@@ -45,7 +49,7 @@ export const handleImageUpload = async ({
     toast.success(
       hadPreviousImage
         ? "Image replaced successfully"
-        : "Image added successfully",
+        : "Image added successfully"
     );
   } catch (error) {
     console.error("Error processing image:", error);
@@ -113,7 +117,7 @@ export const handlePaste = async ({
     toast.success(
       hadPreviousImage
         ? "Image replaced successfully"
-        : "Image pasted successfully",
+        : "Image pasted successfully"
     );
   } catch (error) {
     console.error("Error processing pasted image:", error);

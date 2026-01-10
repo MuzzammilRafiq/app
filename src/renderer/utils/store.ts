@@ -5,6 +5,8 @@ import type {
   ChatMessageRecord,
   ChatType,
   StreamChunk,
+  VisionLogType,
+  VisionLogRecord,
 } from "../../common/types";
 
 // --------------chatSessions-------------------
@@ -16,7 +18,7 @@ export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
   (set) => ({
     chatSessionRecords: [],
     setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-  }),
+  })
 );
 
 // --------------chatSessionsWithMessages-------------------
@@ -51,7 +53,7 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
     sidebarCollapsed: false,
     setSidebarCollapsed: (collapsed: boolean) =>
       set({ sidebarCollapsed: collapsed }),
-  }),
+  })
 );
 
 // --------------currentView-------------------
@@ -72,13 +74,13 @@ interface Store {
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (
     message: ChatMessageRecord,
-    updatedSession: ChatSessionRecord,
+    updatedSession: ChatSessionRecord
   ) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (
     sessionId: string,
     type: ChatMessageRecord["type"],
-    chunk: string,
+    chunk: string
   ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
   /**
@@ -88,7 +90,7 @@ interface Store {
   replaceStreamingMessages: (
     sessionId: string,
     persistedMessages: ChatMessageRecord[],
-    ephemeralMessageCount: number,
+    ephemeralMessageCount: number
   ) => void;
 }
 interface ChatTitleStore {
@@ -145,7 +147,7 @@ export const useStore = create<Store>((set) => ({
 
       // Sort sessions by updatedAt descending (most recent first)
       const sortedSessions = updatedSessions.sort(
-        (a, b) => b.updatedAt - a.updatedAt,
+        (a, b) => b.updatedAt - a.updatedAt
       );
 
       return {
@@ -273,7 +275,7 @@ export const useStore = create<Store>((set) => ({
   replaceStreamingMessages: (
     sessionId,
     persistedMessages,
-    ephemeralMessageCount,
+    ephemeralMessageCount
   ) => {
     set((state) => {
       const updatedSessions = state.chatSessionsWithMessages.map((session) => {
@@ -365,6 +367,102 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
       return { streamingSegments: updated };
     }),
   clearStreaming: () => set({ streamingSegments: [], isStreaming: false }),
+}));
+
+export interface VisionLogEntry {
+  id: string;
+  timestamp: number;
+  type: VisionLogType;
+  title: string;
+  content: string;
+  imageBase64?: string; // Optional for image previews (in-memory only, not persisted)
+  imagePath?: string | null; // Persisted path to saved image
+}
+
+interface VisionLogStore {
+  logs: VisionLogEntry[];
+  isExecuting: boolean;
+  currentSessionId: string | null;
+  addLog: (entry: Omit<VisionLogEntry, "id" | "timestamp">) => void;
+  setLogs: (logs: VisionLogEntry[]) => void; // For loading from database
+  clearLogs: () => void;
+  setExecuting: (executing: boolean) => void;
+  setCurrentSessionId: (id: string | null) => void;
+}
+
+/**
+ * Persist a log entry to the database
+ * Handles image saving for image-preview type logs
+ */
+async function persistLog(
+  sessionId: string,
+  entry: VisionLogEntry
+): Promise<void> {
+  try {
+    let imagePath: string | null = null;
+
+    // Save image to media folder if it's an image preview
+    if (entry.type === "image-preview" && entry.imageBase64) {
+      try {
+        imagePath = await window.electronAPI.saveImageToMedia({
+          data: entry.imageBase64,
+          mimeType: "image/png",
+          name: `vision-${entry.id}.png`,
+        });
+      } catch (err) {
+        console.error("Failed to save vision image:", err);
+      }
+    }
+
+    const logRecord: VisionLogRecord = {
+      id: entry.id,
+      sessionId,
+      type: entry.type,
+      title: entry.title,
+      content: entry.content,
+      imagePath,
+      timestamp: entry.timestamp,
+    };
+
+    await window.electronAPI.dbAddVisionLog(logRecord);
+  } catch (err) {
+    console.error("Failed to persist vision log:", err);
+  }
+}
+
+export const useVisionLogStore = create<VisionLogStore>((set, get) => ({
+  logs: [],
+  isExecuting: false,
+  currentSessionId: null,
+
+  addLog: (entry) => {
+    const id = crypto.randomUUID();
+    const timestamp = Date.now();
+    const fullEntry: VisionLogEntry = {
+      ...entry,
+      id,
+      timestamp,
+    };
+
+    set((state) => ({
+      logs: [...state.logs, fullEntry],
+    }));
+
+    // Persist to database if we have a session
+    const sessionId = get().currentSessionId;
+    if (sessionId) {
+      persistLog(sessionId, fullEntry);
+    }
+  },
+
+  // Set logs directly from database (for loading saved sessions)
+  setLogs: (logs) => set({ logs }),
+
+  clearLogs: () => set({ logs: [] }),
+
+  setExecuting: (executing) => set({ isExecuting: executing }),
+
+  setCurrentSessionId: (id) => set({ currentSessionId: id }),
 }));
 
 const EMPTY_MESSAGES: ChatMessageRecord[] = [];

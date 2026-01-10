@@ -1,9 +1,8 @@
-import type { WorkerMessage, WorkerResponse } from "../workers/markdown.worker";
-import MarkdownWorker from "../workers/markdown.worker?worker";
+import type { WorkerMessage, WorkerResponse } from "./markdown.worker";
+import MarkdownWorker from "./markdown.worker?worker";
 
 class MarkdownWorkerManager {
   private worker: Worker;
-  private isReady: boolean = false;
   private listeners: Map<
     string,
     (result: { html: string; error?: string }) => void
@@ -21,7 +20,10 @@ class MarkdownWorkerManager {
 
       this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
         const { id, html, error } = e.data;
-        console.log(`[MarkdownWorker] Received response for ${id}`, { htmlLength: html?.length, error });
+        console.log(`[MarkdownWorker] Received response for ${id}`, {
+          htmlLength: html?.length,
+          error,
+        });
 
         // Handle one-off promises (if used directly)
         const promise = this.pending.get(id);
@@ -40,7 +42,6 @@ class MarkdownWorkerManager {
         if (listener) {
           listener({ html, error });
         }
-        this.isReady = true;
       };
 
       this.worker.onerror = (e: ErrorEvent) => {

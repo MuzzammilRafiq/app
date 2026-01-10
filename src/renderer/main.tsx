@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === "development") {
     scan({
       enabled: true,
       log: true,
-      trackChanges: true,
+      // trackChanges: true,
     });
   });
 }
