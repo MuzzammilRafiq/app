@@ -7,6 +7,7 @@ import {
   SearchSVG,
   SendSVG,
   WebSearchSVG,
+  iconClass,
 } from "../../../components/icons";
 import SearchModal from "./search-modal";
 import {
@@ -186,7 +187,7 @@ function ChatInput({
             <button
               onClick={() => setShowAttachMenu((prev) => !prev)}
               disabled={isLoading || isProcessingImage}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all disabled:opacity-50"
+              className={`${iconClass} w-8 h-8`}
               title="Attach"
               type="button"
             >
@@ -212,50 +213,64 @@ function ChatInput({
             {/* Dropdown menu */}
             {showAttachMenu && (
               <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-slate-200 py-1 min-w-40 animate-fade-in z-10">
-                <button
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                  type="button"
-                >
-                  {ImageSVG}
-                  Upload image
-                </button>
-                <button
-                  onClick={() => {
-                    setIsSearchModalOpen(true);
-                    setShowAttachMenu(false);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                  type="button"
-                >
-                  {SearchSVG}
-                  Search images
-                </button>
+                <div className="w-full px-2 py-2 text-left text-sm text-slate-600 flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                    }}
+                    className={`${iconClass} w-7 h-7`}
+                    type="button"
+                  >
+                    {ImageSVG}
+                  </button>
+                  <span>Upload image</span>
+                </div>
+                <div className="w-full px-2 py-2 text-left text-sm text-slate-600 flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setIsSearchModalOpen(true);
+                      setShowAttachMenu(false);
+                    }}
+                    className={`${iconClass} w-7 h-7`}
+                    type="button"
+                  >
+                    {SearchSVG}
+                  </button>
+                  <span>Search images</span>
+                </div>
                 <div className="border-t border-slate-100 my-1" />
-                <button
-                  onClick={() => {
-                    setIsRAGEnabled((prev) => !prev);
-                    setShowAttachMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 transition-colors ${isRAGEnabled ? "text-primary bg-primary-light/20" : "text-slate-600 hover:bg-slate-50"}`}
-                  type="button"
+                <div
+                  className={`w-full px-2 py-2 text-left text-sm flex items-center gap-2 ${isRAGEnabled ? "bg-primary-light/20" : ""}`}
                 >
-                  {RAGSVG}
-                  {isRAGEnabled ? "Disable RAG" : "Enable RAG"}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsWebSearchEnabled((prev) => !prev);
-                    setShowAttachMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 transition-colors ${isWebSearchEnabled ? "text-primary bg-primary-light/20" : "text-slate-600 hover:bg-slate-50"}`}
-                  type="button"
+                  <button
+                    onClick={() => {
+                      setIsRAGEnabled((prev) => !prev);
+                      setShowAttachMenu(false);
+                    }}
+                    className={`${iconClass} w-7 h-7`}
+                    type="button"
+                  >
+                    {RAGSVG}
+                  </button>
+                  <span>{isRAGEnabled ? "Disable RAG" : "Enable RAG"}</span>
+                </div>
+                <div
+                  className={`w-full px-2 py-2 text-left text-sm flex items-center gap-2 ${isWebSearchEnabled ? "bg-primary-light/20" : ""}`}
                 >
-                  {WebSearchSVG}
-                  {isWebSearchEnabled ? "Disable Web" : "Enable Web"}
-                </button>
+                  <button
+                    onClick={() => {
+                      setIsWebSearchEnabled((prev) => !prev);
+                      setShowAttachMenu(false);
+                    }}
+                    className={`${iconClass} w-7 h-7`}
+                    type="button"
+                  >
+                    {WebSearchSVG}
+                  </button>
+                  <span>
+                    {isWebSearchEnabled ? "Disable Web" : "Enable Web"}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -284,11 +299,7 @@ function ChatInput({
           <button
             onClick={isStreaming ? handleStopGeneration : handleSendMessage}
             disabled={!isStreaming && (!hasContent || isLoading)}
-            className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
-              hasContent || isStreaming
-                ? "bg-primary text-white hover:bg-primary-hover"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
-            }`}
+            className={`${iconClass} w-10 h-10`}
             type="button"
           >
             {isStreaming ? (

@@ -69,14 +69,14 @@ function App() {
                 <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
                   <button
                     onClick={() => setSidebarCollapsed(false)}
-                    className="p-2 bg-white/90 backdrop-blur-sm text-slate-500 hover:text-primary hover:bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-slate-200/50"
+                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
                     title="Open Sidebar"
                   >
                     {MenuSVG}
                   </button>
                   <button
                     onClick={onNewSession}
-                    className="p-2 bg-white/90 backdrop-blur-sm text-slate-500 hover:text-primary hover:bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-slate-200/50"
+                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
                     title={
                       currentView === "vision" ? "New Vision Task" : "New Chat"
                     }
@@ -85,7 +85,7 @@ function App() {
                   </button>
                   <button
                     onClick={() => setCurrentView("settings")}
-                    className="p-2 bg-white/90 backdrop-blur-sm text-slate-500 hover:text-primary hover:bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-slate-200/50"
+                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
                     title="Settings"
                   >
                     {GearSVG}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { LoadingSVG, SendSVG } from "../../../components/icons";
+import { LoadingSVG, SendSVG, iconClass } from "../../../components/icons";
 import { useVisionLogStore } from "../../../utils/store";
 import { loadSettings } from "../../../utils/localstore";
 import type { VisionSessionStatus } from "../../../../common/types";
@@ -73,7 +73,7 @@ export default function VisionInput() {
       try {
         await window.electronAPI.dbUpdateVisionSessionStatus(
           currentSessionId,
-          status
+          status,
         );
       } catch (err) {
         console.error("Failed to update vision session status:", err);
@@ -127,7 +127,7 @@ export default function VisionInput() {
         settings.openrouterApiKey,
         trimmedContent,
         settings.imageModel || undefined,
-        DEBUG_MODE
+        DEBUG_MODE,
       );
 
       if (!result.success) {
@@ -198,11 +198,7 @@ export default function VisionInput() {
           <button
             onClick={handleExecute}
             disabled={!content.trim() || isExecuting}
-            className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
-              content.trim() && !isExecuting
-                ? "bg-primary text-white hover:bg-primary-hover"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
-            }`}
+            className={`${iconClass} w-10 h-10`}
             type="button"
           >
             {isExecuting ? (
