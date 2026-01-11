@@ -4,7 +4,7 @@ import CustomTrafficLights from "./custom-traffic-lights";
 export default function TitleBar() {
   return (
     <div
-      className="h-12 flex items-center justify-between shrink-0 select-none border-b border-slate-200"
+      className="h-12 flex items-center justify-between shrink-0 select-none border-b border-border"
       style={
         {
           backgroundColor: "var(--bg-app)",

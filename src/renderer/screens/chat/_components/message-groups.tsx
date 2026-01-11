@@ -174,7 +174,7 @@ function AssistantMessageSection({
   return (
     <div className="flex flex-col gap-2">
       {/* Messages Wrapper */}
-      <div className="w-full text-slate-800 space-y-4 ">
+      <div className="w-full text-text-main space-y-4 ">
         {/* Web Search Indicator - shown prominently when searching */}
         {searchStatus && <SearchingIndicator status={searchStatus} />}
 
@@ -191,7 +191,7 @@ function AssistantMessageSection({
                   sources: sourceMessages,
                 })
               }
-              className="text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-primary transition-colors flex items-center gap-1"
+              className="text-xs font-semibold text-text-subtle uppercase tracking-wider hover:text-primary transition-colors flex items-center gap-1"
             >
               <span>View Process & Sources</span>
             </button>
@@ -241,7 +241,13 @@ function MessageGroups({
 
           {group.userMessage && (
             <div className="flex justify-end pl-12 animate-fade-in mb-6">
-              <div className="bg-primary text-white rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full wrap-break-words">
+              <div
+                className="rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full wrap-break-words"
+                style={{
+                  backgroundColor: "var(--btn-accent-bg)",
+                  color: "var(--btn-accent-text)",
+                }}
+              >
                 {group.userMessage.imagePaths &&
                   group.userMessage.imagePaths.length > 0 && (
                     <div className="flex flex-wrap gap-3 mb-3">

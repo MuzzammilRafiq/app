@@ -7,46 +7,46 @@ const LOG_TYPE_STYLES: Record<
   { bg: string; border: string; icon: string; titleColor: string }
 > = {
   server: {
-    bg: "bg-slate-50",
-    border: "border-slate-200",
+    bg: "bg-text-subtle/10",
+    border: "border-border",
     icon: "🌐",
-    titleColor: "text-slate-700",
+    titleColor: "text-text-main",
   },
   "llm-request": {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/20",
     icon: "📤",
-    titleColor: "text-blue-700",
+    titleColor: "text-blue-600 dark:text-blue-400",
   },
   "llm-response": {
-    bg: "bg-green-50",
-    border: "border-green-200",
+    bg: "bg-green-500/10",
+    border: "border-green-500/20",
     icon: "📥",
-    titleColor: "text-green-700",
+    titleColor: "text-green-600 dark:text-green-400",
   },
   thinking: {
-    bg: "bg-purple-50",
-    border: "border-purple-200",
+    bg: "bg-purple-500/10",
+    border: "border-purple-500/20",
     icon: "🧠",
-    titleColor: "text-purple-700",
+    titleColor: "text-purple-600 dark:text-purple-400",
   },
   status: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
     icon: "⚡",
-    titleColor: "text-amber-700",
+    titleColor: "text-amber-600 dark:text-amber-400",
   },
   error: {
-    bg: "bg-red-50",
-    border: "border-red-200",
+    bg: "bg-red-500/10",
+    border: "border-red-500/20",
     icon: "❌",
-    titleColor: "text-red-700",
+    titleColor: "text-red-600 dark:text-red-400",
   },
   "image-preview": {
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
+    bg: "bg-indigo-500/10",
+    border: "border-indigo-500/20",
     icon: "🖼️",
-    titleColor: "text-indigo-700",
+    titleColor: "text-indigo-600 dark:text-indigo-400",
   },
 };
 
@@ -76,10 +76,10 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
             <p className={`text-xs font-medium ${style.titleColor} truncate`}>
               {entry.title}
             </p>
-            <span className="text-[9px] text-slate-400 shrink-0">{time}</span>
+            <span className="text-[9px] text-text-subtle shrink-0">{time}</span>
           </div>
           {entry.content && (
-            <p className="text-[11px] text-slate-600 mt-0.5 whitespace-pre-wrap break-all font-mono leading-snug">
+            <p className="text-[11px] text-text-muted mt-0.5 whitespace-pre-wrap break-all font-mono leading-snug">
               {entry.content}
             </p>
           )}
@@ -88,7 +88,7 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
               <img
                 src={imageSrc}
                 alt="Preview"
-                className="w-full max-h-32 object-contain rounded-md border border-slate-200 shadow-sm"
+                className="w-full max-h-32 object-contain rounded-md border border-border shadow-sm"
               />
             </div>
           )}
@@ -115,10 +115,10 @@ export default function VisionLogPanel() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-3">🔍</div>
-          <p className="text-slate-500 text-sm">
+          <p className="text-text-muted text-sm">
             Enter a target description and click Send to start
           </p>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-text-subtle text-xs mt-1">
             Vision logs will appear here
           </p>
         </div>

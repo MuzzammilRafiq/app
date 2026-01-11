@@ -2,8 +2,12 @@ import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  duotoneLight as lightTheme,
+  duotoneEarth as darkTheme,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import clsx from "clsx";
+import { useTheme } from "../../../hooks/useTheme";
 
 interface MarkdownRendererProps {
   content: string;
@@ -15,10 +19,12 @@ const CodeBlock = memo(function CodeBlock({
   language,
   children,
   isUser,
+  isDark,
 }: {
   language: string | undefined;
   children: string;
   isUser: boolean;
+  isDark: boolean;
 }) {
   if (!language) {
     // Inline code
@@ -26,9 +32,7 @@ const CodeBlock = memo(function CodeBlock({
       <code
         className={clsx(
           "px-1.5 py-0.5 rounded text-sm font-mono",
-          isUser
-            ? "bg-white/20 text-white"
-            : "bg-slate-100 text-slate-800"
+          isUser ? "bg-white/20 text-white" : "bg-border text-text-main"
         )}
       >
         {children}
@@ -36,12 +40,16 @@ const CodeBlock = memo(function CodeBlock({
     );
   }
 
+  // User messages always use dark theme (since they have dark background)
+  // Assistant messages use theme based on app's current mode
+  const codeStyle = isUser || isDark ? darkTheme : lightTheme;
+
   return (
     <SyntaxHighlighter
-      style={oneLight}
+      style={codeStyle}
       language={language}
       PreTag="div"
-      className="rounded-xl my-4 text-sm border border-slate-200/50"
+      className="rounded-xl my-4 text-sm border border-border"
     >
       {children}
     </SyntaxHighlighter>
@@ -53,6 +61,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   isUser,
 }: MarkdownRendererProps) {
+  const { isDark } = useTheme();
+
   // Memoize the components config to avoid recreating on each render
   const components = useMemo(
     () => ({
@@ -67,7 +77,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         const codeString = String(children).replace(/\n$/, "");
 
         return (
-          <CodeBlock language={match?.[1]} isUser={isUser}>
+          <CodeBlock language={match?.[1]} isUser={isUser} isDark={isDark}>
             {codeString}
           </CodeBlock>
         );
@@ -75,7 +85,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
       table({ children }: { children?: React.ReactNode }) {
         return (
           <div className="overflow-x-auto my-4">
-            <table className="min-w-full border-collapse border border-slate-200 rounded-lg">
+            <table className="min-w-full border-collapse border border-border rounded-lg">
               {children}
             </table>
           </div>
@@ -83,25 +93,19 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
       },
       th({ children }: { children?: React.ReactNode }) {
         return (
-          <th className="border border-slate-200 px-4 py-2 bg-slate-50 text-left font-semibold text-slate-700">
+          <th className="border border-border px-4 py-2 bg-surface text-left font-semibold text-text-muted">
             {children}
           </th>
         );
       },
       td({ children }: { children?: React.ReactNode }) {
         return (
-          <td className="border border-slate-200 px-4 py-2 text-slate-700">
+          <td className="border border-border px-4 py-2 text-text-muted">
             {children}
           </td>
         );
       },
-      a({
-        href,
-        children,
-      }: {
-        href?: string;
-        children?: React.ReactNode;
-      }) {
+      a({ href, children }: { href?: string; children?: React.ReactNode }) {
         return (
           <a
             href={href}
@@ -109,7 +113,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             rel="noopener noreferrer"
             className={clsx(
               "underline hover:no-underline",
-              isUser ? "text-blue-200" : "text-blue-600"
+              isUser ? "text-blue-200" : "text-blue-600 dark:text-blue-400"
             )}
           >
             {children}
@@ -123,7 +127,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               "border-l-4 pl-4 my-4 italic",
               isUser
                 ? "border-white/50 text-white/90"
-                : "border-slate-300 text-slate-600"
+                : "border-border text-text-muted"
             )}
           >
             {children}
@@ -131,12 +135,15 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         );
       },
     }),
-    [isUser]
+    [isUser, isDark]
   );
 
   return (
     <div
-      className={clsx("markdown-body", isUser ? "text-white" : "text-slate-800")}
+      className={clsx(
+        "markdown-body",
+        isUser ? "text-white" : "text-text-main"
+      )}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}

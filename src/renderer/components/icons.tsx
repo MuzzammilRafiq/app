@@ -551,4 +551,4 @@ export const SmartDesktopIcon = ({
 );
 
 export const iconClass =
-  "p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";
+  "p-1 text-text-muted hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-border cursor-pointer hover:border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-muted disabled:hover:bg-transparent disabled:hover:border-border";

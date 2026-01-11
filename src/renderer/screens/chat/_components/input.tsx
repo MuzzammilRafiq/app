@@ -132,7 +132,7 @@ function ChatInput({
         </div>
       )}
 
-      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-2xl shadow-float border border-slate-200/60">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface rounded-2xl shadow-float border border-border">
         {/* Compact image preview */}
         {hasImage && (
           <div className="px-4 pt-3 pb-0">
@@ -141,13 +141,13 @@ function ChatInput({
                 <img
                   src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`}
                   alt={selectedImage.name || "Selected"}
-                  className="h-14 w-14 object-cover rounded-lg border border-slate-200"
+                  className="h-14 w-14 object-cover rounded-lg border border-border"
                 />
               ) : (
                 <img
                   src={`file://${imagePaths![0]}`}
                   alt="Selected"
-                  className="h-14 w-14 object-cover rounded-lg border border-slate-200"
+                  className="h-14 w-14 object-cover rounded-lg border border-border"
                 />
               )}
               <button
@@ -155,7 +155,7 @@ function ChatInput({
                   setSelectedImage(null);
                   setImagePaths(null);
                 }}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-600 hover:bg-slate-700 text-white rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-text-muted hover:bg-text-main text-surface rounded-full flex items-center justify-center text-xs shadow-sm transition-colors"
                 type="button"
               >
                 ×
@@ -212,8 +212,8 @@ function ChatInput({
 
             {/* Dropdown menu */}
             {showAttachMenu && (
-              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-slate-200 py-1 min-w-40 animate-fade-in z-10">
-                <div className="w-full px-2 py-2 text-left text-sm text-slate-600 flex items-center gap-2">
+              <div className="absolute bottom-full left-0 mb-2 bg-surface rounded-xl shadow-lg border border-border py-1 min-w-40 animate-fade-in z-10">
+                <div className="w-full px-2 py-2 text-left text-sm text-text-muted flex items-center gap-2">
                   <button
                     onClick={() => {
                       fileInputRef.current?.click();
@@ -225,7 +225,7 @@ function ChatInput({
                   </button>
                   <span>Upload image</span>
                 </div>
-                <div className="w-full px-2 py-2 text-left text-sm text-slate-600 flex items-center gap-2">
+                <div className="w-full px-2 py-2 text-left text-sm text-text-muted flex items-center gap-2">
                   <button
                     onClick={() => {
                       setIsSearchModalOpen(true);
@@ -238,7 +238,7 @@ function ChatInput({
                   </button>
                   <span>Search images</span>
                 </div>
-                <div className="border-t border-slate-100 my-1" />
+                <div className="border-t border-border my-1" />
                 <div
                   className={`w-full px-2 py-2 text-left text-sm flex items-center gap-2 ${isRAGEnabled ? "bg-primary-light/20" : ""}`}
                 >
@@ -291,7 +291,7 @@ function ChatInput({
             }
             placeholder="Ask anything..."
             disabled={isLoading || isStreaming}
-            className="flex-1 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
+            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
             rows={1}
           />
 
@@ -326,7 +326,7 @@ function ChatInput({
         />
       </div>
       <div className="text-center mt-3">
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-text-subtle">
           AI can make mistakes. Check important info.
         </p>
       </div>

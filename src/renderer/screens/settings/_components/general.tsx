@@ -5,11 +5,18 @@ import {
   saveSettings,
   type AppSettings,
 } from "../../../utils/localstore";
+import { useTheme } from "../../../hooks/useTheme";
+
 export default function GeneralSettings() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [saving, setSaving] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
+
   const onToggle = (key: keyof AppSettings) => {
     if (key === "theme") {
+      // Use theme hook for immediate toggle - no save required
+      toggleTheme();
+      // Also update local state to keep UI in sync
       setSettings((s) => ({
         ...s,
         theme: s.theme === "dark" ? "light" : "dark",
@@ -31,12 +38,12 @@ export default function GeneralSettings() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div className="text-sm font-medium text-slate-800">Preferences</div>
+        <div className="text-sm font-medium text-text-main">Preferences</div>
         <div className="space-y-2">
           <Row
             title="Dark mode"
             description="Use a dark theme"
-            enabled={settings.theme === "dark"}
+            enabled={isDark}
             onClick={() => onToggle("theme")}
           />
         </div>
@@ -45,9 +52,21 @@ export default function GeneralSettings() {
         <button
           onClick={onSave}
           disabled={saving}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-transparent ${
             saving ? "opacity-50 cursor-not-allowed" : ""
-          } bg-primary text-white hover:bg-primary-hover`}
+          }`}
+          style={{
+            backgroundColor: "var(--btn-accent-bg)",
+            color: "var(--btn-accent-text)",
+          }}
+          onMouseEnter={(e) =>
+            !saving &&
+            (e.currentTarget.style.backgroundColor =
+              "var(--btn-accent-bg-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--btn-accent-bg)")
+          }
         >
           Save Changes
         </button>
@@ -68,24 +87,24 @@ function Row({
   onClick: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface p-3">
+    <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors">
       <div className="min-w-0">
-        <div className="text-sm font-medium text-slate-800">{title}</div>
-        <div className="text-xs text-slate-600">{description}</div>
+        <div className="text-sm font-medium text-text-main">{title}</div>
+        <div className="text-xs text-text-muted">{description}</div>
       </div>
       <button
         onClick={onClick}
         role="switch"
         aria-checked={enabled}
         className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-          enabled ? "bg-primary" : "bg-gray-200"
+          enabled ? "bg-primary" : "bg-text-subtle"
         } shadow-inner`}
       >
         <span
           className={`absolute left-0.5 top-0.5 inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ${
             enabled
               ? "translate-x-4 border border-primary"
-              : "translate-x-0 border border-gray-300"
+              : "translate-x-0 border border-text-subtle"
           }`}
         />
       </button>

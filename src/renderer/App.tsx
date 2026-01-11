@@ -8,6 +8,7 @@ import { useCurrentViewStore, useSidebarCollapsedStore } from "./utils/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MenuSVG, GearSVG, PlusSVG } from "./components/icons";
 import { useStore, useVisionLogStore } from "./utils/store";
+import { useThemeInit } from "./hooks/useTheme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,9 @@ function App() {
   const currentView = useCurrentViewStore((s) => s.currentView);
   const setCurrentView = useCurrentViewStore((s) => s.setCurrentView);
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
+
+  // Initialize theme on mount
+  useThemeInit();
 
   // Store actions for new session
   const setCurrentSession = useStore((s) => s.setCurrentSession);
@@ -69,14 +73,14 @@ function App() {
                 <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
                   <button
                     onClick={() => setSidebarCollapsed(false)}
-                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
+                    className="p-1 text-text-muted hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-border cursor-pointer hover:border-primary/20 w-10 h-10"
                     title="Open Sidebar"
                   >
                     {MenuSVG}
                   </button>
                   <button
                     onClick={onNewSession}
-                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
+                    className="p-1 text-text-muted hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-border cursor-pointer hover:border-primary/20 w-10 h-10"
                     title={
                       currentView === "vision" ? "New Vision Task" : "New Chat"
                     }
@@ -85,7 +89,7 @@ function App() {
                   </button>
                   <button
                     onClick={() => setCurrentView("settings")}
-                    className="p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 w-10 h-10"
+                    className="p-1 text-text-muted hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-border cursor-pointer hover:border-primary/20 w-10 h-10"
                     title="Settings"
                   >
                     {GearSVG}

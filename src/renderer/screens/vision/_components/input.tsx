@@ -168,7 +168,7 @@ export default function VisionInput() {
 
   return (
     <div className="shrink-0 px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-white rounded-2xl shadow-float border border-slate-200/60">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface rounded-2xl shadow-float border border-border">
         {/* Textarea with inline controls */}
         <div className="flex items-end gap-2 p-3">
           {/* Textarea */}
@@ -179,7 +179,7 @@ export default function VisionInput() {
             onKeyDown={handleKeyDown}
             placeholder="Describe what you want to automate..."
             disabled={isExecuting}
-            className="flex-1 bg-transparent border-none text-slate-700 placeholder-slate-400 text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
+            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
             rows={1}
           />
 
@@ -210,7 +210,7 @@ export default function VisionInput() {
         </div>
       </div>
       <div className="text-center mt-3">
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-text-subtle">
           AI can make mistakes. Check important info.
         </p>
       </div>

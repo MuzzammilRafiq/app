@@ -15,7 +15,7 @@ function useThrottle<T>(value: T, limit: number): T {
           lastRan.current = Date.now();
         }
       },
-      limit - (Date.now() - lastRan.current)
+      limit - (Date.now() - lastRan.current),
     );
 
     return () => clearTimeout(handler);
@@ -54,7 +54,7 @@ export function WorkerMarkdownRenderer({
     const uniqueId = `${id}-${isUser ? "u" : "a"}`;
 
     console.log(
-      `[WorkerMarkdownRenderer] Subscribing with ID: ${uniqueId}, content length: ${throttledContent.length}`
+      `[WorkerMarkdownRenderer] Subscribing with ID: ${uniqueId}, content length: ${throttledContent.length}`,
     );
 
     // Reset error on new content/id
@@ -63,7 +63,7 @@ export function WorkerMarkdownRenderer({
     const unsub = markdownWorker.subscribe(uniqueId, (result) => {
       console.log(
         `[WorkerMarkdownRenderer] Callback received for ${uniqueId}:`,
-        result
+        result,
       );
       // Result is now an object { html, error }
       // We need to update manager to pass this object
@@ -74,7 +74,7 @@ export function WorkerMarkdownRenderer({
           setError(result.error);
         } else {
           console.log(
-            `[WorkerMarkdownRenderer] Setting HTML, length: ${result.html?.length}`
+            `[WorkerMarkdownRenderer] Setting HTML, length: ${result.html?.length}`,
           );
           setHtml(result.html);
         }
@@ -107,7 +107,7 @@ export function WorkerMarkdownRenderer({
       <div
         className={clsx(
           "whitespace-pre-wrap overflow-wrap-anywhere font-sans text-[15px] leading-relaxed",
-          isUser ? "text-white" : "text-slate-800"
+          isUser ? "text-white" : "text-text-main",
         )}
       >
         {content}
@@ -121,7 +121,7 @@ export function WorkerMarkdownRenderer({
         "markdown-body", // We will need to ensure global styles target this or scoped styles
         isUser
           ? "text-white prose-headings:text-white prose-p:text-white prose-strong:text-white prose-li:text-white"
-          : "text-slate-800"
+          : "text-text-main",
       )}
       // Safe because we sanitize in the worker
       dangerouslySetInnerHTML={{ __html: html }}

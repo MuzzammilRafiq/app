@@ -28,7 +28,7 @@ export default function Images() {
             path: f.folderPath,
             isFile: !f.folderPath.includes(".") ? false : true,
             lastScannedAt: f.lastScannedAt,
-          }))
+          })),
         );
       } catch (error) {
         console.error("Failed to load image paths:", error);
@@ -75,7 +75,7 @@ export default function Images() {
   const handleImageScanPath = async (
     pathStr: string,
     isNew = false,
-    isFile = false
+    isFile = false,
   ) => {
     try {
       setScanningState({
@@ -93,7 +93,7 @@ export default function Images() {
 
       if (!result?.success) {
         throw new Error(
-          result?.error || `Failed to scan ${isFile ? "file" : "folder"}`
+          result?.error || `Failed to scan ${isFile ? "file" : "folder"}`,
         );
       }
 
@@ -112,20 +112,20 @@ export default function Images() {
       } else {
         setPaths((prev) =>
           prev.map((p) =>
-            p.path === pathStr ? { ...p, lastScannedAt: now } : p
-          )
+            p.path === pathStr ? { ...p, lastScannedAt: now } : p,
+          ),
         );
       }
 
       toast.success(
         isNew
           ? `${isFile ? "File" : "Folder"} added and indexed`
-          : `${isFile ? "File" : "Folder"} rescanned`
+          : `${isFile ? "File" : "Folder"} rescanned`,
       );
     } catch (error: any) {
       console.error("Error scanning path:", error);
       toast.error(
-        error.message || `Failed to scan ${isFile ? "file" : "folder"}`
+        error.message || `Failed to scan ${isFile ? "file" : "folder"}`,
       );
     } finally {
       setScanningState(null);
@@ -177,7 +177,7 @@ export default function Images() {
             }}
           >
             <div
-              className="text-sm text-gray-700 mb-2 truncate"
+              className="text-sm text-text-muted mb-2 truncate"
               title={scanningState.folder}
             >
               {scanningState.folder}
@@ -198,7 +198,7 @@ export default function Images() {
               >
                 Adding and indexing...
               </span>
-              <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden ml-2">
+              <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden ml-2">
                 <div
                   className="h-full rounded-full"
                   style={{
@@ -228,8 +228,12 @@ export default function Images() {
                   : undefined,
               }}
             >
-              <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                {pathInfo.isFile ? <Image className="w-4 h-4 shrink-0" /> : <Folder className="w-4 h-4 shrink-0" />}
+              <div className="flex items-center gap-2 text-sm text-text-muted mb-2">
+                {pathInfo.isFile ? (
+                  <Image className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Folder className="w-4 h-4 shrink-0" />
+                )}
                 <span className="truncate" title={pathInfo.path}>
                   {pathInfo.path}
                 </span>
@@ -253,7 +257,7 @@ export default function Images() {
                     {isScanning && "Rescanning..."}
                     {isDeleting && "Removing..."}
                   </span>
-                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden ml-2">
+                  <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden ml-2">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -272,7 +276,7 @@ export default function Images() {
                         handleImageScanPath(
                           pathInfo.path,
                           false,
-                          pathInfo.isFile
+                          pathInfo.isFile,
                         )
                       }
                       className="hover:bg-primary-light p-1 rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -291,7 +295,7 @@ export default function Images() {
                       {TrashSVG}
                     </button>
                   </div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-text-subtle">
                     {formatDate(pathInfo.lastScannedAt)}
                   </span>
                 </div>
@@ -302,10 +306,10 @@ export default function Images() {
 
         {/* Empty state */}
         {paths.length === 0 && !isProcessing && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-text-subtle">
             <Image className="w-12 h-12 mx-auto mb-2" />
             <p className="text-sm">No images indexed yet</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-text-subtle mt-1">
               Select a folder or files to start indexing
             </p>
           </div>
@@ -319,8 +323,8 @@ export default function Images() {
           onClick={handleImageSelectFolder}
           className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
             isProcessing
-              ? "border-gray-200 text-gray-400 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
+              ? "border-border text-text-subtle cursor-not-allowed"
+              : "border-border text-text-muted hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
           <FolderPlus className="w-4 h-4" /> Select Folder
@@ -330,8 +334,8 @@ export default function Images() {
           onClick={handleImageSelectFiles}
           className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
             isProcessing
-              ? "border-gray-200 text-gray-400 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-primary-light hover:border-primary hover:text-primary"
+              ? "border-border text-text-subtle cursor-not-allowed"
+              : "border-border text-text-muted hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
           <ImagePlus className="w-4 h-4" /> Select Files

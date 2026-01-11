@@ -20,7 +20,7 @@ export default function SearchModal({
   const [hasSearched, setHasSearched] = useState(false);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [convertedImages, setConvertedImages] = useState<Map<string, string>>(
-    new Map()
+    new Map(),
   );
   const [convertingHeic, setConvertingHeic] = useState<Set<string>>(new Set());
 
@@ -81,7 +81,7 @@ export default function SearchModal({
 
   // Get converted HEIC path using fast native conversion
   const getConvertedHeicPath = async (
-    filePath: string
+    filePath: string,
   ): Promise<string | null> => {
     try {
       if (!window.electronAPI?.getConvertedHeicPath) {
@@ -154,12 +154,12 @@ export default function SearchModal({
     try {
       const response = await window.electronAPI?.searchImagesByText(
         searchQuery.trim(),
-        10
+        10,
       );
 
       if (response?.success && response.results) {
         const searchResults: SearchResult[] = response.results.filter(
-          (path: string) => path && path.trim()
+          (path: string) => path && path.trim(),
         );
         setResults(searchResults);
       } else {
@@ -219,16 +219,16 @@ export default function SearchModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
       <div
         ref={modalRef}
-        className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl mx-4 max-h-[70vh] flex flex-col"
+        className="bg-surface rounded-2xl shadow-2xl border border-border w-full max-w-2xl mx-4 max-h-[70vh] flex flex-col"
       >
         {/* Search Input */}
-        <form onSubmit={handleSubmit} className="p-4 border-b border-gray-100">
+        <form onSubmit={handleSubmit} className="p-4 border-b border-border">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               {isSearching ? (
-                <div className="text-gray-400">{LoadingSVG}</div>
+                <div className="text-text-subtle">{LoadingSVG}</div>
               ) : (
-                <div className="text-gray-400">{SearchSVG}</div>
+                <div className="text-text-subtle">{SearchSVG}</div>
               )}
             </div>
             <input
@@ -237,7 +237,7 @@ export default function SearchModal({
               value={query}
               onChange={handleInputChange}
               placeholder="Search images by description..."
-              className="block w-full pl-10 pr-3 py-3 rounded-lg bg-white focus:bg-slate-50 text-slate-900 placeholder-slate-400 transition-all duration-200 text-base"
+              className="block w-full pl-10 pr-3 py-3 rounded-lg bg-surface focus:bg-bg-app text-text-main placeholder-text-subtle transition-all duration-200 text-base"
               style={{ border: "none", outline: "none", boxShadow: "none" }}
             />
           </div>
@@ -246,28 +246,28 @@ export default function SearchModal({
         {/* Results */}
         <div className="flex-1 overflow-y-auto">
           {!hasSearched && !query.trim() && (
-            <div className="flex items-center justify-center h-48 text-gray-500">
+            <div className="flex items-center justify-center h-48 text-text-subtle">
               <div className="text-center">
-                <div className="mb-2 text-gray-300">{SearchSVG}</div>
+                <div className="mb-2 text-text-subtle">{SearchSVG}</div>
                 <p className="text-sm">Start typing to search your images</p>
               </div>
             </div>
           )}
 
           {hasSearched && results.length === 0 && !isSearching && (
-            <div className="flex items-center justify-center h-48 text-gray-500">
+            <div className="flex items-center justify-center h-48 text-text-subtle">
               <div className="text-center">
                 {serviceUnavailable ? (
                   <>
                     <p className="text-sm text-red-600">
-                      ⚠️ Search service unavailable
+                      Search service unavailable
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-text-subtle mt-1">
                       Please start the embedding service and try again
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-text-subtle mt-2">
                       Run:{" "}
-                      <code className="bg-gray-100 px-1 rounded">
+                      <code className="bg-border px-1 rounded">
                         python src/python/main.py
                       </code>
                     </p>
@@ -275,7 +275,7 @@ export default function SearchModal({
                 ) : (
                   <>
                     <p className="text-sm">No images found for "{query}"</p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-text-subtle mt-1">
                       Try different keywords or check if you have indexed images
                     </p>
                   </>
@@ -291,17 +291,17 @@ export default function SearchModal({
                   <div
                     key={index}
                     onClick={() => handleResultClick(result)}
-                    className="flex flex-col p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors duration-150 border border-transparent hover:border-gray-200"
+                    className="flex flex-col p-3 rounded-lg hover:bg-bg-app cursor-pointer transition-colors duration-150 border border-transparent hover:border-border"
                   >
-                    <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                    <div className="w-full h-32 bg-border rounded-lg mb-3 overflow-hidden">
                       {isHeicFile(result) ? (
                         convertingHeic.has(result) ? (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <div className="w-full h-full flex items-center justify-center bg-border">
                             <div className="text-center">
-                              <div className="text-gray-400 mb-1">
+                              <div className="text-text-subtle mb-1">
                                 {LoadingSVG}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-text-subtle">
                                 Converting...
                               </div>
                             </div>
@@ -317,10 +317,12 @@ export default function SearchModal({
                             }}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <div className="w-full h-full flex items-center justify-center bg-border">
                             <div className="text-center">
-                              <div className="text-gray-400 mb-1">⚠️</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-text-subtle mb-1">
+                                Warning
+                              </div>
+                              <div className="text-xs text-text-subtle">
                                 Failed to convert
                               </div>
                             </div>
@@ -339,10 +341,10 @@ export default function SearchModal({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-text-main truncate">
                         {result?.split("/").pop() || "Unknown file"}
                       </p>
-                      <p className="text-xs text-gray-500 truncate mt-1">
+                      <p className="text-xs text-text-subtle truncate mt-1">
                         {result || "No path"}
                       </p>
                     </div>
@@ -354,8 +356,8 @@ export default function SearchModal({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 bg-gray-50 rounded-b-2xl border-t border-gray-100">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="px-4 py-3 bg-bg-app rounded-b-2xl border-t border-border">
+          <div className="flex items-center justify-between text-xs text-text-subtle">
             <span>Press ESC to close</span>
             <span>Click on an image to select</span>
           </div>

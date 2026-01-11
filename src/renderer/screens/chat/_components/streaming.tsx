@@ -66,7 +66,7 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
 
   return (
     <div className="flex justify-start">
-      <div className="overflow-wrap-anywhere overflow-hidden text-slate-800 px-4 py-2.5 space-y-4">
+      <div className="overflow-wrap-anywhere overflow-hidden text-text-main px-4 py-2.5 space-y-4">
         {/* Plan - only render the latest one */}
         {planSegment && (
           <PlanRenderer key={planSegment.id} content={planSegment.content} />

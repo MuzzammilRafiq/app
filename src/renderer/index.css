@@ -5,23 +5,63 @@
    Theme Variables & Base Grid
    ======================================== */
 @theme {
-  /* Semantic Colors - Dark Chocolate Theme */
-  --color-primary: #3e2723;       /* Dark Chocolate (Deep Brown) */
-  --color-primary-hover: #5d4037; /* Lighter Brown */
-  --color-primary-light: #d7ccc8; /* Very light brown */
-  
-  --color-surface: #ffffff;
-  --color-bg-app: #faf8f6;        /* Creamy warm background */
-  
-  /* Shadows */
+  /* Semantic Colors - Map to CSS variables for theme switching */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+
+  --color-surface: var(--bg-surface);
+  --color-bg-app: var(--bg-app);
+
+  /* Text colors */
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+
+  /* Borders */
+  --color-border: var(--border-color);
+  --color-border-strong: var(--border-strong);
+
+  /* Shadows - defined per theme below */
   --shadow-float: 0 10px 40px -10px rgba(62, 39, 35, 0.12);
 }
 
 :root {
-  /* Keep generic CSS vars if needed for non-tailwind components, mapping back to theme */
-  --bg-app: var(--color-bg-app);
-  --bg-surface: var(--color-surface);
-  --primary: var(--color-primary);
+  /* Light mode - Default (Dark Chocolate Theme) */
+  --bg-app: #faf8f6;
+  --bg-surface: #ffffff;
+  --primary: #3e2723;
+  --primary-hover: #5d4037;
+  --primary-light: #d7ccc8;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --border-color: rgba(62, 39, 35, 0.1);
+  --border-strong: rgba(62, 39, 35, 0.2);
+
+  /* Accent buttons - consistent across themes */
+  --btn-accent-bg: #3e2723;
+  --btn-accent-bg-hover: #5d4037;
+  --btn-accent-text: #ffffff;
+}
+
+/* Dark mode - Warm Chocolate */
+.dark {
+  --bg-app: #1c1714;
+  --bg-surface: #2d2420;
+  --primary: #d7ccc8;
+  --primary-hover: #efebe9;
+  --primary-light: #4e342e;
+  --text-main: #e8e0dc;
+  --text-muted: #a69b95;
+  --text-subtle: #6d5f58;
+  --border-color: rgba(215, 204, 200, 0.1);
+  --border-strong: rgba(215, 204, 200, 0.2);
+
+  /* Accent buttons - warm amber/gold for dark mode visibility */
+  --btn-accent-bg: #3b2001;
+  --btn-accent-bg-hover: #5d4037;
+  --btn-accent-text: #ffffff;
 }
 
 /* ========================================
@@ -41,6 +81,9 @@ body {
   background-color: var(--bg-app);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 #root {
@@ -95,12 +138,26 @@ label,
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(62, 39, 35, 0.05); /* very subtle brown border */
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.dark .glass-panel {
+  background: rgba(45, 36, 32, 0.85);
+  border: 1px solid rgba(215, 204, 200, 0.08);
 }
 
 .shadow-premium {
   box-shadow:
     0 4px 20px -2px rgba(62, 39, 35, 0.08),
     0 0 3px rgba(62, 39, 35, 0.04);
+}
+
+.dark .shadow-premium {
+  box-shadow:
+    0 4px 20px -2px rgba(0, 0, 0, 0.3),
+    0 0 3px rgba(0, 0, 0, 0.15);
 }
 
 .shadow-float {
@@ -158,10 +215,20 @@ textarea:focus {
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
+  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: #4e342e;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6d5f58;
 }
 
 /* Utility to hide scrollbars but keep functionality */
@@ -193,7 +260,6 @@ textarea:focus-visible {
     transform: translateY(0);
   }
 }
-
 
 @keyframes slideUp {
   from {
@@ -231,8 +297,8 @@ textarea:focus-visible {
 .markdown-body h3 {
   @apply text-base font-bold mb-2 mt-4;
 }
-.markdown-body h4, 
-.markdown-body h5, 
+.markdown-body h4,
+.markdown-body h5,
 .markdown-body h6 {
   @apply font-bold mb-2 mt-3;
 }
@@ -287,11 +353,12 @@ textarea:focus-visible {
 /* Code Blocks (Shiki) Overrides */
 /* Ensure pre containers don't overflow */
 .markdown-body pre.shiki {
-  @apply p-4 rounded-xl overflow-x-auto my-3 text-sm leading-relaxed border border-slate-200/50 max-w-full;
+  @apply p-4 rounded-xl overflow-x-auto my-3 text-sm leading-relaxed max-w-full;
+  border: 1px solid var(--border-color);
   /* Use 'auto' to allow scrolling, 'hidden' would cut it off */
-  width: 100%; 
+  width: 100%;
   /* Critical for flex children to invoke scroll behavior */
-  min-width: 0; 
+  min-width: 0;
 }
 
 /* Theme-specific Overrides (User vs Assistant) */
@@ -313,32 +380,43 @@ textarea:focus-visible {
   @apply border-white/20 text-white;
 }
 
-/* Assistant Message Specifics (Light Mode) */
-.markdown-body.text-slate-800 h1,
-.markdown-body.text-slate-800 h2,
-.markdown-body.text-slate-800 h3 {
-  @apply text-slate-800;
+/* Assistant Message Specifics - uses text-text-main for theming */
+.markdown-body.text-text-main h1,
+.markdown-body.text-text-main h2,
+.markdown-body.text-text-main h3 {
+  color: var(--text-main);
 }
-.markdown-body.text-slate-800 p,
-.markdown-body.text-slate-800 ul,
-.markdown-body.text-slate-800 ol {
-  @apply text-slate-700;
+.markdown-body.text-text-main p,
+.markdown-body.text-text-main ul,
+.markdown-body.text-text-main ol {
+  color: var(--text-muted);
 }
-.markdown-body.text-slate-800 strong {
-  @apply text-slate-800;
+.markdown-body.text-text-main li {
+  color: var(--text-muted);
 }
-.markdown-body.text-slate-800 blockquote {
-  @apply border-slate-300 text-slate-600;
+.markdown-body.text-text-main strong {
+  color: var(--text-main);
 }
-.markdown-body.text-slate-800 a {
+.markdown-body.text-text-main blockquote {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+.markdown-body.text-text-main a {
   @apply text-blue-600 hover:text-blue-700;
 }
-.markdown-body.text-slate-800 code:not(.shiki code) {
-  @apply bg-slate-200 text-slate-700;
+.dark .markdown-body.text-text-main a {
+  @apply text-blue-400 hover:text-blue-300;
 }
-.markdown-body.text-slate-800 th {
-  @apply border-slate-200 bg-slate-100 text-slate-700;
+.markdown-body.text-text-main code:not(.shiki code) {
+  background-color: var(--border-color);
+  color: var(--text-muted);
 }
-.markdown-body.text-slate-800 td {
-  @apply border-slate-200 text-slate-700;
+.markdown-body.text-text-main th {
+  border-color: var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+}
+.markdown-body.text-text-main td {
+  border-color: var(--border-color);
+  color: var(--text-muted);
 }

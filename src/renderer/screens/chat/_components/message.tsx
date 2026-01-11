@@ -12,22 +12,22 @@ export default function ChatMessage(message: ChatMessageRecord) {
         className={clsx(
           "max-w-[80%] wrap-break-word overflow-hidden overflow-wrap-anywhere",
           isUser
-            ? "bg-blue-100 rounded-xl px-2 py-2"
+            ? "bg-blue-100 dark:bg-blue-900/30 rounded-xl px-2 py-2"
             : isError
-              ? "bg-linear-to-br from-red-50 to-red-100 text-red-800 border-red-200 px-4 py-2.5"
-              : "text-slate-800 px-4 py-2.5"
+              ? "bg-linear-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800 px-4 py-2.5"
+              : "text-text-main px-4 py-2.5",
         )}
       >
         {isStreaming ? (
           <div className="flex items-center space-x-3">
             <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-text-subtle rounded-full animate-bounce"></div>
               <div
-                className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-text-subtle rounded-full animate-bounce"
                 style={{ animationDelay: "0.1s" }}
               ></div>
               <div
-                className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-text-subtle rounded-full animate-bounce"
                 style={{ animationDelay: "0.2s" }}
               ></div>
             </div>
@@ -41,7 +41,7 @@ export default function ChatMessage(message: ChatMessageRecord) {
                     <img
                       src={`file://${p}`}
                       alt={"attached image"}
-                      className="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                      className="max-w-full max-h-48 rounded-xl border border-border shadow-sm transition-all duration-200 hover:shadow-md"
                       style={{ maxWidth: "200px" }}
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).alt =

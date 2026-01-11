@@ -133,7 +133,7 @@ function rehypeShiki({ theme }: { theme: string }) {
                 "text-sm",
                 "leading-relaxed",
                 "border",
-                "border-slate-200/50",
+                "border-border",
               ];
 
               // Ensure border/bg matches theme expectations if needed

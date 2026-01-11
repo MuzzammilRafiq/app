@@ -24,13 +24,13 @@ export default function AdvancedSettings() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div className="text-sm font-medium text-slate-800">
+        <div className="text-sm font-medium text-text-main">
           LLM Configuration
         </div>
-        <div className="rounded-lg border border-gray-200 p-3 bg-surface space-y-4">
+        <div className="rounded-lg border border-border p-3 bg-surface space-y-4">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-2">
+              <label className="block text-xs font-medium text-text-muted mb-2">
                 OpenRouter API Key
               </label>
               <div className="relative">
@@ -44,20 +44,20 @@ export default function AdvancedSettings() {
                       openrouterApiKey: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-3 pr-10 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                  className="w-full px-4 py-3 pr-10 rounded-lg bg-surface text-text-main placeholder-text-subtle focus:ring-2 focus:ring-primary border border-border"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey((v) => !v)}
                   aria-label={showKey ? "Hide API key" : "Show API key"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-200 border border-gray-200 hover:border-blue-200"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-primary hover:bg-primary-light rounded-md transition-all duration-200 border border-border hover:border-primary"
                 >
                   {showKey ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-2">
+              <label className="block text-xs font-medium text-text-muted mb-2">
                 Text Model (ID)
               </label>
               <input
@@ -70,11 +70,11 @@ export default function AdvancedSettings() {
                     textModel: e.target.value,
                   }))
                 }
-                className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                className="w-full px-4 py-3 rounded-lg bg-surface text-text-main placeholder-text-subtle focus:ring-2 focus:ring-primary border border-border"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-2">
+              <label className="block text-xs font-medium text-text-muted mb-2">
                 Image Model (ID)
               </label>
               <input
@@ -87,7 +87,7 @@ export default function AdvancedSettings() {
                     imageModel: e.target.value,
                   }))
                 }
-                className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                className="w-full px-4 py-3 rounded-lg bg-surface text-text-main placeholder-text-subtle focus:ring-2 focus:ring-primary border border-border"
               />
             </div>
           </div>
@@ -97,9 +97,21 @@ export default function AdvancedSettings() {
         <button
           onClick={onSave}
           disabled={saving}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-transparent ${
             saving ? "opacity-50 cursor-not-allowed" : ""
-          } bg-primary text-white hover:bg-primary-hover`}
+          }`}
+          style={{
+            backgroundColor: "var(--btn-accent-bg)",
+            color: "var(--btn-accent-text)",
+          }}
+          onMouseEnter={(e) =>
+            !saving &&
+            (e.currentTarget.style.backgroundColor =
+              "var(--btn-accent-bg-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--btn-accent-bg)")
+          }
         >
           Save Changes
         </button>

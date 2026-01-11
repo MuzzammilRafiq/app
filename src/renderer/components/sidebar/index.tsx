@@ -36,7 +36,7 @@ function SidebarInner() {
   if (sidebarCollapsed) {
     return (
       <div
-        className="w-14 h-full flex flex-col shrink-0 select-none overflow-hidden border-r border-slate-100"
+        className="w-14 h-full flex flex-col shrink-0 select-none overflow-hidden border-r border-border transition-colors"
         style={{ backgroundColor: "var(--bg-app)" }}
       >
         <div className="flex-1 overflow-y-auto px-2 py-4 w-full flex flex-col items-center gap-3">
@@ -47,18 +47,22 @@ function SidebarInner() {
           >
             {MenuSVG}
           </button>
-          <div className="w-6 h-px bg-slate-200 my-1" />
+          <div className="w-6 h-px bg-border my-1" />
           <button
             onClick={
               currentView === "vision" ? onNewVisionSession : onNewSession
             }
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer"
+            className="w-10 h-10 flex items-center justify-center rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer"
+            style={{
+              backgroundColor: "var(--btn-accent-bg)",
+              color: "var(--btn-accent-text)",
+            }}
             title={currentView === "vision" ? "New Vision Task" : "New Chat"}
           >
             {PlusSVG}
           </button>
         </div>
-        <div className="p-2 border-t border-slate-100">
+        <div className="p-2 border-t border-border">
           <button
             onClick={() => setCurrentView("settings")}
             className={`${iconClass} w-full h-10`}
@@ -72,7 +76,7 @@ function SidebarInner() {
   } else {
     return (
       <div
-        className="w-72 h-full border-r border-slate-100 flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300"
+        className="w-72 h-full border-r border-border flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300"
         style={{ backgroundColor: "var(--bg-app)" }}
       >
         {/* Header */}
@@ -92,13 +96,13 @@ function SidebarInner() {
 
         {/* Chat/Vision Toggle */}
         <div className="px-4 pb-3">
-          <div className="flex bg-slate-100/80 rounded-xl p-1 gap-1">
+          <div className="flex bg-primary-light/50 rounded-xl p-1 gap-1">
             <button
               onClick={() => setCurrentView("chat")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 currentView === "chat" || currentView === "settings"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+                  ? "bg-surface text-primary shadow-sm"
+                  : "text-text-muted hover:text-text-main hover:bg-surface/50"
               }`}
             >
               <ChatIcon />
@@ -108,7 +112,7 @@ function SidebarInner() {
                   className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                     currentView === "chat" || currentView === "settings"
                       ? "bg-primary/10 text-primary"
-                      : "bg-slate-200 text-slate-500"
+                      : "bg-border text-text-muted"
                   }`}
                 >
                   {chatCount}
@@ -119,8 +123,8 @@ function SidebarInner() {
               onClick={() => setCurrentView("vision")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 currentView === "vision"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+                  ? "bg-surface text-primary shadow-sm"
+                  : "text-text-muted hover:text-text-main hover:bg-surface/50"
               }`}
             >
               {CrosshairSVG}
@@ -135,7 +139,18 @@ function SidebarInner() {
             onClick={
               currentView === "vision" ? onNewVisionSession : onNewSession
             }
-            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 font-medium text-sm group"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 font-medium text-sm group"
+            style={{
+              backgroundColor: "var(--btn-accent-bg)",
+              color: "var(--btn-accent-text)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor =
+                "var(--btn-accent-bg-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--btn-accent-bg)")
+            }
           >
             <span className="group-hover:scale-110 transition-transform duration-200">
               {PlusSVG}
@@ -154,7 +169,7 @@ function SidebarInner() {
         </div>
 
         {/* Settings button at bottom */}
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-4 border-t border-border">
           <button
             onClick={() => setCurrentView("settings")}
             className={`${iconClass} w-8 h-8`}
