@@ -524,5 +524,31 @@ export const SDIcon = () => (
     />
   </svg>
 );
+
+export const SmartDesktopIcon = ({
+  className = "w-auto h-8",
+}: {
+  className?: string;
+}) => (
+  <svg
+    className={className}
+    viewBox="0 0 115 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <text
+      x="0"
+      y="16"
+      fontFamily="Arial, sans-serif"
+      fontSize="12"
+      fontWeight="900"
+      fill="currentColor"
+      letterSpacing="1"
+    >
+      SMART DESKTOP
+    </text>
+  </svg>
+);
+
 export const iconClass =
   "p-1 text-gray-600 hover:text-primary hover:bg-primary-light/30 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-200 cursor-pointer hover:border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:hover:border-gray-200";

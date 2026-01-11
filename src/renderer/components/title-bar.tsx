@@ -1,3 +1,6 @@
+import { SmartDesktopIcon } from "./icons";
+import CustomTrafficLights from "./custom-traffic-lights";
+
 export default function TitleBar() {
   return (
     <div
@@ -9,16 +12,18 @@ export default function TitleBar() {
         } as React.CSSProperties
       }
     >
-      {/* Left side - Space for macOS traffic lights */}
-      <div className="w-20 h-full" />
-
-      {/* Center - App title */}
-      <div className="flex-1 flex items-center justify-center">
-        <h1 className="text-sm font-semibold text-slate-600">Open Desktop</h1>
+      {/* Left side - Custom macOS traffic lights */}
+      <div className="flex items-center h-full pl-4">
+        <CustomTrafficLights />
       </div>
 
-      {/* Right side - Spacing for symmetry */}
-      <div className="w-4" />
+      {/* Center spacer */}
+      <div className="flex-1" />
+
+      {/* Right side - App title */}
+      <div className="flex items-center justify-end pr-4 ">
+        <SmartDesktopIcon />
+      </div>
     </div>
   );
 }
