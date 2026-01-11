@@ -187,6 +187,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   //-------------------------window controls---------------------------
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),
   windowMaximize: () => ipcRenderer.invoke("window:maximize"),
+  windowToggleFullscreen: () => ipcRenderer.invoke("window:toggle-fullscreen"),
+  windowIsFullscreen: () => ipcRenderer.invoke("window:is-fullscreen"),
   windowClose: () => ipcRenderer.invoke("window:close"),
   windowIsMaximized: () => ipcRenderer.invoke("window:is-maximized"),
   windowGetPlatform: () => ipcRenderer.invoke("window:get-platform"),

@@ -15,6 +15,22 @@ export function setupWindowHandlers() {
     }
   });
 
+  ipcMain.handle("window:toggle-fullscreen", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+      return false;
+    }
+
+    const shouldEnterFullscreen = !window.isFullScreen();
+    window.setFullScreen(shouldEnterFullscreen);
+    return shouldEnterFullscreen;
+  });
+
+  ipcMain.handle("window:is-fullscreen", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    return window?.isFullScreen() ?? false;
+  });
+
   ipcMain.handle("window:close", (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     window?.close();

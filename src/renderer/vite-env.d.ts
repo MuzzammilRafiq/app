@@ -471,6 +471,8 @@ interface Window {
     // Window controls
     windowMinimize: () => Promise<void>;
     windowMaximize: () => Promise<void>;
+    windowToggleFullscreen: () => Promise<boolean>;
+    windowIsFullscreen: () => Promise<boolean>;
     windowClose: () => Promise<void>;
     windowIsMaximized: () => Promise<boolean>;
     windowGetPlatform: () => Promise<string>;

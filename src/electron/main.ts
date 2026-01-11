@@ -31,8 +31,8 @@ function createWindow(): BrowserWindow {
     height: 1000,
     minWidth: 400,
     minHeight: 400,
-    titleBarStyle: "hidden", // Hide default title bar on macOS
-    trafficLightPosition: { x: 12, y: 16 }, // Position macOS traffic lights
+    titleBarStyle: "hiddenInset", // Hide default title bar on macOS
+    trafficLightPosition: { x: -100, y: -100 }, // Move native traffic lights off-screen
     webPreferences: {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
