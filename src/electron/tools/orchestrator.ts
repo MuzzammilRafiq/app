@@ -7,11 +7,10 @@ import {
   OrchestratorContext,
 } from "../../common/types.js";
 import { IpcMainInvokeEvent, ipcMain } from "electron";
-import { terminalExecutor, checkCommandSecurity } from "./terminal/index.js";
+import { adaptiveTerminalExecutor } from "./terminal/index.js";
 import { generalTool } from "./general/index.js";
 import { StreamChunkBuffer } from "../utils/stream-buffer.js";
 import os from "node:os";
-import path from "node:path";
 import crypto from "node:crypto";
 
 const TAG = "orchestrator";
@@ -20,7 +19,7 @@ const TAG = "orchestrator";
 const MAX_OUTPUT_LENGTH = 2000;
 function truncateOutput(
   output: string,
-  maxLen: number = MAX_OUTPUT_LENGTH
+  maxLen: number = MAX_OUTPUT_LENGTH,
 ): string {
   if (!output || output.length <= maxLen) return output;
   const half = Math.floor(maxLen / 2);
@@ -48,14 +47,14 @@ ipcMain.handle(
       pending.resolve(allowed);
       pendingConfirmations.delete(requestId);
     }
-  }
+  },
 );
 
 // Wait for user confirmation before executing a command
 async function waitForUserConfirmation(
   event: IpcMainInvokeEvent,
   command: string,
-  cwd: string
+  cwd: string,
 ): Promise<boolean> {
   const requestId = crypto.randomUUID();
 
@@ -78,41 +77,58 @@ async function waitForUserConfirmation(
 }
 
 const SYSTEM_PROMPT_PLANNER = `
-You are a task orchestrator for a macOS system. Your job is to break down user requests into granular, executable steps.
+You are a task orchestrator for a macOS system. Your job is to break down user requests into HIGH-LEVEL GOALS.
 
 Available Agents:
-1. terminal - Executes shell commands on macOS. You can use any standard shell commands including pipes and chaining.
+1. terminal - Achieves a goal using shell commands. Describe WHAT to achieve, NOT specific commands.
+   The terminal agent will figure out the exact commands, handle errors, and verify success automatically.
 2. general - Provides natural language responses, summaries, and formatted output to the user
 
 Rules:
 - Output JSON only, matching the schema strictly
-- Create granular steps - prefer simpler commands but can use pipes when needed
-- Maximum 15 steps per plan
+- Create GOAL-BASED steps for terminal (e.g., "Move file X to directory Y" NOT "mv X Y")
+- Maximum 5 steps per plan (prefer fewer, broader steps)
 - Always end with a "general" step to format the final response for the user
 - If the request is a simple question or greeting, use only a "general" step
-- For file operations, verify paths exist before acting (use ls first)
+- For complex tasks, describe the complete goal - the terminal agent handles verification and error recovery
 - Consider the conversation history for context
-- The user will be asked to confirm each terminal command before execution
+- The user will be asked to confirm each individual command during execution
 
 Step Format:
 - agent: "terminal" or "general"
-- action: For terminal, the exact command. For general, describe what to respond about.
+- action: For terminal, describe the GOAL to achieve. For general, describe what to respond about.
 
 Examples:
 
 User: "What time is it?"
 {
   "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "date"},
+    {"step_number": 1, "agent": "terminal", "action": "Get the current date and time"},
     {"step_number": 2, "agent": "general", "action": "Format the current date/time for the user"}
+  ]
+}
+
+User: "Move test.txt from Downloads to Documents"
+{
+  "steps": [
+    {"step_number": 1, "agent": "terminal", "action": "Move ~/Downloads/test.txt to ~/Documents/, creating the destination directory if it doesn't exist and verifying the move was successful"},
+    {"step_number": 2, "agent": "general", "action": "Confirm the file was moved successfully"}
   ]
 }
 
 User: "Count folders in Downloads"
 {
   "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "find ~/Downloads -maxdepth 1 -type d | wc -l"},
+    {"step_number": 1, "agent": "terminal", "action": "Count the number of directories in ~/Downloads (not recursive)"},
     {"step_number": 2, "agent": "general", "action": "Report the folder count to the user"}
+  ]
+}
+
+User: "Create a new project folder with git initialized"
+{
+  "steps": [
+    {"step_number": 1, "agent": "terminal", "action": "Create a new folder called 'new-project' in the current directory, initialize a git repository inside it, and create a basic .gitignore file"},
+    {"step_number": 2, "agent": "general", "action": "Summarize what was created"}
   ]
 }
 
@@ -131,7 +147,7 @@ async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
   event: IpcMainInvokeEvent,
-  config: any
+  config: any,
 ): Promise<{ steps: OrchestratorStep[]; error?: string }> {
   try {
     const chatHistory: ChatMessage[] = messages.map((msg) => ({
@@ -156,7 +172,7 @@ async function generatePlan(
               steps: {
                 type: "array",
                 minItems: 1,
-                maxItems: 15,
+                maxItems: 5,
                 items: {
                   type: "object",
                   properties: {
@@ -172,7 +188,7 @@ async function generatePlan(
                     action: {
                       type: "string",
                       description:
-                        "For terminal: exact command. For general: task description",
+                        "For terminal: goal to achieve. For general: task description",
                     },
                   },
                   required: ["step_number", "agent", "action"],
@@ -215,7 +231,7 @@ async function generatePlan(
         agent: s.agent,
         action: s.action,
         status: "pending" as const,
-      })
+      }),
     );
 
     LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
@@ -230,72 +246,56 @@ async function generatePlan(
 }
 
 /**
- * Execute a single terminal step
+ * Execute a terminal step using the adaptive executor.
+ * The adaptive executor loops internally to achieve the goal,
+ * requesting user confirmation for each command.
  */
 async function executeTerminalStep(
   step: OrchestratorStep,
   context: OrchestratorContext,
-  event: IpcMainInvokeEvent
+  event: IpcMainInvokeEvent,
+  apiKey: string,
+  config: any,
 ): Promise<{ output: string; success: boolean; newCwd?: string }> {
-  const command = step.action.trim();
+  const goal = step.action.trim();
 
-  // Handle cd commands specially - update cwd
-  if (command.startsWith("cd ")) {
-    const target = command.slice(3).trim();
-    const home = os.homedir();
-    const expanded = target.startsWith("~")
-      ? path.join(home, target.slice(1))
-      : target;
-    const newCwd = path.isAbsolute(expanded)
-      ? expanded
-      : path.resolve(context.cwd, expanded);
-
-    event.sender.send("stream-chunk", {
-      chunk: `Changed directory to: ${newCwd}\n`,
-      type: "log",
-    });
-
-    return { output: `Changed to ${newCwd}`, success: true, newCwd };
-  }
-
-  // Check if command is potentially dangerous (for user awareness)
-  const security = checkCommandSecurity(command);
-  if (security.needConformation) {
-    event.sender.send("stream-chunk", {
-      chunk: `⚠️ Warning: ${security.reason}\n`,
-      type: "log",
-    });
-  }
-
-  // Request user confirmation before executing
-  LOG(TAG).INFO(`Requesting confirmation for: ${command}`);
-  const allowed = await waitForUserConfirmation(event, command, context.cwd);
-
-  if (!allowed) {
-    event.sender.send("stream-chunk", {
-      chunk: `❌ Command denied by user: ${command}\n`,
-      type: "log",
-    });
-    return { output: "Command denied by user", success: false };
-  }
-
-  // Execute the command
   event.sender.send("stream-chunk", {
-    chunk: `✓ Command approved, executing...\n`,
+    chunk: `🎯 Goal: ${goal}\n`,
     type: "log",
   });
 
-  const result = await terminalExecutor(command, context.cwd);
+  // Use adaptive executor with loop-based goal completion
+  const result = await adaptiveTerminalExecutor(
+    goal,
+    context.cwd,
+    event,
+    apiKey,
+    {
+      maxIterations: 10,
+      maxConsecutiveErrors: 2,
+    },
+    // Confirmation callback - requests user approval for each command
+    (command: string, cwd: string) =>
+      waitForUserConfirmation(event, command, cwd),
+  );
 
-  // Truncate large outputs to prevent context/UI bloat
-  const truncatedOutput = truncateOutput(result.output);
+  if (!result.success) {
+    event.sender.send("stream-chunk", {
+      chunk: `❌ Goal failed: ${result.failureReason}\n`,
+      type: "log",
+    });
+  } else {
+    event.sender.send("stream-chunk", {
+      chunk: `✅ Goal achieved in ${result.iterations} iteration(s)\n`,
+      type: "log",
+    });
+  }
 
-  event.sender.send("stream-chunk", {
-    chunk: `$ ${command}\n${truncatedOutput}\n`,
-    type: "log",
-  });
-
-  return { output: truncatedOutput, success: result.success };
+  return {
+    output: result.output,
+    success: result.success,
+    newCwd: result.finalCwd !== context.cwd ? result.finalCwd : undefined,
+  };
 }
 
 /**
@@ -308,7 +308,7 @@ async function executeGeneralStep(
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ output: string }> {
   // Build context summary from all previous steps
   const contextSummary =
@@ -326,7 +326,7 @@ async function executeGeneralStep(
     event,
     apiKey,
     config,
-    signal
+    signal,
   );
 }
 
@@ -339,7 +339,7 @@ export async function orchestrate(
   apiKey: string,
   sessionId: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
 
@@ -422,7 +422,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2
+        2,
       ),
       type: "plan",
     });
@@ -433,7 +433,13 @@ export async function orchestrate(
     });
 
     if (step.agent === "terminal") {
-      const result = await executeTerminalStep(step, context, event);
+      const result = await executeTerminalStep(
+        step,
+        context,
+        event,
+        apiKey,
+        config,
+      );
 
       if (result.newCwd) {
         context.cwd = result.newCwd;
@@ -447,6 +453,39 @@ export async function orchestrate(
 
       step.status = result.success ? "done" : "failed";
       step.result = result.output;
+
+      // Stop the entire plan if a terminal step fails
+      if (!result.success) {
+        LOG(TAG).ERROR(
+          `Step ${step.step_number} failed, aborting remaining steps`,
+        );
+
+        // Mark remaining steps as failed/cancelled
+        for (let j = i + 1; j < steps.length; j++) {
+          steps[j].status = "failed";
+        }
+
+        // Send updated plan status
+        event.sender.send("stream-chunk", {
+          chunk: JSON.stringify(
+            steps.map((s) => ({
+              step_number: s.step_number,
+              tool_name:
+                s.agent === "terminal" ? "terminal_tool" : "general_tool",
+              description: s.action,
+              status: s.status === "pending" ? "todo" : s.status,
+            })),
+            null,
+            2,
+          ),
+          type: "plan",
+        });
+
+        return {
+          text: "",
+          error: `Step ${step.step_number} failed: ${result.output}`,
+        };
+      }
     } else if (step.agent === "general") {
       const result = await executeGeneralStep(
         step,
@@ -455,7 +494,7 @@ export async function orchestrate(
         event,
         apiKey,
         config,
-        signal
+        signal,
       );
 
       step.status = "done";
@@ -486,7 +525,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2
+        2,
       ),
       type: "plan",
     });

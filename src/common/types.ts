@@ -27,6 +27,27 @@ interface OrchestratorContext {
   history: Array<{ step: number; command: string; output: string }>;
   done: boolean;
 }
+
+// Adaptive terminal executor types for loop-based command execution
+interface AdaptiveExecutorConfig {
+  maxIterations: number; // Maximum loop iterations (default: 10)
+  maxConsecutiveErrors: number; // Stop after this many consecutive errors (default: 2)
+}
+
+interface AdaptiveExecutorCommand {
+  command: string;
+  output: string;
+  success: boolean;
+}
+
+interface AdaptiveExecutorResult {
+  success: boolean;
+  output: string; // Summary or final context
+  iterations: number;
+  commands: AdaptiveExecutorCommand[];
+  finalCwd: string;
+  failureReason?: string;
+}
 interface StreamChunk {
   chunk: string;
   type: ChatType;
@@ -142,6 +163,9 @@ interface OpenRouterModel {
 }
 
 export type {
+  AdaptiveExecutorCommand,
+  AdaptiveExecutorConfig,
+  AdaptiveExecutorResult,
   AgentType,
   ChatMessageRecord,
   ChatRole,
