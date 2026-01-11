@@ -165,7 +165,7 @@ function ChatInput({
         )}
 
         {/* Textarea with inline send */}
-        <div className="flex items-end gap-2 p-3">
+        <div className="flex items-center gap-2 p-3">
           {/* Attach button with dropdown */}
           <div className="relative" ref={attachMenuRef}>
             <input
