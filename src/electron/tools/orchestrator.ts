@@ -5,6 +5,7 @@ import {
   ChatMessageRecord,
   OrchestratorStep,
   OrchestratorContext,
+  AdaptiveExecutorCommand,
 } from "../../common/types.js";
 import { IpcMainInvokeEvent, ipcMain } from "electron";
 import { adaptiveTerminalExecutor } from "./terminal/index.js";
@@ -19,7 +20,7 @@ const TAG = "orchestrator";
 const MAX_OUTPUT_LENGTH = 2000;
 function truncateOutput(
   output: string,
-  maxLen: number = MAX_OUTPUT_LENGTH,
+  maxLen: number = MAX_OUTPUT_LENGTH
 ): string {
   if (!output || output.length <= maxLen) return output;
   const half = Math.floor(maxLen / 2);
@@ -47,14 +48,14 @@ ipcMain.handle(
       pending.resolve(allowed);
       pendingConfirmations.delete(requestId);
     }
-  },
+  }
 );
 
 // Wait for user confirmation before executing a command
 async function waitForUserConfirmation(
   event: IpcMainInvokeEvent,
   command: string,
-  cwd: string,
+  cwd: string
 ): Promise<boolean> {
   const requestId = crypto.randomUUID();
 
@@ -147,7 +148,7 @@ async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
   event: IpcMainInvokeEvent,
-  config: any,
+  config: any
 ): Promise<{ steps: OrchestratorStep[]; error?: string }> {
   try {
     const chatHistory: ChatMessage[] = messages.map((msg) => ({
@@ -231,7 +232,7 @@ async function generatePlan(
         agent: s.agent,
         action: s.action,
         status: "pending" as const,
-      }),
+      })
     );
 
     LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
@@ -255,8 +256,13 @@ async function executeTerminalStep(
   context: OrchestratorContext,
   event: IpcMainInvokeEvent,
   apiKey: string,
-  config: any,
-): Promise<{ output: string; success: boolean; newCwd?: string }> {
+  config: any
+): Promise<{
+  output: string;
+  success: boolean;
+  newCwd?: string;
+  commands?: AdaptiveExecutorCommand[];
+}> {
   const goal = step.action.trim();
 
   event.sender.send("stream-chunk", {
@@ -276,7 +282,7 @@ async function executeTerminalStep(
     },
     // Confirmation callback - requests user approval for each command
     (command: string, cwd: string) =>
-      waitForUserConfirmation(event, command, cwd),
+      waitForUserConfirmation(event, command, cwd)
   );
 
   if (!result.success) {
@@ -295,6 +301,7 @@ async function executeTerminalStep(
     output: result.output,
     success: result.success,
     newCwd: result.finalCwd !== context.cwd ? result.finalCwd : undefined,
+    commands: result.commands,
   };
 }
 
@@ -308,7 +315,7 @@ async function executeGeneralStep(
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<{ output: string }> {
   // Build context summary from all previous steps
   const contextSummary =
@@ -326,7 +333,7 @@ async function executeGeneralStep(
     event,
     apiKey,
     config,
-    signal,
+    signal
   );
 }
 
@@ -339,7 +346,7 @@ export async function orchestrate(
   apiKey: string,
   sessionId: string,
   config: any,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
 
@@ -422,7 +429,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2,
+        2
       ),
       type: "plan",
     });
@@ -438,26 +445,44 @@ export async function orchestrate(
         context,
         event,
         apiKey,
-        config,
+        config
       );
 
       if (result.newCwd) {
         context.cwd = result.newCwd;
       }
 
+      // Build detailed output including actual command executions
+      // The result.output contains the LLM's context summary
+      // The result.commands contains the actual command executions with their outputs
+      let detailedOutput = result.output;
+
+      if (result.commands && result.commands.length > 0) {
+        detailedOutput += "\n\n<COMMAND_EXECUTIONS>\n";
+        detailedOutput += result.commands
+          .map(
+            (cmd: AdaptiveExecutorCommand, idx: number) =>
+              `Command ${idx + 1}: ${cmd.command}\n` +
+              `Output: ${cmd.output}\n` +
+              `Success: ${cmd.success}`
+          )
+          .join("\n\n");
+        detailedOutput += "\n</COMMAND_EXECUTIONS>";
+      }
+
       context.history.push({
         step: step.step_number,
         command: step.action,
-        output: result.output,
+        output: detailedOutput,
       });
 
       step.status = result.success ? "done" : "failed";
-      step.result = result.output;
+      step.result = detailedOutput;
 
       // Stop the entire plan if a terminal step fails
       if (!result.success) {
         LOG(TAG).ERROR(
-          `Step ${step.step_number} failed, aborting remaining steps`,
+          `Step ${step.step_number} failed, aborting remaining steps`
         );
 
         // Mark remaining steps as failed/cancelled
@@ -476,7 +501,7 @@ export async function orchestrate(
               status: s.status === "pending" ? "todo" : s.status,
             })),
             null,
-            2,
+            2
           ),
           type: "plan",
         });
@@ -494,7 +519,7 @@ export async function orchestrate(
         event,
         apiKey,
         config,
-        signal,
+        signal
       );
 
       step.status = "done";
@@ -525,7 +550,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2,
+        2
       ),
       type: "plan",
     });

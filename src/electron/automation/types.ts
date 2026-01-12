@@ -87,8 +87,8 @@ export interface RobustOrchestratorConfig {
 }
 
 export const DEFAULT_ORCHESTRATOR_CONFIG: RobustOrchestratorConfig = {
-  maxSteps: 10,
-  maxRetries: 2,
-  maxConsecutiveFailures: 3,
+  maxSteps: 20,
+  maxRetries: 3,
+  maxConsecutiveFailures: 5,
   debug: false,
 };
