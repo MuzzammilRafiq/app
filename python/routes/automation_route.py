@@ -41,6 +41,15 @@ class MouseClickRequest(BaseModel):
     )
 
 
+class MouseScrollRequest(BaseModel):
+    delta_x: int = Field(default=0, description="Horizontal scroll amount (negative=left, positive=right)")
+    delta_y: int = Field(..., description="Vertical scroll amount (negative=up, positive=down)")
+    duration_ms: Optional[int] = Field(default=100, ge=0, description="Duration of scroll animation")
+    delay_ms: Optional[int] = Field(
+        default=0, ge=0, description="Delay before executing action"
+    )
+
+
 class KeyboardTypeRequest(BaseModel):
     text: str
     interval_ms: Optional[int] = Field(default=None, ge=0)
@@ -91,6 +100,50 @@ def mouse_click(request: MouseClickRequest):
         return {"status": "ok", "button": request.button, "clicks": request.clicks or 1}
     except Exception as e:
         print(f"[ERROR] Mouse click failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@automation_router.post("/mouse/scroll")
+def mouse_scroll(request: MouseScrollRequest):
+    """
+    Scroll the mouse wheel.
+    
+    Args:
+        delta_x: Horizontal scroll (not supported by pyautogui, ignored)
+        delta_y: Vertical scroll amount. Positive = scroll down, Negative = scroll up.
+                 Value represents pixels of scrolling.
+        duration_ms: Not directly supported, ignored for now.
+        delay_ms: Delay before scrolling.
+    
+    Note: pyautogui.scroll() uses "clicks" where positive = up, negative = down.
+    We invert the delta_y to match the expected behavior (positive = down).
+    """
+    try:
+        print(f"[DEBUG] Scrolling: delta_y={request.delta_y}")
+        if request.delay_ms and request.delay_ms > 0:
+            time.sleep(request.delay_ms / 1000.0)
+        
+        # Convert pixel delta to scroll "clicks" (approx 100 pixels per click)
+        # pyautogui.scroll: positive = up, negative = down
+        # Our API: positive delta_y = down, negative = up
+        # So we need to negate and scale
+        scroll_clicks = -int(request.delta_y / 100) if request.delta_y != 0 else 0
+        
+        # Ensure at least 1 click if delta is non-zero
+        if request.delta_y > 0 and scroll_clicks >= 0:
+            scroll_clicks = -1  # scroll down
+        elif request.delta_y < 0 and scroll_clicks <= 0:
+            scroll_clicks = 1   # scroll up
+        
+        pyautogui.scroll(scroll_clicks)
+        
+        return {
+            "status": "ok", 
+            "delta_y": request.delta_y, 
+            "scroll_clicks": scroll_clicks
+        }
+    except Exception as e:
+        print(f"[ERROR] Mouse scroll failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

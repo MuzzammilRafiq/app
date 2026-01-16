@@ -157,6 +157,20 @@ async def help_routes():
                         "clicks": "int",
                     },
                 },
+                "POST /mouse/scroll": {
+                    "description": "Scroll the mouse wheel",
+                    "expects": {
+                        "delta_x": "int (optional, default: 0) - Horizontal scroll (not supported)",
+                        "delta_y": "int (required) - Vertical scroll amount in pixels (positive=down, negative=up)",
+                        "duration_ms": "int (optional, default: 100) - Duration of scroll",
+                        "delay_ms": "int (optional, default: 0) - Delay before executing action",
+                    },
+                    "returns": {
+                        "status": "string",
+                        "delta_y": "int",
+                        "scroll_clicks": "int",
+                    },
+                },
                 "POST /keyboard/type": {
                     "description": "Type the specified text",
                     "expects": {
