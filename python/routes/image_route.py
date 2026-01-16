@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 from fastapi import HTTPException,APIRouter
 from pydantic import BaseModel
 import constants as C
-from image import imageCHroma
+from image import get_image_chroma
 from logger import log_error, log_success, log_info, log_warning
 
 image_router = APIRouter()
@@ -33,7 +33,7 @@ async def add_images_from_folder(request: AddRequest) -> Dict[str, Any]:
                 status_code=400, detail="Batch size must be greater than 0"
             )
 
-        result = imageCHroma.add_images_from_folder_recursively(
+        result = get_image_chroma().add_images_from_folder_recursively(
             request.folder_path, request.batch_size
         )
 
@@ -72,7 +72,7 @@ async def add_single_image_file(request: ScanFileRequest) -> Dict[str, Any]:
             log_warning("Received request with empty file path.")
             raise HTTPException(status_code=400, detail="File path cannot be empty")
         
-        result = imageCHroma.add_single_image_file(request.file_path)
+        result = get_image_chroma().add_single_image_file(request.file_path)
         return result
     except ValueError as ve:
         log_error(f"ValueError while adding image file {request.file_path}: {ve}")
@@ -101,7 +101,7 @@ async def query_images(request: QueryRequest) -> List[str]:
             raise HTTPException(
                 status_code=400, detail="n_results must be greater than 0"
             )
-        return imageCHroma.READ(request.query_text, request.n_results)
+        return get_image_chroma().READ(request.query_text, request.n_results)
 
     except HTTPException:
         raise
@@ -118,7 +118,7 @@ async def delete_all_images() -> Dict[str, Any]:
     log_info("Received request to delete all images from database")
 
     try:
-        imageCHroma.DELETE_ALL()
+        get_image_chroma().DELETE_ALL()
         log_success("Successfully deleted all images from database")
 
         return {
@@ -141,7 +141,7 @@ async def delete_folder(request:DeleteRequest) -> Dict[str, Any]:
         if not request.folder_path.strip():
             log_warning("Received request with empty folder path.")
             raise HTTPException(status_code=400, detail="Folder path cannot be empty")
-        result = imageCHroma.DELETE(request.folder_path)
+        result = get_image_chroma().DELETE(request.folder_path)
         log_success(f"Successfully deleted folder: {request.folder_path}")
         return {
             "message": f"Successfully deleted folder: {request.folder_path}",

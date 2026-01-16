@@ -256,5 +256,11 @@ class TextChroma:
             log_error(f"Error processing text file {file_path}: {str(e)}")
             raise
 
-textChroma = TextChroma()
+_textChroma_instance = None
+
+def get_text_chroma():
+    global _textChroma_instance
+    if _textChroma_instance is None:
+        _textChroma_instance = TextChroma()
+    return _textChroma_instance
 

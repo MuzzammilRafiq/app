@@ -2,7 +2,7 @@ from typing import Dict, Any
 from fastapi import HTTPException,APIRouter
 from pydantic import BaseModel
 import constants as C
-from text import textChroma
+from text import get_text_chroma
 from logger import log_error, log_success, log_info, log_warning
 
 text_router = APIRouter()
@@ -31,7 +31,7 @@ async def add_text_from_folder(request: AddRequest) -> Dict[str, Any]:
             raise HTTPException(
                 status_code=400, detail="Batch size must be greater than 0"
             )
-        result = textChroma.add_text_from_folder_recursively(
+        result = get_text_chroma().add_text_from_folder_recursively(
             request.folder_path, request.batch_size
         )
         return result
@@ -63,7 +63,7 @@ async def add_single_text_file(request: ScanFileRequest) -> Dict[str, Any]:
             log_warning("Received request with empty file path.")
             raise HTTPException(status_code=400, detail="File path cannot be empty")
         
-        result = textChroma.add_single_text_file(request.file_path)
+        result = get_text_chroma().add_single_text_file(request.file_path)
         return result
     except ValueError as ve:
         log_error(f"ValueError while adding text file {request.file_path}: {ve}")
@@ -93,7 +93,7 @@ async def query_text(request: QueryRequest) ->Dict[str, Any]:
             raise HTTPException(
                 status_code=400, detail="n_results must be greater than 0"
             )
-        return textChroma.READ(request.query_text, request.n_results)
+        return get_text_chroma().READ(request.query_text, request.n_results)
 
     except HTTPException:
         raise
@@ -110,7 +110,7 @@ async def delete_all_text() -> Dict[str, Any]:
     log_info("Received request to delete all text from database")
 
     try:
-        textChroma.DELETE_ALL()
+        get_text_chroma().DELETE_ALL()
         log_success("Successfully deleted all text from database")
 
         return {
@@ -134,7 +134,7 @@ async def delete_folder(request:DeleteRequest) -> Dict[str, Any]:
         if not request.folder_path.strip():
             log_warning("Received request with empty folder path.")
             raise HTTPException(status_code=400, detail="Folder path cannot be empty")
-        result = textChroma.DELETE(request.folder_path)
+        result = get_text_chroma().DELETE(request.folder_path)
         log_success(f"Successfully deleted folder: {request.folder_path}")
         return {
             "message": f"Successfully deleted folder: {request.folder_path}",

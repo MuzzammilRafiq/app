@@ -158,5 +158,11 @@ class ImageChroma:
             raise
 
 
-imageCHroma = ImageChroma()
+_imageChroma_instance = None
+
+def get_image_chroma():
+    global _imageChroma_instance
+    if _imageChroma_instance is None:
+        _imageChroma_instance = ImageChroma()
+    return _imageChroma_instance
 
