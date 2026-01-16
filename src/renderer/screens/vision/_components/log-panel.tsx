@@ -67,28 +67,30 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
 
   return (
     <div
-      className={`p-2 rounded-lg border ${style.bg} ${style.border} animate-fade-in`}
+      className={`p-3 rounded-xl border ${style.bg} ${style.border} animate-fade-in shadow-sm`}
     >
-      <div className="flex items-start gap-1.5">
-        <span className="text-sm shrink-0">{style.icon}</span>
+      <div className="flex items-start gap-2">
+        <span className="text-base shrink-0">{style.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
-            <p className={`text-xs font-medium ${style.titleColor} truncate`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className={`text-xs font-semibold ${style.titleColor} truncate`}>
               {entry.title}
             </p>
-            <span className="text-[9px] text-text-subtle shrink-0">{time}</span>
+            <span className="text-[10px] text-text-subtle shrink-0">
+              {time}
+            </span>
           </div>
           {entry.content && (
-            <p className="text-[11px] text-text-muted mt-0.5 whitespace-pre-wrap break-all font-mono leading-snug">
+            <p className="text-[12px] text-text-muted mt-1 whitespace-pre-wrap break-all font-mono leading-relaxed">
               {entry.content}
             </p>
           )}
           {imageSrc && (
-            <div className="mt-1.5">
+            <div className="mt-2">
               <img
                 src={imageSrc}
                 alt="Preview"
-                className="w-full max-h-32 object-contain rounded-md border border-border shadow-sm"
+                className="w-full max-h-40 object-contain rounded-lg border border-border shadow-sm"
               />
             </div>
           )}
@@ -112,11 +114,13 @@ export default function VisionLogPanel() {
 
   if (logs.length === 0 && !isExecuting) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-3">🔍</div>
-          <p className="text-text-muted text-sm">
-            Enter a target description and click Send to start
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-primary-light/40 border border-primary/20 flex items-center justify-center text-xl mb-3">
+            🔍
+          </div>
+          <p className="text-text-main text-sm font-medium">
+            Enter a target description to begin
           </p>
           <p className="text-text-subtle text-xs mt-1">
             Vision logs will appear here
@@ -127,7 +131,10 @@ export default function VisionLogPanel() {
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto px-5 py-5 space-y-4 bg-bg-app"
+    >
       {logs.map((entry) => (
         <LogEntry key={entry.id} entry={entry} />
       ))}

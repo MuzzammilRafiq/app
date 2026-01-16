@@ -6,15 +6,24 @@ export const AUTOMATION_SERVER_URL = "http://localhost:8000";
 export const GRID_SIZE = 6;
 export const MAX_ORCHESTRATOR_STEPS = 6;
 
+/** Vision identification status */
+export type VisionStatus = "found" | "not_found" | "ambiguous";
+
 export interface OrchestratorStep {
-  action: "click" | "type" | "press" | "wait";
+  action: "click" | "type" | "press" | "wait" | "scroll";
   target?: string; // Element description for click
-  data?: string; // Text to type, key to press, or delay in ms
+  data?: string; // Text to type, key to press, delay in ms, or scroll pixels
   reason: string; // LLM's explanation
 }
 
 export type SendLogFn = (
-  type: "server" | "llm-request" | "llm-response" | "thinking" | "error",
+  type:
+    | "server"
+    | "llm-request"
+    | "llm-response"
+    | "thinking"
+    | "error"
+    | "vision-status",
   title: string,
   content: string
 ) => void;
@@ -23,6 +32,8 @@ export interface CellIdentificationResult {
   cell: number;
   confidence: string;
   reason: string;
+  status: VisionStatus;
+  suggested_retry?: string;
 }
 
 export interface VisionActionParams {
@@ -64,7 +75,7 @@ export interface ActionHistoryEntry {
 
 /** Sub-agent's decision for the next action */
 export interface NextActionDecision {
-  action: "click" | "type" | "press" | "wait" | "done";
+  action: "click" | "type" | "press" | "wait" | "scroll" | "done";
   target?: string;
   data?: string;
   reason: string;
@@ -76,6 +87,16 @@ export interface VerificationResult {
   success: boolean;
   observation: string;
   suggestion?: string; // Hint for retry attempts
+}
+
+/** Result from unified two-pass vision call */
+export interface TwoPassVisionResult {
+  success: boolean;
+  status: VisionStatus;
+  firstPass: CellIdentificationResult;
+  secondPass?: CellIdentificationResult;
+  finalCoordinates?: { x: number; y: number };
+  error?: string;
 }
 
 /** Configuration for the robust orchestrator */

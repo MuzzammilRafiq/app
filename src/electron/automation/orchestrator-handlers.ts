@@ -59,6 +59,49 @@ async function executePress(key: string, sendLog: SendLogFn): Promise<boolean> {
   return response.ok;
 }
 
+/**
+ * Execute a scroll action
+ * @param direction - "up" or "down"
+ * @param pixels - optional pixel amount (default 300)
+ */
+async function executeScroll(
+  direction: "up" | "down",
+  pixels: number,
+  sendLog: SendLogFn
+): Promise<boolean> {
+  sendLog("server", "Scroll", `Scrolling ${direction} by ${pixels}px...`);
+
+  // Use mouse scroll endpoint if available, fallback to keyboard
+  try {
+    // Try to use mouse scroll (more natural)
+    const scrollAmount = direction === "up" ? -pixels : pixels;
+    const response = await fetch(`${AUTOMATION_SERVER_URL}/mouse/scroll`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        delta_x: 0,
+        delta_y: scrollAmount,
+        duration_ms: 100,
+      }),
+    });
+
+    if (response.ok) {
+      return true;
+    }
+  } catch {
+    // Fallback to keyboard if mouse scroll not available
+  }
+
+  // Fallback: Use Page Up/Down keys
+  const key = direction === "up" ? "pageup" : "pagedown";
+  const response = await fetch(`${AUTOMATION_SERVER_URL}/keyboard/press`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, delay_ms: 0 }),
+  });
+  return response.ok;
+}
+
 export function setupOrchestratorHandlers() {
   // ====================================================================
   // Robust Orchestrated Workflow Handler (Dynamic Multi-step Agent)
@@ -79,7 +122,13 @@ export function setupOrchestratorHandlers() {
       };
 
       const sendLog: SendLogFn = (
-        type: "server" | "llm-request" | "llm-response" | "thinking" | "error",
+        type:
+          | "server"
+          | "llm-request"
+          | "llm-response"
+          | "thinking"
+          | "error"
+          | "vision-status",
         title: string,
         content: string
       ) => {
@@ -101,7 +150,10 @@ export function setupOrchestratorHandlers() {
         LOG(TAG).INFO(`Initial screenshot captured`);
 
         if (config.debug) {
-          sendImagePreview("Initial Screenshot", initialScreenshot.grid_image_base64);
+          sendImagePreview(
+            "Initial Screenshot",
+            initialScreenshot.grid_image_base64
+          );
         }
 
         sendProgress("planning", "Creating contextual plan...");
@@ -118,7 +170,8 @@ export function setupOrchestratorHandlers() {
           LOG(TAG).ERROR(`Context invalid: ${planResult.reason}`);
           return {
             success: false,
-            error: planResult.reason || "Cannot achieve goal from current screen",
+            error:
+              planResult.reason || "Cannot achieve goal from current screen",
             stepsCompleted: 0,
             totalSteps: 0,
           };
@@ -151,13 +204,19 @@ export function setupOrchestratorHandlers() {
         ) {
           context.currentStep++;
           LOG(TAG).INFO(`=== Step ${context.currentStep} ===`);
-          sendProgress(`step-${context.currentStep}`, `Executing step ${context.currentStep}...`);
+          sendProgress(
+            `step-${context.currentStep}`,
+            `Executing step ${context.currentStep}...`
+          );
 
           // Take fresh screenshot for decision
           const currentScreenshot = await takeScreenshot(config.debug);
 
           if (config.debug) {
-            sendImagePreview(`Step ${context.currentStep} Screenshot`, currentScreenshot.grid_image_base64);
+            sendImagePreview(
+              `Step ${context.currentStep} Screenshot`,
+              currentScreenshot.grid_image_base64
+            );
           }
 
           // Ask LLM what action to take next
@@ -174,7 +233,10 @@ export function setupOrchestratorHandlers() {
           // Check if goal is complete
           if (decision.goalComplete || decision.action === "done") {
             LOG(TAG).INFO("Goal complete!");
-            sendProgress("done", `Goal achieved in ${context.currentStep} steps`);
+            sendProgress(
+              "done",
+              `Goal achieved in ${context.currentStep} steps`
+            );
             return {
               success: true,
               stepsCompleted: context.currentStep,
@@ -196,8 +258,28 @@ export function setupOrchestratorHandlers() {
             } else if (decision.action === "press") {
               const key = decision.data || "enter";
               actionSuccess = await executePress(key, sendLog);
-              observation = actionSuccess ? `Pressed ${key}` : `Failed to press ${key}`;
-            } else if (decision.action === "click" || decision.action === "type") {
+              observation = actionSuccess
+                ? `Pressed ${key}`
+                : `Failed to press ${key}`;
+            } else if (decision.action === "scroll") {
+              // Parse direction and optional pixels from data (e.g., "down", "down 300", "up 500")
+              const dataParts = (decision.data || "down")
+                .toLowerCase()
+                .split(/\s+/);
+              const direction = dataParts[0] === "up" ? "up" : "down";
+              const pixels = dataParts[1] ? parseInt(dataParts[1], 10) : 300;
+              actionSuccess = await executeScroll(
+                direction,
+                isNaN(pixels) ? 300 : pixels,
+                sendLog
+              );
+              observation = actionSuccess
+                ? `Scrolled ${direction} by ${pixels}px`
+                : `Failed to scroll ${direction}`;
+            } else if (
+              decision.action === "click" ||
+              decision.action === "type"
+            ) {
               // Use vision-based action (two-pass: grid -> sub-grid)
               // Pass the existing screenshot to avoid redundant capture
               const result = await executeVisionAction(
@@ -222,7 +304,8 @@ export function setupOrchestratorHandlers() {
             }
           } catch (error) {
             actionSuccess = false;
-            observation = error instanceof Error ? error.message : "Unknown error";
+            observation =
+              error instanceof Error ? error.message : "Unknown error";
           }
 
           // Wait a moment for UI to update
@@ -272,7 +355,9 @@ export function setupOrchestratorHandlers() {
           // Update consecutive failures counter
           if (actionSuccess) {
             context.consecutiveFailures = 0;
-            LOG(TAG).INFO(`Step ${context.currentStep} succeeded: ${observation}`);
+            LOG(TAG).INFO(
+              `Step ${context.currentStep} succeeded: ${observation}`
+            );
           } else {
             context.consecutiveFailures++;
             LOG(TAG).WARN(
@@ -325,7 +410,8 @@ export function setupOrchestratorHandlers() {
           results: context.actionHistory,
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
         LOG(TAG).ERROR(`Orchestration failed: ${errorMessage}`);
         sendLog("error", "Orchestration Failed", errorMessage);
         return {

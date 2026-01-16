@@ -28,13 +28,21 @@ export async function executeVisionAction(
   sendLog: SendLogFn,
   sendImagePreview: (title: string, imageBase64: string) => void,
   keepHidden: boolean = false,
-  existingScreenshot?: { original_image_base64: string; grid_image_base64: string; scale_factor: number }
+  existingScreenshot?: {
+    original_image_base64: string;
+    grid_image_base64: string;
+    scale_factor: number;
+  }
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   const window = BrowserWindow.fromWebContents(event.sender);
 
   try {
     // Use existing screenshot if provided (from orchestrator), otherwise take a new one
-    let screenshot: { original_image_base64: string; grid_image_base64: string; scale_factor: number };
+    let screenshot: {
+      original_image_base64: string;
+      grid_image_base64: string;
+      scale_factor: number;
+    };
 
     if (existingScreenshot) {
       screenshot = existingScreenshot;
@@ -56,7 +64,10 @@ export async function executeVisionAction(
       screenshot = await screenshotResponse.json();
 
       if (debug) {
-        sendImagePreview(`Screenshot for: ${targetDescription}`, screenshot.grid_image_base64);
+        sendImagePreview(
+          `Screenshot for: ${targetDescription}`,
+          screenshot.grid_image_base64
+        );
       }
     }
 
@@ -64,16 +75,35 @@ export async function executeVisionAction(
     // Window will be shown only after ALL actions complete to prevent focus shift issues
 
     // First LLM analysis - pass BOTH clean and grid images
-    const firstPrompt = createCellIdentificationPrompt(targetDescription, false);
+    const firstPrompt = createCellIdentificationPrompt(
+      targetDescription,
+      false
+    );
     const firstResult = await askLLMForCellWithLogging(
       apiKey,
-      screenshot.original_image_base64,  // Clean image
-      screenshot.grid_image_base64,       // Grid image
+      screenshot.original_image_base64, // Clean image
+      screenshot.grid_image_base64, // Grid image
       firstPrompt,
       targetDescription,
       imageModelOverride,
       sendLog
     );
+
+    // Handle not_found/ambiguous status - return early and let planner decide
+    if (
+      firstResult.status === "not_found" ||
+      firstResult.status === "ambiguous"
+    ) {
+      return {
+        success: false,
+        error: firstResult.reason,
+        data: {
+          status: firstResult.status,
+          suggestion: firstResult.suggested_retry,
+          firstPass: firstResult,
+        },
+      };
+    }
 
     // Crop and create sub-grid
     const imgBuffer = Buffer.from(screenshot.original_image_base64, "base64");
@@ -105,16 +135,36 @@ export async function executeVisionAction(
     }
 
     // Second LLM analysis - pass BOTH clean and grid cropped images
-    const secondPrompt = createCellIdentificationPrompt(targetDescription, true);
+    const secondPrompt = createCellIdentificationPrompt(
+      targetDescription,
+      true
+    );
     const secondResult = await askLLMForCellWithLogging(
       apiKey,
-      cropped.clean_cropped_image_base64,  // Clean cropped image
-      cropped.cropped_image_base64,         // Grid cropped image
+      cropped.clean_cropped_image_base64, // Clean cropped image
+      cropped.cropped_image_base64, // Grid cropped image
       secondPrompt,
       targetDescription,
       imageModelOverride,
       sendLog
     );
+
+    // Handle not_found/ambiguous in second pass (sub-grid refinement)
+    if (
+      secondResult.status === "not_found" ||
+      secondResult.status === "ambiguous"
+    ) {
+      return {
+        success: false,
+        error: `Refinement failed: ${secondResult.reason}`,
+        data: {
+          status: secondResult.status,
+          suggestion: secondResult.suggested_retry,
+          firstPass: firstResult,
+          secondPass: secondResult,
+        },
+      };
+    }
 
     // Calculate coordinates
     const centerParams = new URLSearchParams({
@@ -217,5 +267,3 @@ export async function executeVisionAction(
     };
   }
 }
-
-

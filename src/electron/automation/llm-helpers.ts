@@ -98,9 +98,14 @@ export async function askLLMForCellWithLogging(
     let thinkingContent = "";
 
     // Send BOTH images: clean first, then grid with numbers
-    for await (const chunk of ASK_IMAGE(apiKey, prompt, [cleanFilePath, gridFilePath], {
-      overrideModel: imageModelOverride,
-    })) {
+    for await (const chunk of ASK_IMAGE(
+      apiKey,
+      prompt,
+      [cleanFilePath, gridFilePath],
+      {
+        overrideModel: imageModelOverride,
+      }
+    )) {
       // Check for reasoning/thinking content (some models return this)
       if (chunk.reasoning) {
         thinkingContent += chunk.reasoning;
@@ -120,23 +125,46 @@ export async function askLLMForCellWithLogging(
     // Parse JSON
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      sendLog("error", "Parse Error", `Could not parse LLM response: ${responseContent}`);
+      sendLog(
+        "error",
+        "Parse Error",
+        `Could not parse LLM response: ${responseContent}`
+      );
       throw new Error(`Could not parse LLM response: ${responseContent}`);
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // Log the parsed response in a pretty format
-    const prettyResponse = `Cell: ${parsed.cell}\nConfidence: ${parsed.confidence}\nReason: ${parsed.reason}`;
-    sendLog("llm-response", "LLM Response", prettyResponse);
-
-    // Check if element was not found (cell: 0)
-    if (parsed.cell === 0) {
-      const errMsg = `Element not found: ${parsed.reason || `No element matching "${targetDescription}" was found on the screen`}`;
-      sendLog("error", "Element Not Found", errMsg);
-      throw new Error(errMsg);
+    // Ensure status field exists (backward compatibility)
+    if (!parsed.status) {
+      parsed.status = parsed.cell === 0 ? "not_found" : "found";
     }
 
+    // Log the parsed response in a pretty format with status
+    const prettyResponse = `Cell: ${parsed.cell}\nStatus: ${parsed.status}\nConfidence: ${parsed.confidence}\nReason: ${parsed.reason}${parsed.suggested_retry ? `\nSuggested retry: ${parsed.suggested_retry}` : ""}`;
+
+    // Use vision-status log type for not_found/ambiguous
+    if (parsed.status === "not_found" || parsed.status === "ambiguous") {
+      sendLog("vision-status", `Vision: ${parsed.status}`, prettyResponse);
+    } else {
+      sendLog("llm-response", "LLM Response", prettyResponse);
+    }
+
+    // For not_found/ambiguous, return the result instead of throwing
+    // This allows the caller (text model planner) to decide what to do
+    if (parsed.status === "not_found" || parsed.status === "ambiguous") {
+      return {
+        cell: 0,
+        confidence: parsed.confidence || "none",
+        reason:
+          parsed.reason ||
+          `Element matching "${targetDescription}" ${parsed.status === "ambiguous" ? "is ambiguous" : "was not found"}`,
+        status: parsed.status,
+        suggested_retry: parsed.suggested_retry,
+      };
+    }
+
+    // Validate cell number for found status
     if (
       typeof parsed.cell !== "number" ||
       parsed.cell < 1 ||
@@ -147,7 +175,13 @@ export async function askLLMForCellWithLogging(
       throw new Error(errMsg);
     }
 
-    return parsed;
+    return {
+      cell: parsed.cell,
+      confidence: parsed.confidence,
+      reason: parsed.reason,
+      status: "found",
+      suggested_retry: parsed.suggested_retry,
+    };
   } finally {
     // Clean up both temp files
     try {
@@ -177,16 +211,28 @@ Instructions:
 1. Find the target element in the clean image
 2. Match its position to a cell number in the grid image
 3. If the element spans multiple cells, pick ANY cell that contains part of it
-4. If the element is NOT visible on screen, respond with cell: 0
+4. If the element is NOT visible on screen, respond with status: "not_found" and cell: 0
+5. If the screen shows a loading state, spinner, or transition, respond with status: "not_found"
+6. If multiple elements match or you're uncertain, respond with status: "ambiguous" and cell: 0
+7. DO NOT GUESS a cell number if you are unsure - use "not_found" or "ambiguous" instead
 
 Respond with ONLY a JSON object:
-{"cell": <number>, "confidence": "<high|medium|low|none>", "reason": "<brief explanation>"}
+{
+  "cell": <number 1-${GRID_SIZE * GRID_SIZE} or 0 if not found>,
+  "confidence": "<high|medium|low|none>",
+  "status": "<found|not_found|ambiguous>",
+  "reason": "<brief explanation>",
+  "suggested_retry": "<optional hint for retry if not_found/ambiguous>"
+}
 
 Examples:
-{"cell": 15, "confidence": "high", "reason": "Found 'Settings' button in cell 15"}
-{"cell": 0, "confidence": "none", "reason": "No element matching '${targetDescription}' found on screen"}`;
+{"cell": 15, "confidence": "high", "status": "found", "reason": "Found 'Settings' button in cell 15"}
+{"cell": 0, "confidence": "none", "status": "not_found", "reason": "Page is still loading, showing spinner"}
+{"cell": 0, "confidence": "low", "status": "ambiguous", "reason": "Multiple settings icons visible", "suggested_retry": "Try specifying 'gear icon in top right'"}`;
 
-export const createScreenDescriptionPrompt = (userPrompt: string) => `You are a screen context analyzer.
+export const createScreenDescriptionPrompt = (
+  userPrompt: string
+) => `You are a screen context analyzer.
 The user wants to: "${userPrompt}"
 
 Analyze the screenshot and provide a concise description of the visible state.
@@ -223,6 +269,7 @@ Rules:
 - Use "type" to enter text - specify target input and data to type
 - Use "press" for keyboard keys (enter, tab, escape, backspace, up, down, left, right, space)
 - Use "wait" for delays (specify ms, typically 1500-2000 for page loads)
+- Use "scroll" to scroll the page - data should be "up" or "down" with optional pixels (e.g., "down 300")
 - Add wait steps after actions that trigger page loads
 - Keep plans simple - maximum ${MAX_ORCHESTRATOR_STEPS} steps
 - For typing in search boxes: click the input, then use a separate type step
@@ -239,34 +286,46 @@ export async function askLLMForPlanWithLogging(
 ): Promise<{ steps?: OrchestratorStep[]; error?: string; reason?: string }> {
   // Step 1: Use Vision Model to get screen description
   const tempDir = os.tmpdir();
-  const tempFilePath = path.join(tempDir, `orchestrator-plan-${Date.now()}.png`);
-  
+  const tempFilePath = path.join(
+    tempDir,
+    `orchestrator-plan-${Date.now()}.png`
+  );
+
   let screenDescription = "";
 
   try {
     const buffer = Buffer.from(imageBase64, "base64");
     await fs.writeFile(tempFilePath, buffer);
 
-    sendLog("llm-request", "Scene Analysis", "Asking Vision Model to analyze screen content...");
-    
+    sendLog(
+      "llm-request",
+      "Scene Analysis",
+      "Asking Vision Model to analyze screen content..."
+    );
+
     const descPrompt = createScreenDescriptionPrompt(userPrompt);
     for await (const chunk of ASK_IMAGE(apiKey, descPrompt, [tempFilePath], {
-      overrideModel: imageModelOverride
+      overrideModel: imageModelOverride,
     })) {
       if (chunk.content) {
         screenDescription += chunk.content;
       }
     }
-    
+
     sendLog("llm-response", "Screen Analysis", screenDescription);
 
     // Step 2: Use Text Model to generate plan
-    sendLog("llm-request", "Plan Generation", "Asking Text Model to generate plan...");
+    sendLog(
+      "llm-request",
+      "Plan Generation",
+      "Asking Text Model to generate plan..."
+    );
 
-    const planPrompt = createPlanGenerationPrompt(userPrompt, screenDescription);
-    const messages: ChatMessage[] = [
-      { role: "user", content: planPrompt }
-    ];
+    const planPrompt = createPlanGenerationPrompt(
+      userPrompt,
+      screenDescription
+    );
+    const messages: ChatMessage[] = [{ role: "user", content: planPrompt }];
 
     let responseContent = "";
     let thinkingContent = "";
@@ -287,7 +346,11 @@ export async function askLLMForPlanWithLogging(
     // Parse JSON from response
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      sendLog("error", "Parse Error", `Could not parse Planner response: ${responseContent}`);
+      sendLog(
+        "error",
+        "Parse Error",
+        `Could not parse Planner response: ${responseContent}`
+      );
       throw new Error(`Could not parse plan response: ${responseContent}`);
     }
 
@@ -307,7 +370,9 @@ export async function askLLMForPlanWithLogging(
 /**
  * Creates a prompt for generating a contextual (natural language) plan
  */
-export const createContextualPlanPrompt = (userGoal: string) => `You are a screen automation assistant. Analyze this screenshot and create a plan to achieve the user's goal.
+export const createContextualPlanPrompt = (
+  userGoal: string
+) => `You are a screen automation assistant. Analyze this screenshot and create a plan to achieve the user's goal.
 
 User Goal: "${userGoal}"
 
@@ -334,11 +399,15 @@ export const createNextActionPrompt = (
   plan: string,
   actionHistory: ActionHistoryEntry[]
 ) => {
-  const historyText = actionHistory.length > 0
-    ? actionHistory.map((h, i) => 
-        `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`
-      ).join("\n")
-    : "No actions taken yet.";
+  const historyText =
+    actionHistory.length > 0
+      ? actionHistory
+          .map(
+            (h, i) =>
+              `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`
+          )
+          .join("\n")
+      : "No actions taken yet.";
 
   return `You are a screen automation sub-agent. Based on the current screen state, decide the SINGLE next action to take.
 
@@ -356,9 +425,9 @@ Analyze the screenshot and determine:
 
 Respond with a JSON object:
 {
-  "action": "click" | "type" | "press" | "wait" | "done",
+  "action": "click" | "type" | "press" | "wait" | "scroll" | "done",
   "target": "element description (for click/type)" or null,
-  "data": "text to type / key to press / wait ms" or null,
+  "data": "text to type / key to press / wait ms / scroll direction" or null,
   "reason": "brief explanation of why this action",
   "goalComplete": true | false
 }
@@ -370,6 +439,8 @@ Rules:
 - For "type": target is the input field, data is the text to type
 - For "press": data is the key (enter, tab, escape, space, etc.)
 - For "wait": data is milliseconds (e.g., "1500")
+- For "scroll": data is direction with optional pixels (e.g., "down", "up 300")
+- If a previous vision step returned "not_found" or "ambiguous", consider: waiting for loading, scrolling to reveal content, or trying a different target description
 
 Respond with ONLY the JSON object.`;
 };
@@ -408,7 +479,12 @@ export async function askLLMForContextualPlan(
   userGoal: string,
   imageModelOverride: string | undefined,
   sendLog: SendLogFn
-): Promise<{ valid: boolean; plan?: string; estimatedSteps?: number; reason?: string }> {
+): Promise<{
+  valid: boolean;
+  plan?: string;
+  estimatedSteps?: number;
+  reason?: string;
+}> {
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, `contextual-plan-${Date.now()}.png`);
 
@@ -416,7 +492,11 @@ export async function askLLMForContextualPlan(
     const buffer = Buffer.from(imageBase64, "base64");
     await fs.writeFile(tempFilePath, buffer);
 
-    sendLog("llm-request", "Contextual Planning", "Analyzing screen and creating plan...");
+    sendLog(
+      "llm-request",
+      "Contextual Planning",
+      "Analyzing screen and creating plan..."
+    );
 
     const prompt = createContextualPlanPrompt(userGoal);
     let responseContent = "";
@@ -439,16 +519,24 @@ export async function askLLMForContextualPlan(
 
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      sendLog("error", "Parse Error", `Could not parse plan: ${responseContent}`);
+      sendLog(
+        "error",
+        "Parse Error",
+        `Could not parse plan: ${responseContent}`
+      );
       throw new Error("Failed to parse contextual plan");
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    
+
     if (parsed.valid) {
       sendLog("llm-response", "Plan Created", parsed.plan);
     } else {
-      sendLog("error", "Context Invalid", parsed.reason || "Cannot achieve goal from current screen");
+      sendLog(
+        "error",
+        "Context Invalid",
+        parsed.reason || "Cannot achieve goal from current screen"
+      );
     }
 
     return parsed;
@@ -478,7 +566,11 @@ export async function askLLMForNextAction(
     const buffer = Buffer.from(imageBase64, "base64");
     await fs.writeFile(tempFilePath, buffer);
 
-    sendLog("llm-request", "Deciding Next Action", `Step ${actionHistory.length + 1}`);
+    sendLog(
+      "llm-request",
+      "Deciding Next Action",
+      `Step ${actionHistory.length + 1}`
+    );
 
     const prompt = createNextActionPrompt(goal, plan, actionHistory);
     let responseContent = "";
@@ -501,16 +593,25 @@ export async function askLLMForNextAction(
 
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      sendLog("error", "Parse Error", `Could not parse action decision: ${responseContent}`);
+      sendLog(
+        "error",
+        "Parse Error",
+        `Could not parse action decision: ${responseContent}`
+      );
       throw new Error("Failed to parse next action decision");
     }
 
     const parsed: NextActionDecision = JSON.parse(jsonMatch[0]);
-    
-    const actionDesc = parsed.action === "done" 
-      ? "Goal Complete!" 
-      : `${parsed.action}${parsed.target ? ` -> "${parsed.target}"` : ""}${parsed.data ? ` (${parsed.data})` : ""}`;
-    sendLog("llm-response", "Next Action", `${actionDesc}\nReason: ${parsed.reason}`);
+
+    const actionDesc =
+      parsed.action === "done"
+        ? "Goal Complete!"
+        : `${parsed.action}${parsed.target ? ` -> "${parsed.target}"` : ""}${parsed.data ? ` (${parsed.data})` : ""}`;
+    sendLog(
+      "llm-response",
+      "Next Action",
+      `${actionDesc}\nReason: ${parsed.reason}`
+    );
 
     return parsed;
   } finally {
@@ -540,9 +641,18 @@ export async function askLLMForVerification(
     const buffer = Buffer.from(imageBase64, "base64");
     await fs.writeFile(tempFilePath, buffer);
 
-    sendLog("llm-request", "Verifying Action", `Checking if ${action} succeeded...`);
+    sendLog(
+      "llm-request",
+      "Verifying Action",
+      `Checking if ${action} succeeded...`
+    );
 
-    const prompt = createVerificationPrompt(action, target, data, expectedResult);
+    const prompt = createVerificationPrompt(
+      action,
+      target,
+      data,
+      expectedResult
+    );
     let responseContent = "";
 
     for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
@@ -556,16 +666,24 @@ export async function askLLMForVerification(
     const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       // Default to success if parsing fails (don't block on verification errors)
-      sendLog("error", "Parse Error", `Could not parse verification: ${responseContent}`);
-      return { success: true, observation: "Verification parse failed, assuming success" };
+      sendLog(
+        "error",
+        "Parse Error",
+        `Could not parse verification: ${responseContent}`
+      );
+      return {
+        success: true,
+        observation: "Verification parse failed, assuming success",
+      };
     }
 
     const parsed: VerificationResult = JSON.parse(jsonMatch[0]);
-    
+
     sendLog(
       parsed.success ? "llm-response" : "error",
       parsed.success ? "Verification Passed" : "Verification Failed",
-      parsed.observation + (parsed.suggestion ? `\nSuggestion: ${parsed.suggestion}` : "")
+      parsed.observation +
+        (parsed.suggestion ? `\nSuggestion: ${parsed.suggestion}` : "")
     );
 
     return parsed;

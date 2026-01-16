@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Eye } from "lucide-react";
 import { LoadingSVG, SendSVG, iconClass } from "../../../components/icons";
 import { useVisionLogStore } from "../../../utils/store";
 import { loadSettings } from "../../../utils/localstore";
@@ -167,10 +168,28 @@ export default function VisionInput() {
   };
 
   return (
-    <div className="shrink-0 px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface rounded-2xl shadow-float border border-border">
+    <div className="shrink-0 px-6 pb-6 pt-4">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface/80 rounded-2xl shadow-float border border-border-strong">
+        <div className="flex items-center justify-between gap-3 px-4 pt-3">
+          <div>
+            <p className="text-xs font-semibold text-text-main">
+              New Vision Task
+            </p>
+            <p className="text-[11px] text-text-subtle">
+              Be specific about buttons, fields, or URLs.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-light/40 px-2 py-1 text-primary font-medium">
+              <Eye size={12} strokeWidth={2} />
+              Live
+            </span>
+          </div>
+        </div>
+        <div className="border-t border-border mt-3" />
+
         {/* Textarea with inline controls */}
-        <div className="flex items-end gap-2 p-3">
+        <div className="flex items-end gap-2 p-4">
           {/* Textarea */}
           <textarea
             ref={textareaRef}
@@ -179,7 +198,7 @@ export default function VisionInput() {
             onKeyDown={handleKeyDown}
             placeholder="Describe what you want to automate..."
             disabled={isExecuting}
-            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
+            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-8 leading-relaxed"
             rows={1}
           />
 
@@ -187,7 +206,7 @@ export default function VisionInput() {
           {isExecuting && (
             <button
               onClick={handleCancel}
-              className="px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all self-center"
+              className="px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-all self-center border border-red-200"
               type="button"
             >
               Stop
