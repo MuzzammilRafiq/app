@@ -48,7 +48,7 @@ interface Window {
     streamMessageWithHistory: (
       messages: any[],
       config: any,
-      apiKey: string
+      apiKey: string,
     ) => Promise<{ text: string; error?: string }>;
 
     /**
@@ -60,7 +60,7 @@ interface Window {
       callback: (data: {
         chunk: string;
         type: "stream" | "log" | "plan" | "source";
-      }) => void
+      }) => void,
     ) => void;
 
     /**
@@ -85,7 +85,7 @@ interface Window {
       apiKey: string,
       imageBase64: string,
       prompt: string,
-      imageModelOverride?: string
+      imageModelOverride?: string,
     ) => Promise<{ success: boolean; response?: string; error?: string }>;
 
     // Automation APIs (run in main process to bypass CSP)
@@ -96,7 +96,7 @@ interface Window {
       imageModelOverride?: string,
       debug?: boolean,
       actionType?: "click" | "type" | "press",
-      actionData?: string
+      actionData?: string,
     ) => Promise<{
       success: boolean;
       data?: {
@@ -114,30 +114,37 @@ interface Window {
       apiKey: string,
       userPrompt: string,
       imageModelOverride?: string,
-      debug?: boolean
+      debug?: boolean,
+      runId?: string,
     ) => Promise<{
       success: boolean;
       stepsCompleted?: number;
       totalSteps?: number;
-      results?: Array<{ step: number; action: string; success: boolean; result?: any }>;
+      results?: Array<{
+        step: number;
+        action: string;
+        success: boolean;
+        result?: any;
+      }>;
       error?: string;
       reason?: string;
     }>;
+    automationCancelOrchestrated: (runId: string) => Promise<boolean>;
 
     // Keyboard automation
     automationKeyboardType: (
       text: string,
       intervalMs?: number,
-      delayMs?: number
+      delayMs?: number,
     ) => Promise<{ success: boolean; data?: any; error?: string }>;
 
     automationKeyboardPress: (
       key: string,
-      delayMs?: number
+      delayMs?: number,
     ) => Promise<{ success: boolean; data?: any; error?: string }>;
 
     onAutomationStatus: (
-      callback: (data: { step: string; message: string }) => void
+      callback: (data: { step: string; message: string }) => void,
     ) => void;
     removeAutomationStatusListener: () => void;
 
@@ -146,12 +153,12 @@ interface Window {
         type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
         title: string;
         content: string;
-      }) => void
+      }) => void,
     ) => void;
     removeAutomationLogListener: () => void;
 
     onAutomationImagePreview: (
-      callback: (data: { title: string; imageBase64: string }) => void
+      callback: (data: { title: string; imageBase64: string }) => void,
     ) => void;
     removeAutomationImagePreviewListener: () => void;
 
@@ -169,7 +176,7 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     scanFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
     /**
      * Delete a folder for images
@@ -178,7 +185,7 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     deleteFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -195,7 +202,7 @@ interface Window {
      * @returns {Promise<{success: boolean, error: string | null, results: any}>} Scan results
      */
     scanImageFile: (
-      filePath: string
+      filePath: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -222,7 +229,7 @@ interface Window {
      */
     searchImagesByText: (
       query: string,
-      limit?: number
+      limit?: number,
     ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
 
     /**
@@ -278,7 +285,7 @@ interface Window {
      */
     searchTextsByText: (
       query: string,
-      limit?: number
+      limit?: number,
     ) => Promise<{ success: boolean; error: string | null; results: any[] }>;
 
     /**
@@ -299,7 +306,7 @@ interface Window {
      * @returns Scan results
      */
     scanTextFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -308,7 +315,7 @@ interface Window {
      * @returns Deletion results
      */
     deleteTextFolder: (
-      folder: string
+      folder: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -323,7 +330,7 @@ interface Window {
      * @returns Scan results
      */
     scanTextFile: (
-      filePath: string
+      filePath: string,
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
@@ -331,7 +338,7 @@ interface Window {
      */
     dbCreateSession: (
       title: string,
-      id?: string
+      id?: string,
     ) => Promise<import("../common/types").ChatSessionRecord>;
 
     /**
@@ -343,7 +350,7 @@ interface Window {
      * Database API: get a session by id
      */
     dbGetSession: (
-      id: string
+      id: string,
     ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
@@ -356,7 +363,7 @@ interface Window {
      */
     dbTouchSession: (
       id: string,
-      timestamp: number
+      timestamp: number,
     ) => Promise<import("../common/types").ChatSessionRecord | null>;
 
     /**
@@ -368,14 +375,14 @@ interface Window {
      * Database API: add a chat message
      */
     dbAddChatMessage: (
-      message: import("../common/types").ChatMessageRecord
+      message: import("../common/types").ChatMessageRecord,
     ) => Promise<import("../common/types").ChatMessageRecord>;
 
     /**
      * Database API: get chat messages for a session
      */
     dbGetChatMessages: (
-      sessionId: string
+      sessionId: string,
     ) => Promise<import("../common/types").ChatMessageRecord[]>;
 
     /**
@@ -391,7 +398,7 @@ interface Window {
      * Database API: get all sessions with their messages, limited by number of sessions
      */
     dbGetAllSessionsWithMessages: (
-      limit: number
+      limit: number,
     ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
 
     /**
@@ -400,32 +407,32 @@ interface Window {
     dbUpsertPlanSteps: (
       sessionId: string,
       planHash: string,
-      steps: import("../common/types").MakePlanResponse[]
+      steps: import("../common/types").MakePlanResponse[],
     ) => Promise<void>;
     dbMarkPlanStepDone: (
       sessionId: string,
       planHash: string,
-      stepNumber: number
+      stepNumber: number,
     ) => Promise<boolean>;
     dbGetPlanSteps: (
       sessionId: string,
-      planHash: string
+      planHash: string,
     ) => Promise<import("../common/types").MakePlanResponse[]>;
 
     /**
      * RAG folders persistence APIs
      */
     dbGetRagFolders: (
-      type: "image" | "text"
+      type: "image" | "text",
     ) => Promise<Array<{ folderPath: string; lastScannedAt: number | null }>>;
     dbAddRagFolder: (
       folderPath: string,
       type: "image" | "text",
-      lastScannedAt?: number
+      lastScannedAt?: number,
     ) => Promise<{ folderPath: string; lastScannedAt: number | null }>;
     dbUpdateRagFolderScanTime: (
       folderPath: string,
-      lastScannedAt: number
+      lastScannedAt: number,
     ) => Promise<boolean>;
     dbDeleteRagFolder: (folderPath: string) => Promise<boolean>;
 
@@ -434,17 +441,17 @@ interface Window {
      */
     dbCreateVisionSession: (
       goal: string,
-      id?: string
+      id?: string,
     ) => Promise<import("../common/types").VisionSessionRecord>;
     dbGetVisionSessions: () => Promise<
       import("../common/types").VisionSessionRecord[]
     >;
     dbGetVisionSession: (
-      id: string
+      id: string,
     ) => Promise<import("../common/types").VisionSessionRecord | null>;
     dbUpdateVisionSessionStatus: (
       id: string,
-      status: import("../common/types").VisionSessionStatus
+      status: import("../common/types").VisionSessionStatus,
     ) => Promise<boolean>;
     dbDeleteVisionSession: (id: string) => Promise<boolean>;
 
@@ -452,20 +459,20 @@ interface Window {
      * Vision log persistence APIs
      */
     dbAddVisionLog: (
-      log: import("../common/types").VisionLogRecord
+      log: import("../common/types").VisionLogRecord,
     ) => Promise<import("../common/types").VisionLogRecord>;
     dbGetVisionLogs: (
-      sessionId: string
+      sessionId: string,
     ) => Promise<import("../common/types").VisionLogRecord[]>;
     dbGetVisionSessionsWithLogs: (
-      limit: number
+      limit: number,
     ) => Promise<import("../common/types").VisionSessionWithLogs[]>;
 
     /**
      * OpenRouter API: get available models from OpenRouter
      */
     getOpenRouterModels: (
-      apiKey?: string
+      apiKey?: string,
     ) => Promise<import("../common/types").OpenRouterModel[]>;
 
     // Window controls
@@ -487,11 +494,11 @@ interface Window {
         command: string;
         requestId: string;
         cwd: string;
-      }) => void
+      }) => void,
     ) => void;
     respondToCommandConfirmation: (
       requestId: string,
-      allowed: boolean
+      allowed: boolean,
     ) => Promise<void>;
     removeCommandConfirmationListener: () => void;
   };

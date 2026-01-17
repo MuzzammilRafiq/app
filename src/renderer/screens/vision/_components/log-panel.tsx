@@ -36,6 +36,12 @@ const LOG_TYPE_STYLES: Record<
     icon: "⚡",
     titleColor: "text-amber-600 dark:text-amber-400",
   },
+  "vision-status": {
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
+    icon: "🔍",
+    titleColor: "text-amber-600 dark:text-amber-400",
+  },
   error: {
     bg: "bg-red-500/10",
     border: "border-red-500/20",

@@ -4,6 +4,7 @@
  */
 
 import { ipcMain, BrowserWindow } from "electron";
+import crypto from "node:crypto";
 import {
   AUTOMATION_SERVER_URL,
   DEFAULT_ORCHESTRATOR_CONFIG,
@@ -30,7 +31,7 @@ async function takeScreenshot(debug: boolean): Promise<{
   scale_factor: number;
 }> {
   const response = await fetch(
-    `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?grid_size=6&save_image=${debug}`
+    `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?grid_size=6&save_image=${debug}`,
   );
   if (!response.ok) {
     throw new Error("Failed to capture screenshot");
@@ -67,7 +68,7 @@ async function executePress(key: string, sendLog: SendLogFn): Promise<boolean> {
 async function executeScroll(
   direction: "up" | "down",
   pixels: number,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
 ): Promise<boolean> {
   sendLog("server", "Scroll", `Scrolling ${direction} by ${pixels}px...`);
 
@@ -102,6 +103,8 @@ async function executeScroll(
   return response.ok;
 }
 
+const activeVisionRuns = new Map<string, AbortController>();
+
 export function setupOrchestratorHandlers() {
   // ====================================================================
   // Robust Orchestrated Workflow Handler (Dynamic Multi-step Agent)
@@ -113,12 +116,20 @@ export function setupOrchestratorHandlers() {
       apiKey: string,
       userPrompt: string,
       imageModelOverride?: string,
-      debug: boolean = false
+      debug: boolean = false,
+      runId?: string,
     ) => {
       const config = { ...DEFAULT_ORCHESTRATOR_CONFIG, debug };
+      const activeRunId = runId ?? crypto.randomUUID();
+      const controller = new AbortController();
+      activeVisionRuns.set(activeRunId, controller);
 
       const sendProgress = (step: string, message: string) => {
-        event.sender.send("automation:status", { step, message });
+        event.sender.send("automation:status", {
+          step,
+          message,
+          runId: activeRunId,
+        });
       };
 
       const sendLog: SendLogFn = (
@@ -130,29 +141,45 @@ export function setupOrchestratorHandlers() {
           | "error"
           | "vision-status",
         title: string,
-        content: string
+        content: string,
       ) => {
-        event.sender.send("automation:log", { type, title, content });
+        event.sender.send("automation:log", {
+          type,
+          title,
+          content,
+          runId: activeRunId,
+        });
       };
 
       const sendImagePreview = (title: string, imageBase64: string) => {
-        event.sender.send("automation:image-preview", { title, imageBase64 });
+        event.sender.send("automation:image-preview", {
+          title,
+          imageBase64,
+          runId: activeRunId,
+        });
       };
 
       try {
         LOG(TAG).INFO(`Starting robust workflow: "${userPrompt}"`);
         sendProgress("starting", `Analyzing request: "${userPrompt}"`);
 
+        if (controller.signal.aborted) {
+          throw new DOMException("Aborted", "AbortError");
+        }
+
         // ============================================
         // Phase 1: Take initial screenshot and create contextual plan
         // ============================================
         const initialScreenshot = await takeScreenshot(config.debug);
+        if (controller.signal.aborted) {
+          throw new DOMException("Aborted", "AbortError");
+        }
         LOG(TAG).INFO(`Initial screenshot captured`);
 
         if (config.debug) {
           sendImagePreview(
             "Initial Screenshot",
-            initialScreenshot.grid_image_base64
+            initialScreenshot.grid_image_base64,
           );
         }
 
@@ -163,7 +190,8 @@ export function setupOrchestratorHandlers() {
           initialScreenshot.original_image_base64,
           userPrompt,
           imageModelOverride,
-          sendLog
+          sendLog,
+          controller.signal,
         );
 
         if (!planResult.valid) {
@@ -202,20 +230,27 @@ export function setupOrchestratorHandlers() {
           context.currentStep < context.maxSteps &&
           context.consecutiveFailures < context.maxConsecutiveFailures
         ) {
+          if (controller.signal.aborted) {
+            throw new DOMException("Aborted", "AbortError");
+          }
+
           context.currentStep++;
           LOG(TAG).INFO(`=== Step ${context.currentStep} ===`);
           sendProgress(
             `step-${context.currentStep}`,
-            `Executing step ${context.currentStep}...`
+            `Executing step ${context.currentStep}...`,
           );
 
           // Take fresh screenshot for decision
           const currentScreenshot = await takeScreenshot(config.debug);
+          if (controller.signal.aborted) {
+            throw new DOMException("Aborted", "AbortError");
+          }
 
           if (config.debug) {
             sendImagePreview(
               `Step ${context.currentStep} Screenshot`,
-              currentScreenshot.grid_image_base64
+              currentScreenshot.grid_image_base64,
             );
           }
 
@@ -227,7 +262,8 @@ export function setupOrchestratorHandlers() {
             context.plan,
             context.actionHistory,
             imageModelOverride,
-            sendLog
+            sendLog,
+            controller.signal,
           );
 
           // Check if goal is complete
@@ -235,7 +271,7 @@ export function setupOrchestratorHandlers() {
             LOG(TAG).INFO("Goal complete!");
             sendProgress(
               "done",
-              `Goal achieved in ${context.currentStep} steps`
+              `Goal achieved in ${context.currentStep} steps`,
             );
             return {
               success: true,
@@ -271,7 +307,7 @@ export function setupOrchestratorHandlers() {
               actionSuccess = await executeScroll(
                 direction,
                 isNaN(pixels) ? 300 : pixels,
-                sendLog
+                sendLog,
               );
               observation = actionSuccess
                 ? `Scrolled ${direction} by ${pixels}px`
@@ -295,8 +331,10 @@ export function setupOrchestratorHandlers() {
                 sendLog,
                 sendImagePreview,
                 true, // keepHidden
-                currentScreenshot // Pass existing screenshot
+                currentScreenshot, // Pass existing screenshot
+                controller.signal,
               );
+
               actionSuccess = result.success;
               observation = actionSuccess
                 ? `${decision.action} on "${decision.target}" succeeded`
@@ -314,6 +352,9 @@ export function setupOrchestratorHandlers() {
           // Verify the action (for non-wait actions)
           if (decision.action !== "wait" && actionSuccess) {
             const verifyScreenshot = await takeScreenshot(config.debug);
+            if (controller.signal.aborted) {
+              throw new DOMException("Aborted", "AbortError");
+            }
 
             const expectedResult =
               decision.action === "click"
@@ -330,7 +371,8 @@ export function setupOrchestratorHandlers() {
               decision.data,
               expectedResult,
               imageModelOverride,
-              sendLog
+              sendLog,
+              controller.signal,
             );
 
             actionSuccess = verification.success;
@@ -356,12 +398,12 @@ export function setupOrchestratorHandlers() {
           if (actionSuccess) {
             context.consecutiveFailures = 0;
             LOG(TAG).INFO(
-              `Step ${context.currentStep} succeeded: ${observation}`
+              `Step ${context.currentStep} succeeded: ${observation}`,
             );
           } else {
             context.consecutiveFailures++;
             LOG(TAG).WARN(
-              `Step ${context.currentStep} failed (${context.consecutiveFailures}/${context.maxConsecutiveFailures}): ${observation}`
+              `Step ${context.currentStep} failed (${context.consecutiveFailures}/${context.maxConsecutiveFailures}): ${observation}`,
             );
 
             // Check if we should abort
@@ -370,7 +412,7 @@ export function setupOrchestratorHandlers() {
               sendLog(
                 "error",
                 "Workflow Aborted",
-                `${context.consecutiveFailures} consecutive steps failed. The target application may have been closed or changed.`
+                `${context.consecutiveFailures} consecutive steps failed. The target application may have been closed or changed.`,
               );
               return {
                 success: false,
@@ -392,7 +434,7 @@ export function setupOrchestratorHandlers() {
           sendLog(
             "error",
             "Max Steps Reached",
-            `Completed ${context.currentStep} steps but goal not achieved. Consider simplifying the request.`
+            `Completed ${context.currentStep} steps but goal not achieved. Consider simplifying the request.`,
           );
           return {
             success: false,
@@ -410,6 +452,14 @@ export function setupOrchestratorHandlers() {
           results: context.actionHistory,
         };
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          LOG(TAG).INFO("Orchestration cancelled by user");
+          return {
+            success: false,
+            error: "Cancelled by user",
+          };
+        }
+
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
         LOG(TAG).ERROR(`Orchestration failed: ${errorMessage}`);
@@ -418,7 +468,23 @@ export function setupOrchestratorHandlers() {
           success: false,
           error: errorMessage,
         };
+      } finally {
+        activeVisionRuns.delete(activeRunId);
       }
-    }
+    },
+  );
+
+  ipcMain.handle(
+    "automation:cancel-orchestrated-workflow",
+    (_event, runId: string) => {
+      if (!runId) return false;
+      const controller = activeVisionRuns.get(runId);
+      if (controller) {
+        controller.abort();
+        activeVisionRuns.delete(runId);
+        return true;
+      }
+      return false;
+    },
   );
 }

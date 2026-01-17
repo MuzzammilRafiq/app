@@ -18,7 +18,7 @@ export const useChatSessionRecordsStore = create<ChatSessionRecordsStore>(
   (set) => ({
     chatSessionRecords: [],
     setChatSessionRecords: (records) => set({ chatSessionRecords: records }),
-  })
+  }),
 );
 
 // --------------chatSessionsWithMessages-------------------
@@ -53,7 +53,7 @@ export const useSidebarCollapsedStore = create<SidebarCollapsedStore>(
     sidebarCollapsed: false,
     setSidebarCollapsed: (collapsed: boolean) =>
       set({ sidebarCollapsed: collapsed }),
-  })
+  }),
 );
 
 // --------------currentView-------------------
@@ -74,13 +74,13 @@ interface Store {
   setCurrentSession: (session: ChatSessionWithMessages | undefined) => void;
   addMessage: (
     message: ChatMessageRecord,
-    updatedSession: ChatSessionRecord
+    updatedSession: ChatSessionRecord,
   ) => void;
   // Streaming helpers
   upsertStreamingAssistantMessage: (
     sessionId: string,
     type: ChatMessageRecord["type"],
-    chunk: string
+    chunk: string,
   ) => void;
   resetStreamingAssistantState: (sessionId: string) => void;
   /**
@@ -90,7 +90,7 @@ interface Store {
   replaceStreamingMessages: (
     sessionId: string,
     persistedMessages: ChatMessageRecord[],
-    ephemeralMessageCount: number
+    ephemeralMessageCount: number,
   ) => void;
 }
 interface ChatTitleStore {
@@ -147,7 +147,7 @@ export const useStore = create<Store>((set) => ({
 
       // Sort sessions by updatedAt descending (most recent first)
       const sortedSessions = updatedSessions.sort(
-        (a, b) => b.updatedAt - a.updatedAt
+        (a, b) => b.updatedAt - a.updatedAt,
       );
 
       return {
@@ -275,7 +275,7 @@ export const useStore = create<Store>((set) => ({
   replaceStreamingMessages: (
     sessionId,
     persistedMessages,
-    ephemeralMessageCount
+    ephemeralMessageCount,
   ) => {
     set((state) => {
       const updatedSessions = state.chatSessionsWithMessages.map((session) => {
@@ -383,11 +383,16 @@ interface VisionLogStore {
   logs: VisionLogEntry[];
   isExecuting: boolean;
   currentSessionId: string | null;
-  addLog: (entry: Omit<VisionLogEntry, "id" | "timestamp">) => void;
+  currentRunId: string | null;
+  addLog: (
+    entry: Omit<VisionLogEntry, "id" | "timestamp">,
+    runId?: string,
+  ) => void;
   setLogs: (logs: VisionLogEntry[]) => void; // For loading from database
   clearLogs: () => void;
   setExecuting: (executing: boolean) => void;
   setCurrentSessionId: (id: string | null) => void;
+  setCurrentRunId: (id: string | null) => void;
 }
 
 /**
@@ -396,7 +401,7 @@ interface VisionLogStore {
  */
 async function persistLog(
   sessionId: string,
-  entry: VisionLogEntry
+  entry: VisionLogEntry,
 ): Promise<void> {
   try {
     let imagePath: string | null = null;
@@ -434,8 +439,16 @@ export const useVisionLogStore = create<VisionLogStore>((set, get) => ({
   logs: [],
   isExecuting: false,
   currentSessionId: null,
+  currentRunId: null,
 
-  addLog: (entry) => {
+  addLog: (entry, runId) => {
+    const activeRunId = get().currentRunId;
+    if (runId) {
+      if (!activeRunId || runId !== activeRunId) {
+        return;
+      }
+    }
+
     const id = crypto.randomUUID();
     const timestamp = Date.now();
     const fullEntry: VisionLogEntry = {
@@ -456,13 +469,15 @@ export const useVisionLogStore = create<VisionLogStore>((set, get) => ({
   },
 
   // Set logs directly from database (for loading saved sessions)
-  setLogs: (logs) => set({ logs }),
+  setLogs: (logs) => set({ logs, currentRunId: null, isExecuting: false }),
 
-  clearLogs: () => set({ logs: [] }),
+  clearLogs: () => set({ logs: [], currentRunId: null, isExecuting: false }),
 
   setExecuting: (executing) => set({ isExecuting: executing }),
 
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
+
+  setCurrentRunId: (id) => set({ currentRunId: id }),
 }));
 
 const EMPTY_MESSAGES: ChatMessageRecord[] = [];

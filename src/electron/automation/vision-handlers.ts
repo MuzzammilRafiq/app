@@ -32,11 +32,16 @@ export async function executeVisionAction(
     original_image_base64: string;
     grid_image_base64: string;
     scale_factor: number;
-  }
+  },
+  signal?: AbortSignal,
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   const window = BrowserWindow.fromWebContents(event.sender);
 
   try {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
     // Use existing screenshot if provided (from orchestrator), otherwise take a new one
     let screenshot: {
       original_image_base64: string;
@@ -54,7 +59,7 @@ export async function executeVisionAction(
       });
 
       const screenshotResponse = await fetch(
-        `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?${params}`
+        `${AUTOMATION_SERVER_URL}/screenshot/numbered-grid?${params}`,
       );
 
       if (!screenshotResponse.ok) {
@@ -66,7 +71,7 @@ export async function executeVisionAction(
       if (debug) {
         sendImagePreview(
           `Screenshot for: ${targetDescription}`,
-          screenshot.grid_image_base64
+          screenshot.grid_image_base64,
         );
       }
     }
@@ -77,7 +82,7 @@ export async function executeVisionAction(
     // First LLM analysis - pass BOTH clean and grid images
     const firstPrompt = createCellIdentificationPrompt(
       targetDescription,
-      false
+      false,
     );
     const firstResult = await askLLMForCellWithLogging(
       apiKey,
@@ -86,7 +91,8 @@ export async function executeVisionAction(
       firstPrompt,
       targetDescription,
       imageModelOverride,
-      sendLog
+      sendLog,
+      signal,
     );
 
     // Handle not_found/ambiguous status - return early and let planner decide
@@ -121,7 +127,7 @@ export async function executeVisionAction(
 
     const cropResponse = await fetch(
       `${AUTOMATION_SERVER_URL}/image/crop-cell?${cropParams}`,
-      { method: "POST", body: formData }
+      { method: "POST", body: formData },
     );
 
     if (!cropResponse.ok) {
@@ -137,7 +143,7 @@ export async function executeVisionAction(
     // Second LLM analysis - pass BOTH clean and grid cropped images
     const secondPrompt = createCellIdentificationPrompt(
       targetDescription,
-      true
+      true,
     );
     const secondResult = await askLLMForCellWithLogging(
       apiKey,
@@ -146,7 +152,8 @@ export async function executeVisionAction(
       secondPrompt,
       targetDescription,
       imageModelOverride,
-      sendLog
+      sendLog,
+      signal,
     );
 
     // Handle not_found/ambiguous in second pass (sub-grid refinement)
@@ -177,7 +184,7 @@ export async function executeVisionAction(
     });
 
     const centerResponse = await fetch(
-      `${AUTOMATION_SERVER_URL}/grid/cell-center?${centerParams}`
+      `${AUTOMATION_SERVER_URL}/grid/cell-center?${centerParams}`,
     );
 
     if (!centerResponse.ok) {

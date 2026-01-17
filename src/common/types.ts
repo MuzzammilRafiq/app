@@ -82,6 +82,7 @@ type VisionLogType =
   | "llm-response"
   | "thinking"
   | "status"
+  | "vision-status"
   | "error"
   | "image-preview";
 

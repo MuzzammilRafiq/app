@@ -226,29 +226,75 @@ export class DatabaseService {
     }
 
     // Vision logs table for storing automation step logs
-    try {
-      this.db.exec("BEGIN TRANSACTION");
-      this.db.exec(`
+    const createVisionLogs = `
         CREATE TABLE IF NOT EXISTS vision_logs (
           id TEXT PRIMARY KEY,
           session_id TEXT NOT NULL,
-          type TEXT NOT NULL CHECK(type IN ('server','llm-request','llm-response','thinking','status','error','image-preview')),
+          type TEXT NOT NULL CHECK(type IN ('server','llm-request','llm-response','thinking','status','vision-status','error','image-preview')),
           title TEXT NOT NULL,
           content TEXT DEFAULT '',
           image_path TEXT DEFAULT NULL,
           timestamp INTEGER NOT NULL,
           FOREIGN KEY(session_id) REFERENCES vision_sessions(id) ON DELETE CASCADE
         );
-      `);
-      this.db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_vision_logs_session ON vision_logs(session_id);`,
+      `;
+    const createVisionIdx1 = `CREATE INDEX IF NOT EXISTS idx_vision_logs_session ON vision_logs(session_id);`;
+    const createVisionIdx2 = `CREATE INDEX IF NOT EXISTS idx_vision_logs_session_time ON vision_logs(session_id, timestamp);`;
+
+    try {
+      const getTableSql = this.db.prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='vision_logs'",
       );
-      this.db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_vision_logs_session_time ON vision_logs(session_id, timestamp);`,
-      );
-      this.db.exec("COMMIT");
+      const row = getTableSql.get() as { sql: string } | undefined;
+
+      if (!row) {
+        this.db.exec("BEGIN TRANSACTION");
+        this.db.exec(createVisionLogs);
+        this.db.exec(createVisionIdx1);
+        this.db.exec(createVisionIdx2);
+        this.db.exec("COMMIT");
+      } else if (!row.sql.includes("'vision-status'")) {
+        LOG(TAG).WARN(
+          "Migrating vision_logs schema to include 'vision-status' type...",
+        );
+        try {
+          this.db.exec("PRAGMA foreign_keys = OFF");
+          this.db.exec("BEGIN TRANSACTION");
+          this.db.exec(
+            `CREATE TABLE vision_logs_new (
+              id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              type TEXT NOT NULL CHECK(type IN ('server','llm-request','llm-response','thinking','status','vision-status','error','image-preview')),
+              title TEXT NOT NULL,
+              content TEXT DEFAULT '',
+              image_path TEXT DEFAULT NULL,
+              timestamp INTEGER NOT NULL,
+              FOREIGN KEY(session_id) REFERENCES vision_sessions(id) ON DELETE CASCADE
+            );`,
+          );
+          this.db.exec(
+            `INSERT INTO vision_logs_new (id, session_id, type, title, content, image_path, timestamp)
+             SELECT id, session_id, type, title, content, image_path, timestamp FROM vision_logs;`,
+          );
+          this.db.exec(`DROP TABLE vision_logs;`);
+          this.db.exec(`ALTER TABLE vision_logs_new RENAME TO vision_logs;`);
+          this.db.exec(createVisionIdx1);
+          this.db.exec(createVisionIdx2);
+          this.db.exec("COMMIT");
+        } catch (err) {
+          this.db.exec("ROLLBACK");
+          LOG(TAG).ERROR(`Failed to migrate vision_logs schema: ${err}`);
+          throw err;
+        } finally {
+          this.db.exec("PRAGMA foreign_keys = ON");
+        }
+      } else {
+        this.db.exec("BEGIN TRANSACTION");
+        this.db.exec(createVisionIdx1);
+        this.db.exec(createVisionIdx2);
+        this.db.exec("COMMIT");
+      }
     } catch (error) {
-      this.db.exec("ROLLBACK");
       LOG(TAG).ERROR(`Failed to ensure vision_logs schema: ${error}`);
       throw error;
     }
@@ -705,10 +751,7 @@ export class DatabaseService {
     }
   }
 
-  getPlanSteps(
-    sessionId: string,
-    planHash: string,
-  ): Array<MakePlanResponse> {
+  getPlanSteps(sessionId: string, planHash: string): Array<MakePlanResponse> {
     this.validateInput(sessionId, "sessionId");
     this.validateInput(planHash, "planHash");
     try {
@@ -796,10 +839,7 @@ export class DatabaseService {
     }
   }
 
-  updateRagFolderScanTime(
-    folderPath: string,
-    lastScannedAt: number,
-  ): boolean {
+  updateRagFolderScanTime(folderPath: string, lastScannedAt: number): boolean {
     this.validateInput(folderPath, "folderPath");
     if (typeof lastScannedAt !== "number" || lastScannedAt <= 0) {
       throw new Error("lastScannedAt must be a positive number");
@@ -819,7 +859,9 @@ export class DatabaseService {
   deleteRagFolder(folderPath: string): boolean {
     this.validateInput(folderPath, "folderPath");
     try {
-      const stmt = this.db.prepare(`DELETE FROM rag_folders WHERE folder_path = ?`);
+      const stmt = this.db.prepare(
+        `DELETE FROM rag_folders WHERE folder_path = ?`,
+      );
       const result = stmt.run(folderPath);
       return result.changes > 0;
     } catch (error) {
@@ -830,7 +872,10 @@ export class DatabaseService {
 
   // ---------------- Vision Session APIs ----------------
 
-  createVisionSession(goal: string, id: string = randomUUID()): VisionSessionRecord {
+  createVisionSession(
+    goal: string,
+    id: string = randomUUID(),
+  ): VisionSessionRecord {
     this.validateInput(goal, "goal");
     this.validateInput(id, "id");
 
@@ -847,7 +892,13 @@ export class DatabaseService {
     };
 
     try {
-      stmt.run(record.id, record.goal, record.createdAt, record.updatedAt, record.status);
+      stmt.run(
+        record.id,
+        record.goal,
+        record.createdAt,
+        record.updatedAt,
+        record.status,
+      );
       return record;
     } catch (error) {
       LOG(TAG).ERROR(`Failed to create vision session: ${error}`);
@@ -897,9 +948,16 @@ export class DatabaseService {
 
   updateVisionSessionStatus(id: string, status: VisionSessionStatus): boolean {
     this.validateInput(id, "id");
-    const validStatuses: VisionSessionStatus[] = ["running", "completed", "failed", "cancelled"];
+    const validStatuses: VisionSessionStatus[] = [
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+    ];
     if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(", ")}`);
+      throw new Error(
+        `Invalid status: ${status}. Must be one of: ${validStatuses.join(", ")}`,
+      );
     }
 
     try {
@@ -946,6 +1004,7 @@ export class DatabaseService {
       "llm-response",
       "thinking",
       "status",
+      "vision-status",
       "error",
       "image-preview",
     ];

@@ -16,7 +16,9 @@ export default function VisionInput() {
   const clearLogs = useVisionLogStore((s) => s.clearLogs);
   const setExecuting = useVisionLogStore((s) => s.setExecuting);
   const setCurrentSessionId = useVisionLogStore((s) => s.setCurrentSessionId);
+  const setCurrentRunId = useVisionLogStore((s) => s.setCurrentRunId);
   const currentSessionId = useVisionLogStore((s) => s.currentSessionId);
+  const currentRunId = useVisionLogStore((s) => s.currentRunId);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -27,32 +29,47 @@ export default function VisionInput() {
   }, [content]);
 
   useEffect(() => {
-    const handleStatus = (data: { step: string; message: string }) => {
-      addLog({
-        type: "status",
-        title: `Step: ${data.step}`,
-        content: data.message,
-      });
+    const handleStatus = (data: {
+      step: string;
+      message: string;
+      runId?: string;
+    }) => {
+      addLog(
+        {
+          type: "status",
+          title: `Step: ${data.step}`,
+          content: data.message,
+        },
+        data.runId,
+      );
     };
 
     const handleLog = (data: {
       type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
       title: string;
       content: string;
+      runId?: string;
     }) => {
-      addLog({ type: data.type, title: data.title, content: data.content });
+      addLog(
+        { type: data.type, title: data.title, content: data.content },
+        data.runId,
+      );
     };
 
     const handleImagePreview = (data: {
       title: string;
       imageBase64: string;
+      runId?: string;
     }) => {
-      addLog({
-        type: "image-preview",
-        title: data.title,
-        content: "",
-        imageBase64: data.imageBase64,
-      });
+      addLog(
+        {
+          type: "image-preview",
+          title: data.title,
+          content: "",
+          imageBase64: data.imageBase64,
+        },
+        data.runId,
+      );
     };
 
     window.electronAPI.onAutomationStatus(handleStatus);
@@ -105,6 +122,8 @@ export default function VisionInput() {
 
     clearLogs();
     setExecuting(true);
+    const runId = crypto.randomUUID();
+    setCurrentRunId(runId);
 
     // Create a new vision session in the database
     try {
@@ -117,11 +136,14 @@ export default function VisionInput() {
       setCurrentSessionId(null);
     }
 
-    addLog({
-      type: "status",
-      title: "Started",
-      content: `Goal: "${trimmedContent}"`,
-    });
+    addLog(
+      {
+        type: "status",
+        title: "Started",
+        content: `Goal: "${trimmedContent}"`,
+      },
+      runId,
+    );
 
     try {
       const result = await window.electronAPI.automationExecuteOrchestrated(
@@ -129,42 +151,70 @@ export default function VisionInput() {
         trimmedContent,
         settings.imageModel || undefined,
         DEBUG_MODE,
+        runId,
       );
 
       if (!result.success) {
-        addLog({
-          type: "error",
-          title: "Failed",
-          content: result.error || "Unknown error",
-        });
-        await updateSessionStatus("failed");
+        addLog(
+          {
+            type: "error",
+            title:
+              result.error === "Cancelled by user" ? "Cancelled" : "Failed",
+            content: result.error || "Unknown error",
+          },
+          runId,
+        );
+        await updateSessionStatus(
+          result.error === "Cancelled by user" ? "cancelled" : "failed",
+        );
       } else {
-        addLog({
-          type: "status",
-          title: "Complete",
-          content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
-        });
+        addLog(
+          {
+            type: "status",
+            title: "Complete",
+            content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
+          },
+          runId,
+        );
         await updateSessionStatus("completed");
       }
     } catch (err) {
-      addLog({
-        type: "error",
-        title: "Error",
-        content: err instanceof Error ? err.message : "Unknown error",
-      });
+      addLog(
+        {
+          type: "error",
+          title: "Error",
+          content: err instanceof Error ? err.message : "Unknown error",
+        },
+        runId,
+      );
       await updateSessionStatus("failed");
     } finally {
       setExecuting(false);
+      setCurrentRunId(null);
       // Clear session ID after execution is done - logs are already persisted
       setCurrentSessionId(null);
     }
   };
 
   const handleCancel = async () => {
+    if (!currentRunId) {
+      return;
+    }
+
+    try {
+      await window.electronAPI.automationCancelOrchestrated(currentRunId);
+    } catch (err) {
+      console.error("Failed to cancel vision run:", err);
+    }
+
     setExecuting(false);
-    addLog({ type: "status", title: "Cancelled", content: "Action cancelled" });
+    addLog(
+      { type: "status", title: "Cancelled", content: "Action cancelled" },
+      currentRunId,
+    );
     await updateSessionStatus("cancelled");
     setCurrentSessionId(null);
+    setCurrentRunId(null);
   };
 
   return (

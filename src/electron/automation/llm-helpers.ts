@@ -21,7 +21,7 @@ export async function askLLMForCell(
   imageBase64: string,
   prompt: string,
   targetDescription: string,
-  imageModelOverride?: string
+  imageModelOverride?: string,
 ): Promise<CellIdentificationResult> {
   // Save base64 to temp file
   const tempDir = os.tmpdir();
@@ -52,7 +52,7 @@ export async function askLLMForCell(
     // Check if element was not found (cell: 0)
     if (parsed.cell === 0) {
       throw new Error(
-        `Element not found: ${parsed.reason || `No element matching "${targetDescription}" was found on the screen`}`
+        `Element not found: ${parsed.reason || `No element matching "${targetDescription}" was found on the screen`}`,
       );
     }
 
@@ -79,7 +79,8 @@ export async function askLLMForCellWithLogging(
   prompt: string,
   targetDescription: string,
   imageModelOverride: string | undefined,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
+  signal?: AbortSignal,
 ): Promise<CellIdentificationResult> {
   // Save both images to temp files
   const tempDir = os.tmpdir();
@@ -104,7 +105,8 @@ export async function askLLMForCellWithLogging(
       [cleanFilePath, gridFilePath],
       {
         overrideModel: imageModelOverride,
-      }
+        signal,
+      },
     )) {
       // Check for reasoning/thinking content (some models return this)
       if (chunk.reasoning) {
@@ -128,7 +130,7 @@ export async function askLLMForCellWithLogging(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse LLM response: ${responseContent}`
+        `Could not parse LLM response: ${responseContent}`,
       );
       throw new Error(`Could not parse LLM response: ${responseContent}`);
     }
@@ -195,7 +197,7 @@ export async function askLLMForCellWithLogging(
 
 export const createCellIdentificationPrompt = (
   targetDescription: string,
-  isRefinement: boolean = false
+  isRefinement: boolean = false,
 ) => `You are a vision assistant that identifies UI elements in screenshots.
 
 You are provided with TWO images:
@@ -231,7 +233,7 @@ Examples:
 {"cell": 0, "confidence": "low", "status": "ambiguous", "reason": "Multiple settings icons visible", "suggested_retry": "Try specifying 'gear icon in top right'"}`;
 
 export const createScreenDescriptionPrompt = (
-  userPrompt: string
+  userPrompt: string,
 ) => `You are a screen context analyzer.
 The user wants to: "${userPrompt}"
 
@@ -244,7 +246,7 @@ Keep your response factual and concise. Do not generate a plan, just describe th
 
 export const createPlanGenerationPrompt = (
   userPrompt: string,
-  screenDescription: string
+  screenDescription: string,
 ) => `You are a browser automation assistant. Given the user's request and a description of the screen state, generate a step-by-step plan to achieve the goal.
 
 User request: "${userPrompt}"
@@ -282,13 +284,13 @@ export async function askLLMForPlanWithLogging(
   imageBase64: string,
   userPrompt: string,
   imageModelOverride: string | undefined,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
 ): Promise<{ steps?: OrchestratorStep[]; error?: string; reason?: string }> {
   // Step 1: Use Vision Model to get screen description
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(
     tempDir,
-    `orchestrator-plan-${Date.now()}.png`
+    `orchestrator-plan-${Date.now()}.png`,
   );
 
   let screenDescription = "";
@@ -300,7 +302,7 @@ export async function askLLMForPlanWithLogging(
     sendLog(
       "llm-request",
       "Scene Analysis",
-      "Asking Vision Model to analyze screen content..."
+      "Asking Vision Model to analyze screen content...",
     );
 
     const descPrompt = createScreenDescriptionPrompt(userPrompt);
@@ -318,12 +320,12 @@ export async function askLLMForPlanWithLogging(
     sendLog(
       "llm-request",
       "Plan Generation",
-      "Asking Text Model to generate plan..."
+      "Asking Text Model to generate plan...",
     );
 
     const planPrompt = createPlanGenerationPrompt(
       userPrompt,
-      screenDescription
+      screenDescription,
     );
     const messages: ChatMessage[] = [{ role: "user", content: planPrompt }];
 
@@ -349,7 +351,7 @@ export async function askLLMForPlanWithLogging(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse Planner response: ${responseContent}`
+        `Could not parse Planner response: ${responseContent}`,
       );
       throw new Error(`Could not parse plan response: ${responseContent}`);
     }
@@ -371,7 +373,7 @@ export async function askLLMForPlanWithLogging(
  * Creates a prompt for generating a contextual (natural language) plan
  */
 export const createContextualPlanPrompt = (
-  userGoal: string
+  userGoal: string,
 ) => `You are a screen automation assistant. Analyze this screenshot and create a plan to achieve the user's goal.
 
 User Goal: "${userGoal}"
@@ -397,14 +399,14 @@ Keep the plan concise but complete. Focus on what needs to be done, not technica
 export const createNextActionPrompt = (
   goal: string,
   plan: string,
-  actionHistory: ActionHistoryEntry[]
+  actionHistory: ActionHistoryEntry[],
 ) => {
   const historyText =
     actionHistory.length > 0
       ? actionHistory
           .map(
             (h, i) =>
-              `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`
+              `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`,
           )
           .join("\n")
       : "No actions taken yet.";
@@ -452,7 +454,7 @@ export const createVerificationPrompt = (
   action: string,
   target: string | undefined,
   data: string | undefined,
-  expectedResult: string
+  expectedResult: string,
 ) => `You are verifying if an automation action succeeded.
 
 ACTION PERFORMED: ${action}${target ? ` on "${target}"` : ""}${data ? ` with data "${data}"` : ""}
@@ -478,7 +480,8 @@ export async function askLLMForContextualPlan(
   imageBase64: string,
   userGoal: string,
   imageModelOverride: string | undefined,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
+  signal?: AbortSignal,
 ): Promise<{
   valid: boolean;
   plan?: string;
@@ -495,7 +498,7 @@ export async function askLLMForContextualPlan(
     sendLog(
       "llm-request",
       "Contextual Planning",
-      "Analyzing screen and creating plan..."
+      "Analyzing screen and creating plan...",
     );
 
     const prompt = createContextualPlanPrompt(userGoal);
@@ -504,6 +507,7 @@ export async function askLLMForContextualPlan(
 
     for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
       overrideModel: imageModelOverride,
+      signal,
     })) {
       if (chunk.reasoning) {
         thinkingContent += chunk.reasoning;
@@ -522,7 +526,7 @@ export async function askLLMForContextualPlan(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse plan: ${responseContent}`
+        `Could not parse plan: ${responseContent}`,
       );
       throw new Error("Failed to parse contextual plan");
     }
@@ -535,7 +539,7 @@ export async function askLLMForContextualPlan(
       sendLog(
         "error",
         "Context Invalid",
-        parsed.reason || "Cannot achieve goal from current screen"
+        parsed.reason || "Cannot achieve goal from current screen",
       );
     }
 
@@ -557,7 +561,8 @@ export async function askLLMForNextAction(
   plan: string,
   actionHistory: ActionHistoryEntry[],
   imageModelOverride: string | undefined,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
+  signal?: AbortSignal,
 ): Promise<NextActionDecision> {
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, `next-action-${Date.now()}.png`);
@@ -569,7 +574,7 @@ export async function askLLMForNextAction(
     sendLog(
       "llm-request",
       "Deciding Next Action",
-      `Step ${actionHistory.length + 1}`
+      `Step ${actionHistory.length + 1}`,
     );
 
     const prompt = createNextActionPrompt(goal, plan, actionHistory);
@@ -578,6 +583,7 @@ export async function askLLMForNextAction(
 
     for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
       overrideModel: imageModelOverride,
+      signal,
     })) {
       if (chunk.reasoning) {
         thinkingContent += chunk.reasoning;
@@ -596,7 +602,7 @@ export async function askLLMForNextAction(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse action decision: ${responseContent}`
+        `Could not parse action decision: ${responseContent}`,
       );
       throw new Error("Failed to parse next action decision");
     }
@@ -610,7 +616,7 @@ export async function askLLMForNextAction(
     sendLog(
       "llm-response",
       "Next Action",
-      `${actionDesc}\nReason: ${parsed.reason}`
+      `${actionDesc}\nReason: ${parsed.reason}`,
     );
 
     return parsed;
@@ -632,7 +638,8 @@ export async function askLLMForVerification(
   data: string | undefined,
   expectedResult: string,
   imageModelOverride: string | undefined,
-  sendLog: SendLogFn
+  sendLog: SendLogFn,
+  signal?: AbortSignal,
 ): Promise<VerificationResult> {
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, `verification-${Date.now()}.png`);
@@ -644,19 +651,20 @@ export async function askLLMForVerification(
     sendLog(
       "llm-request",
       "Verifying Action",
-      `Checking if ${action} succeeded...`
+      `Checking if ${action} succeeded...`,
     );
 
     const prompt = createVerificationPrompt(
       action,
       target,
       data,
-      expectedResult
+      expectedResult,
     );
     let responseContent = "";
 
     for await (const chunk of ASK_IMAGE(apiKey, prompt, [tempFilePath], {
       overrideModel: imageModelOverride,
+      signal,
     })) {
       if (chunk.content) {
         responseContent += chunk.content;
@@ -669,7 +677,7 @@ export async function askLLMForVerification(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse verification: ${responseContent}`
+        `Could not parse verification: ${responseContent}`,
       );
       return {
         success: true,
@@ -683,7 +691,7 @@ export async function askLLMForVerification(
       parsed.success ? "llm-response" : "error",
       parsed.success ? "Verification Passed" : "Verification Failed",
       parsed.observation +
-        (parsed.suggestion ? `\nSuggestion: ${parsed.suggestion}` : "")
+        (parsed.suggestion ? `\nSuggestion: ${parsed.suggestion}` : ""),
     );
 
     return parsed;

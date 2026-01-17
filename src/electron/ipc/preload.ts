@@ -17,25 +17,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("stream-chunk");
   },
 
-
   // Orchestrated multi-step workflow
   automationExecuteOrchestrated: (
     apiKey: string,
     userPrompt: string,
     imageModelOverride?: string,
-    debug: boolean = false
+    debug: boolean = false,
+    runId?: string,
   ) =>
     ipcRenderer.invoke(
       "automation:execute-orchestrated-workflow",
       apiKey,
       userPrompt,
       imageModelOverride,
-      debug
+      debug,
+      runId,
     ),
+  automationCancelOrchestrated: (runId: string) =>
+    ipcRenderer.invoke("automation:cancel-orchestrated-workflow", runId),
 
   // Automation progress listener
   onAutomationStatus: (
-    callback: (data: { step: string; message: string }) => void
+    callback: (data: { step: string; message: string }) => void,
   ) => {
     ipcRenderer.on("automation:status", (event, data) => callback(data));
   },
@@ -49,7 +52,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       type: "server" | "llm-request" | "llm-response" | "thinking" | "error";
       title: string;
       content: string;
-    }) => void
+    }) => void,
   ) => {
     ipcRenderer.on("automation:log", (event, data) => callback(data));
   },
@@ -59,7 +62,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Automation image preview listener
   onAutomationImagePreview: (
-    callback: (data: { title: string; imageBase64: string }) => void
+    callback: (data: { title: string; imageBase64: string }) => void,
   ) => {
     ipcRenderer.on("automation:image-preview", (event, data) => callback(data));
   },
@@ -138,13 +141,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbMarkPlanStepDone: (
     sessionId: string,
     planHash: string,
-    stepNumber: number
+    stepNumber: number,
   ) =>
     ipcRenderer.invoke(
       "db:mark-plan-step-done",
       sessionId,
       planHash,
-      stepNumber
+      stepNumber,
     ),
   dbGetPlanSteps: (sessionId: string, planHash: string) =>
     ipcRenderer.invoke("db:get-plan-steps", sessionId, planHash),
@@ -155,10 +158,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbAddRagFolder: (
     folderPath: string,
     type: "image" | "text",
-    lastScannedAt?: number
+    lastScannedAt?: number,
   ) => ipcRenderer.invoke("db:add-rag-folder", folderPath, type, lastScannedAt),
   dbUpdateRagFolderScanTime: (folderPath: string, lastScannedAt: number) =>
-    ipcRenderer.invoke("db:update-rag-folder-scan-time", folderPath, lastScannedAt),
+    ipcRenderer.invoke(
+      "db:update-rag-folder-scan-time",
+      folderPath,
+      lastScannedAt,
+    ),
   dbDeleteRagFolder: (folderPath: string) =>
     ipcRenderer.invoke("db:delete-rag-folder", folderPath),
 
@@ -201,10 +208,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
       command: string;
       requestId: string;
       cwd: string;
-    }) => void
+    }) => void,
   ) => {
     ipcRenderer.on("terminal:request-confirmation", (event, data) =>
-      callback(data)
+      callback(data),
     );
   },
   respondToCommandConfirmation: (requestId: string, allowed: boolean) =>
