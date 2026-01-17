@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Eye } from "lucide-react";
-import { LoadingSVG, SendSVG, iconClass } from "../../../components/icons";
+import {
+  LoadingSVG,
+  PauseSVG,
+  SendSVG,
+  iconClass,
+} from "../../../components/icons";
 import { useVisionLogStore } from "../../../utils/store";
 import { loadSettings } from "../../../utils/localstore";
 import type { VisionSessionStatus } from "../../../../common/types";
@@ -40,7 +45,7 @@ export default function VisionInput() {
           title: `Step: ${data.step}`,
           content: data.message,
         },
-        data.runId,
+        data.runId
       );
     };
 
@@ -52,7 +57,7 @@ export default function VisionInput() {
     }) => {
       addLog(
         { type: data.type, title: data.title, content: data.content },
-        data.runId,
+        data.runId
       );
     };
 
@@ -68,7 +73,7 @@ export default function VisionInput() {
           content: "",
           imageBase64: data.imageBase64,
         },
-        data.runId,
+        data.runId
       );
     };
 
@@ -91,7 +96,7 @@ export default function VisionInput() {
       try {
         await window.electronAPI.dbUpdateVisionSessionStatus(
           currentSessionId,
-          status,
+          status
         );
       } catch (err) {
         console.error("Failed to update vision session status:", err);
@@ -142,7 +147,7 @@ export default function VisionInput() {
         title: "Started",
         content: `Goal: "${trimmedContent}"`,
       },
-      runId,
+      runId
     );
 
     try {
@@ -151,7 +156,7 @@ export default function VisionInput() {
         trimmedContent,
         settings.imageModel || undefined,
         DEBUG_MODE,
-        runId,
+        runId
       );
 
       if (!result.success) {
@@ -162,10 +167,10 @@ export default function VisionInput() {
               result.error === "Cancelled by user" ? "Cancelled" : "Failed",
             content: result.error || "Unknown error",
           },
-          runId,
+          runId
         );
         await updateSessionStatus(
-          result.error === "Cancelled by user" ? "cancelled" : "failed",
+          result.error === "Cancelled by user" ? "cancelled" : "failed"
         );
       } else {
         addLog(
@@ -174,7 +179,7 @@ export default function VisionInput() {
             title: "Complete",
             content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
           },
-          runId,
+          runId
         );
         await updateSessionStatus("completed");
       }
@@ -185,7 +190,7 @@ export default function VisionInput() {
           title: "Error",
           content: err instanceof Error ? err.message : "Unknown error",
         },
-        runId,
+        runId
       );
       await updateSessionStatus("failed");
     } finally {
@@ -210,7 +215,7 @@ export default function VisionInput() {
     setExecuting(false);
     addLog(
       { type: "status", title: "Cancelled", content: "Action cancelled" },
-      currentRunId,
+      currentRunId
     );
     await updateSessionStatus("cancelled");
     setCurrentSessionId(null);
@@ -220,68 +225,27 @@ export default function VisionInput() {
   return (
     <div className="shrink-0 px-6 pb-6 pt-4">
       <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface/80 rounded-2xl shadow-float border border-border-strong">
-        <div className="flex items-center justify-between gap-3 px-4 pt-3">
-          <div>
-            <p className="text-xs font-semibold text-text-main">
-              New Vision Task
-            </p>
-            <p className="text-[11px] text-text-subtle">
-              Be specific about buttons, fields, or URLs.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary-light/40 px-2 py-1 text-primary font-medium">
-              <Eye size={12} strokeWidth={2} />
-              Live
-            </span>
-          </div>
-        </div>
-        <div className="border-t border-border mt-3" />
-
-        {/* Textarea with inline controls */}
         <div className="flex items-end gap-2 p-4">
-          {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe what you want to automate..."
+            placeholder="Enter the Query :)"
             disabled={isExecuting}
             className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-8 leading-relaxed"
             rows={1}
           />
 
-          {/* Action buttons */}
-          {isExecuting && (
-            <button
-              onClick={handleCancel}
-              className="px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-all self-center border border-red-200"
-              type="button"
-            >
-              Stop
-            </button>
-          )}
-
-          {/* Send button */}
           <button
-            onClick={handleExecute}
-            disabled={!content.trim() || isExecuting}
+            onClick={isExecuting ? handleCancel : handleExecute}
+            disabled={!isExecuting && !content.trim()}
             className={`${iconClass} w-10 h-10`}
             type="button"
           >
-            {isExecuting ? (
-              <span className="animate-spin">{LoadingSVG}</span>
-            ) : (
-              SendSVG
-            )}
+            {isExecuting ? PauseSVG : SendSVG}
           </button>
         </div>
-      </div>
-      <div className="text-center mt-3">
-        <p className="text-[10px] text-text-subtle">
-          AI can make mistakes. Check important info.
-        </p>
       </div>
     </div>
   );
