@@ -66,6 +66,13 @@ export default function ChatMessage(message: ChatMessageRecord) {
                       isUser={message.role === "user"}
                     />
                   );
+                case "cancelled":
+                  return (
+                    <MarkdownRenderer
+                      content={message.content}
+                      isUser={false}
+                    />
+                  );
                 case "user":
                   return (
                     <MarkdownRenderer

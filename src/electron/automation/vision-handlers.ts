@@ -3,7 +3,6 @@
  * Handles vision-based click, type, and press operations (used by orchestrator)
  */
 
-import { BrowserWindow } from "electron";
 import { AUTOMATION_SERVER_URL } from "./types.js";
 import {
   askLLMForCellWithLogging,
@@ -35,8 +34,6 @@ export async function executeVisionAction(
   },
   signal?: AbortSignal,
 ): Promise<{ success: boolean; error?: string; data?: any }> {
-  const window = BrowserWindow.fromWebContents(event.sender);
-
   try {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");

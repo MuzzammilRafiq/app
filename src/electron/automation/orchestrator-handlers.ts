@@ -3,7 +3,7 @@
  * Handles multi-step automated workflows with dynamic execution and verification
  */
 
-import { ipcMain, BrowserWindow } from "electron";
+import { ipcMain } from "electron";
 import crypto from "node:crypto";
 import {
   AUTOMATION_SERVER_URL,

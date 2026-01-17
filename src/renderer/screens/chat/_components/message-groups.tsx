@@ -160,7 +160,7 @@ function AssistantMessageSection({
   const streamMessages = messages.filter((msg) => msg.type === "stream");
   const sourceMessages = messages.filter((msg) => msg.type === "source");
   const searchStatusMessages = messages.filter(
-    (msg) => msg.type === "search-status"
+    (msg) => msg.type === "search-status",
   );
 
   // Get the latest search status (if still active)

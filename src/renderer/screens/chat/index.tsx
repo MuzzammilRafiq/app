@@ -495,16 +495,59 @@ export default function ChatScreen() {
   ]);
 
   const handleStopGeneration = useCallback(async () => {
-    if (currentSession?.id) {
-      try {
-        await window.electronAPI.cancelStream(currentSession.id);
-        toast.success("Generation stopped");
-      } catch (err) {
-        console.error("Failed to stop generation:", err);
-        toast.error("Failed to stop generation");
-      }
+    if (!currentSession?.id) {
+      return;
     }
-  }, [currentSession]);
+
+    try {
+      const streamingSegments = useStreamingStore.getState().streamingSegments;
+      const streamChunks = streamingSegments.filter(
+        (seg) => seg.type === "stream",
+      );
+      if (streamChunks.length > 0) {
+        const persistedRecords = await persistStreamingSegments(
+          streamChunks,
+          currentSession,
+          { typeOverride: "cancelled", appendContent: "Cancelled by user" },
+        );
+
+        for (const record of persistedRecords) {
+          const updatedSession = await window.electronAPI.dbGetSession(
+            currentSession.id,
+          );
+          if (updatedSession) {
+            addMessage(record, updatedSession);
+          }
+        }
+      } else {
+        const record: ChatMessageRecord = {
+          id: crypto.randomUUID(),
+          sessionId: currentSession.id,
+          content: "Cancelled by user",
+          role: "assistant",
+          timestamp: Date.now(),
+          isError: "",
+          imagePaths: null,
+          type: "cancelled",
+        };
+        const saved = await window.electronAPI.dbAddChatMessage(record);
+        const updatedSession = await window.electronAPI.dbGetSession(
+          currentSession.id,
+        );
+        if (updatedSession) {
+          addMessage(saved, updatedSession);
+        }
+      }
+
+      await window.electronAPI.cancelStream(currentSession.id);
+      toast.success("Generation stopped");
+    } catch (err) {
+      console.error("Failed to stop generation:", err);
+      toast.error("Failed to stop generation");
+    } finally {
+      cleanupStreaming();
+    }
+  }, [currentSession, addMessage, cleanupStreaming]);
 
   // Memoize messages array to prevent unnecessary re-renders
   const allMessages = useMemo(

@@ -21,7 +21,7 @@ export interface StreamingOptions {
  */
 export async function handleImagePersistence(
   selectedImage: ImageData | null,
-  imagePaths: string[] | null
+  imagePaths: string[] | null,
 ): Promise<string[] | null> {
   if (selectedImage) {
     try {
@@ -48,7 +48,7 @@ export async function handleImagePersistence(
 export async function ensureSession(
   currentSession: ChatSession | null,
   contentPreview: string,
-  createNewSession: MessageHandlers["createNewSession"]
+  createNewSession: MessageHandlers["createNewSession"],
 ): Promise<ChatSession> {
   if (currentSession) {
     return currentSession;
@@ -56,7 +56,7 @@ export async function ensureSession(
 
   try {
     const newSessionRecord = await window.electronAPI.dbCreateSession(
-      contentPreview.slice(0, 50) + "..."
+      contentPreview.slice(0, 50) + "...",
     );
     createNewSession(newSessionRecord);
     return { ...newSessionRecord, messages: [] } as ChatSession;
@@ -74,7 +74,7 @@ export async function createUserMessage(
   session: ChatSession,
   messageContent: string,
   storedImagePaths: string[] | null,
-  addMessage: MessageHandlers["addMessage"]
+  addMessage: MessageHandlers["addMessage"],
 ): Promise<ChatMessageRecord> {
   const messageRecord: ChatMessageRecord = {
     id: String(crypto.randomUUID()),
@@ -106,14 +106,21 @@ export async function createUserMessage(
  */
 export async function persistStreamingSegments(
   segments: Array<{ id: string; type: string; content: string }>,
-  session: ChatSession
+  session: ChatSession,
+  options?: {
+    typeOverride?: ChatMessageRecord["type"];
+    appendContent?: string;
+  },
 ): Promise<ChatMessageRecord[]> {
   // Filter out ephemeral segment types that shouldn't be persisted
   const persistableSegments = segments.filter(
-    (seg) => seg.type !== "search-status"
+    (seg) => seg.type !== "search-status",
   );
 
   const savedRecords: ChatMessageRecord[] = [];
+  const typeOverride = options?.typeOverride;
+  const appendContent = options?.appendContent;
+
   for (const seg of persistableSegments) {
     let contentToSave = seg.content;
 
@@ -135,15 +142,21 @@ export async function persistStreamingSegments(
       }
     }
 
+    const appendedContent = appendContent
+      ? `${contentToSave.trim()}
+
+${appendContent}`.trim()
+      : contentToSave.trim();
+
     const record: ChatMessageRecord = {
       id: seg.id, // Keep the same ID from streaming segment
       sessionId: session.id,
-      content: contentToSave.trim(),
+      content: appendedContent,
       role: "assistant",
       timestamp: Date.now(),
       isError: "",
       imagePaths: null,
-      type: seg.type as any,
+      type: (typeOverride ?? seg.type) as any,
     };
 
     const saved = await window.electronAPI.dbAddChatMessage(record);

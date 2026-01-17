@@ -92,10 +92,10 @@ export class DatabaseService {
         this.db.exec(createIdx1);
         this.db.exec(createIdx2);
         this.db.exec("COMMIT");
-      } else if (!row.sql.includes("'source'")) {
-        // Migrate table to include 'source' in CHECK constraint
+      } else if (!row.sql.includes("'cancelled'")) {
+        // Migrate table to include 'cancelled' in CHECK constraint
         LOG(TAG).WARN(
-          "Migrating chat_messages schema to include 'source' type...",
+          "Migrating chat_messages schema to include 'cancelled' type...",
         );
         try {
           this.db.exec("PRAGMA foreign_keys = OFF");
@@ -111,7 +111,7 @@ export class DatabaseService {
               timestamp INTEGER NOT NULL,
               is_error TEXT NOT NULL DEFAULT '',
               images TEXT DEFAULT NULL,
-              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
+              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','cancelled')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );`,
           );
@@ -141,7 +141,7 @@ export class DatabaseService {
           this.db.exec("PRAGMA foreign_keys = ON");
         }
       } else {
-        // Table exists and already supports 'source'; ensure indexes
+        // Table exists and already supports 'cancelled'; ensure indexes
         this.db.exec("BEGIN TRANSACTION");
         this.db.exec(createIdx1);
         this.db.exec(createIdx2);
@@ -462,7 +462,14 @@ export class DatabaseService {
 
     // Validate role and type against allowed values
     const validRoles: ChatRole[] = ["user", "assistant", "execution"];
-    const validTypes: ChatType[] = ["stream", "log", "plan", "user", "source"];
+    const validTypes: ChatType[] = [
+      "stream",
+      "log",
+      "plan",
+      "user",
+      "source",
+      "cancelled",
+    ];
 
     if (!validRoles.includes(message.role)) {
       throw new Error(

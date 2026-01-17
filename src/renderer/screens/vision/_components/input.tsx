@@ -1,11 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Eye } from "lucide-react";
-import {
-  LoadingSVG,
-  PauseSVG,
-  SendSVG,
-  iconClass,
-} from "../../../components/icons";
+import { PauseSVG, SendSVG, iconClass } from "../../../components/icons";
 import { useVisionLogStore } from "../../../utils/store";
 import { loadSettings } from "../../../utils/localstore";
 import type { VisionSessionStatus } from "../../../../common/types";
@@ -45,7 +39,7 @@ export default function VisionInput() {
           title: `Step: ${data.step}`,
           content: data.message,
         },
-        data.runId
+        data.runId,
       );
     };
 
@@ -57,7 +51,7 @@ export default function VisionInput() {
     }) => {
       addLog(
         { type: data.type, title: data.title, content: data.content },
-        data.runId
+        data.runId,
       );
     };
 
@@ -73,7 +67,7 @@ export default function VisionInput() {
           content: "",
           imageBase64: data.imageBase64,
         },
-        data.runId
+        data.runId,
       );
     };
 
@@ -96,7 +90,7 @@ export default function VisionInput() {
       try {
         await window.electronAPI.dbUpdateVisionSessionStatus(
           currentSessionId,
-          status
+          status,
         );
       } catch (err) {
         console.error("Failed to update vision session status:", err);
@@ -147,7 +141,7 @@ export default function VisionInput() {
         title: "Started",
         content: `Goal: "${trimmedContent}"`,
       },
-      runId
+      runId,
     );
 
     try {
@@ -156,7 +150,7 @@ export default function VisionInput() {
         trimmedContent,
         settings.imageModel || undefined,
         DEBUG_MODE,
-        runId
+        runId,
       );
 
       if (!result.success) {
@@ -167,10 +161,10 @@ export default function VisionInput() {
               result.error === "Cancelled by user" ? "Cancelled" : "Failed",
             content: result.error || "Unknown error",
           },
-          runId
+          runId,
         );
         await updateSessionStatus(
-          result.error === "Cancelled by user" ? "cancelled" : "failed"
+          result.error === "Cancelled by user" ? "cancelled" : "failed",
         );
       } else {
         addLog(
@@ -179,7 +173,7 @@ export default function VisionInput() {
             title: "Complete",
             content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
           },
-          runId
+          runId,
         );
         await updateSessionStatus("completed");
       }
@@ -190,7 +184,7 @@ export default function VisionInput() {
           title: "Error",
           content: err instanceof Error ? err.message : "Unknown error",
         },
-        runId
+        runId,
       );
       await updateSessionStatus("failed");
     } finally {
@@ -215,7 +209,7 @@ export default function VisionInput() {
     setExecuting(false);
     addLog(
       { type: "status", title: "Cancelled", content: "Action cancelled" },
-      currentRunId
+      currentRunId,
     );
     await updateSessionStatus("cancelled");
     setCurrentSessionId(null);
