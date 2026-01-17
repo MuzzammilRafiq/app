@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { stream } from "../tools/stream.js";
 import { ASK_IMAGE } from "../services/model.js";
+import { cancelAllPendingConfirmations } from "../tools/orchestrator.js";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -29,6 +30,7 @@ export function setupStreamHandlers() {
       // cleanup previous controller for this session if exists
       if (activeStreams.has(sessionId)) {
         activeStreams.get(sessionId)?.abort();
+        cancelAllPendingConfirmations();
         activeStreams.delete(sessionId);
       }
 
@@ -36,17 +38,11 @@ export function setupStreamHandlers() {
       activeStreams.set(sessionId, controller);
 
       try {
-        return await stream(
-          event,
-          messages,
-          config,
-          apiKey,
-          controller.signal
-        );
+        return await stream(event, messages, config, apiKey, controller.signal);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-            // Stream was cancelled
-            return { text: "", error: "Cancelled by user" };
+          // Stream was cancelled
+          return { text: "", error: "Cancelled by user" };
         }
         throw error;
       } finally {
@@ -58,6 +54,8 @@ export function setupStreamHandlers() {
   ipcMain.handle("cancel-chat-stream", (_event, sessionId: string) => {
     if (activeStreams.has(sessionId)) {
       activeStreams.get(sessionId)?.abort();
+      // Cancel all pending terminal command confirmations
+      cancelAllPendingConfirmations();
       activeStreams.delete(sessionId);
       return true;
     }
@@ -109,5 +107,3 @@ export function setupStreamHandlers() {
     }
   );
 }
-
-

@@ -30,7 +30,7 @@ export default function ChatScreen() {
   const messages = useSessionMessages();
   const chatSessions = useChatSessions();
   const currentSession = chatSessions.find(
-    (s) => s.id === sessionId,
+    (s) => s.id === sessionId
   ) as ChatSession | null;
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
@@ -62,9 +62,9 @@ export default function ChatScreen() {
   const streamingDetailsSegments = useStreamingStore(
     useShallow((s) =>
       s.streamingSegments.filter((seg) =>
-        ["plan", "log", "source"].includes(seg.type),
-      ),
-    ),
+        ["plan", "log", "source"].includes(seg.type)
+      )
+    )
   );
 
   // Listen for terminal command confirmation requests
@@ -109,7 +109,7 @@ export default function ChatScreen() {
   };
 
   const buildSyntheticPlanFromDB = async (
-    plans: ChatMessageRecord[],
+    plans: ChatMessageRecord[]
   ): Promise<ChatMessageRecord[]> => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -135,12 +135,12 @@ export default function ChatScreen() {
     try {
       const dbSteps = await window.electronAPI.dbGetPlanSteps(
         latest.sessionId,
-        planHash,
+        planHash
       );
       if (Array.isArray(dbSteps) && dbSteps.length > 0) {
         const merged = steps.map((s: any) => {
           const matched = dbSteps.find(
-            (d: any) => Number(d.step_number) === Number(s.step_number),
+            (d: any) => Number(d.step_number) === Number(s.step_number)
           );
           return matched
             ? { ...s, status: matched.status }
@@ -174,7 +174,7 @@ export default function ChatScreen() {
     }) => {
       const immediate = buildSyntheticPlan(
         payload.plans || [],
-        payload.logs || [],
+        payload.logs || []
       );
       setSidebarPlans(immediate);
       void (async () => {
@@ -185,7 +185,7 @@ export default function ChatScreen() {
       setSidebarSources(payload.sources || []);
       setSidebarOpen(true);
     },
-    [],
+    []
   );
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -194,7 +194,7 @@ export default function ChatScreen() {
 
   const buildSyntheticPlan = (
     plans: ChatMessageRecord[],
-    logs: ChatMessageRecord[],
+    logs: ChatMessageRecord[]
   ): ChatMessageRecord[] => {
     if (!plans || plans.length === 0) return [];
     const latest = plans[plans.length - 1]!;
@@ -269,7 +269,7 @@ export default function ChatScreen() {
           isError: "",
           imagePaths: null,
           type: seg.type,
-        }),
+        })
       );
   }, [streamingDetailsSegments, currentSession?.id, messages]);
 
@@ -418,17 +418,17 @@ export default function ChatScreen() {
       const session = await ensureSession(
         currentSession,
         trimmedContent || (hasAnyImage ? "Image message" : ""),
-        createNewSession,
+        createNewSession
       );
       const storedImagePaths = await handleImagePersistence(
         selectedImage,
-        imagePaths,
+        imagePaths
       );
       const newMessage = await createUserMessage(
         session,
         trimmedContent || "",
         storedImagePaths,
-        addMessage,
+        addMessage
       );
 
       setupStreaming();
@@ -447,7 +447,7 @@ export default function ChatScreen() {
             textModelOverride: settings.textModel || "",
             imageModelOverride: settings.imageModel || "",
           },
-          settings.openrouterApiKey,
+          settings.openrouterApiKey
         );
 
         // Persist streaming segments from the streaming store
@@ -455,13 +455,13 @@ export default function ChatScreen() {
           useStreamingStore.getState().streamingSegments;
         const persistedRecords = await persistStreamingSegments(
           streamingSegments,
-          session,
+          session
         );
 
         // Add persisted messages to the store
         for (const record of persistedRecords) {
           const updatedSession = await window.electronAPI.dbGetSession(
-            session.id,
+            session.id
           );
           if (updatedSession) {
             addMessage(record, updatedSession);
@@ -499,21 +499,24 @@ export default function ChatScreen() {
       return;
     }
 
+    // Clear pending terminal command confirmation dialog
+    setPendingCommand(null);
+
     try {
       const streamingSegments = useStreamingStore.getState().streamingSegments;
       const streamChunks = streamingSegments.filter(
-        (seg) => seg.type === "stream",
+        (seg) => seg.type === "stream"
       );
       if (streamChunks.length > 0) {
         const persistedRecords = await persistStreamingSegments(
           streamChunks,
           currentSession,
-          { typeOverride: "cancelled", appendContent: "Cancelled by user" },
+          { typeOverride: "cancelled", appendContent: "Cancelled by user" }
         );
 
         for (const record of persistedRecords) {
           const updatedSession = await window.electronAPI.dbGetSession(
-            currentSession.id,
+            currentSession.id
           );
           if (updatedSession) {
             addMessage(record, updatedSession);
@@ -532,7 +535,7 @@ export default function ChatScreen() {
         };
         const saved = await window.electronAPI.dbAddChatMessage(record);
         const updatedSession = await window.electronAPI.dbGetSession(
-          currentSession.id,
+          currentSession.id
         );
         if (updatedSession) {
           addMessage(saved, updatedSession);
@@ -563,10 +566,10 @@ export default function ChatScreen() {
           isError: "",
           imagePaths: null,
           type: seg.type,
-        }),
+        })
       ),
     ],
-    [currentSession?.messages, streamingSegments, currentSession?.id],
+    [currentSession?.messages, streamingSegments, currentSession?.id]
   );
 
   return (

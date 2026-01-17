@@ -103,7 +103,7 @@ const SYSTEM_MODIFY_PATTERNS = [
  */
 export const optimizeCatCommand = (
   command: string,
-  cwd?: string,
+  cwd?: string
 ): { command: string; message?: string } => {
   const trimmed = command.trim();
 
@@ -141,8 +141,8 @@ export const optimizeCatCommand = (
     // Also check line count
     let lineCount = 0;
     try {
-      const content = fs.readFileSync(fullPath, 'utf-8');
-      lineCount = content.split('\n').length;
+      const content = fs.readFileSync(fullPath, "utf-8");
+      lineCount = content.split("\n").length;
     } catch (error) {
       // If we can't read the file to count lines, just skip the line count check
       lineCount = 0;
@@ -185,7 +185,7 @@ You are a macOS terminal agent. Output only a single JSON object with keys: upda
 - Avoid commands that require user interaction or run indefinitely
 `;
 export const checkCommandSecurity = (
-  command: string,
+  command: string
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 
@@ -219,7 +219,7 @@ export const terminalTool = async (
   event: any,
   command: string,
   confirm = false,
-  cwd?: string,
+  cwd?: string
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -291,7 +291,7 @@ export const terminalTool = async (
  */
 export const terminalExecutor = async (
   command: string,
-  cwd?: string,
+  cwd?: string
 ): Promise<{ output: string; success: boolean }> => {
   try {
     // Optimize cat commands for large files
@@ -363,8 +363,21 @@ export const adaptiveTerminalExecutor = async (
   apiKey: string,
   config: AdaptiveExecutorConfig,
   confirmCommand: (command: string, cwd: string) => Promise<boolean>,
+  signal?: AbortSignal
 ): Promise<AdaptiveExecutorResult> => {
   LOG(TAG).INFO(`Adaptive executor started with goal: ${goal}`);
+
+  // Check if already cancelled
+  if (signal?.aborted) {
+    return {
+      success: false,
+      output: "Cancelled by user",
+      iterations: 0,
+      commands: [],
+      finalCwd: initialCwd,
+      failureReason: "Cancelled by user",
+    };
+  }
 
   const home = os.homedir();
   let currentCwd = initialCwd;
@@ -411,6 +424,23 @@ export const adaptiveTerminalExecutor = async (
 
   // Main execution loop
   for (let iteration = 1; iteration <= config.maxIterations; iteration++) {
+    // Check for cancellation at start of each iteration
+    if (signal?.aborted) {
+      LOG(TAG).INFO("Adaptive executor cancelled by user");
+      event.sender.send("stream-chunk", {
+        chunk: `  ❌ Cancelled by user\n`,
+        type: "log",
+      });
+      return {
+        success: false,
+        output: currentContext,
+        iterations: iteration,
+        commands,
+        finalCwd: currentCwd,
+        failureReason: "Cancelled by user",
+      };
+    }
+
     event.sender.send("stream-chunk", {
       chunk: `  └─ Iteration ${iteration}: Analyzing next action...\n`,
       type: "log",
@@ -544,7 +574,29 @@ export const adaptiveTerminalExecutor = async (
     });
 
     // Request user confirmation
-    const allowed = await confirmCommand(prepared, currentCwd);
+    let allowed: boolean;
+    try {
+      allowed = await confirmCommand(prepared, currentCwd);
+    } catch (error) {
+      // Handle abort error from confirmCommand
+      if (error instanceof DOMException && error.name === "AbortError") {
+        LOG(TAG).INFO("Confirmation cancelled by user");
+        event.sender.send("stream-chunk", {
+          chunk: `     ❌ Cancelled by user\n`,
+          type: "log",
+        });
+        return {
+          success: false,
+          output: currentContext,
+          iterations: iteration,
+          commands,
+          finalCwd: currentCwd,
+          failureReason: "Cancelled by user",
+        };
+      }
+      throw error;
+    }
+
     if (!allowed) {
       event.sender.send("stream-chunk", {
         chunk: `     ❌ Command denied by user\n`,
@@ -641,7 +693,7 @@ export const terminalStep = async (
   event: any,
   apiKey: string,
   context: string,
-  index: number,
+  index: number
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -762,7 +814,7 @@ export const terminalAgent = async (
   initialContext: string,
   event: any,
   apiKey: string,
-  maxIterations: number = 20,
+  maxIterations: number = 20
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
@@ -812,11 +864,11 @@ export const terminalAgent = async (
       event,
       apiKey,
       currentContext,
-      iteration,
+      iteration
     );
     if (!agentResponse.success) {
       LOG(TAG).ERROR(
-        "terminal agent failed:" + agentResponse.error || "Unknown error",
+        "terminal agent failed:" + agentResponse.error || "Unknown error"
       );
       executionLog.push({
         iteration,
@@ -853,7 +905,7 @@ export const terminalAgent = async (
       event,
       prepared,
       false,
-      currentCwd,
+      currentCwd
     );
 
     // Send command output to UI
@@ -910,7 +962,7 @@ export const terminalAgent = async (
 
   LOG(TAG).WARN("max iterations reached");
   LOG(TAG).WARN(
-    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
+    "task may not be fully completed. consider increasing maxIterations or checking the plan."
   );
 
   return { output: currentContext };

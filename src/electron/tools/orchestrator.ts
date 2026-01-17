@@ -36,8 +36,16 @@ function truncateOutput(
 // Pending confirmation requests mapped by requestId
 const pendingConfirmations = new Map<
   string,
-  { resolve: (allowed: boolean) => void }
+  { resolve: (allowed: boolean) => void; reject: (reason: Error) => void }
 >();
+
+// Cancel all pending confirmations - called when stream is aborted
+export function cancelAllPendingConfirmations() {
+  for (const [requestId, pending] of pendingConfirmations) {
+    pending.reject(new DOMException("Aborted", "AbortError"));
+    pendingConfirmations.delete(requestId);
+  }
+}
 
 // IPC handler for confirmation responses from renderer
 ipcMain.handle(
@@ -55,12 +63,40 @@ ipcMain.handle(
 async function waitForUserConfirmation(
   event: IpcMainInvokeEvent,
   command: string,
-  cwd: string
+  cwd: string,
+  signal?: AbortSignal
 ): Promise<boolean> {
+  // If already aborted, return false immediately
+  if (signal?.aborted) {
+    return false;
+  }
+
   const requestId = crypto.randomUUID();
 
-  return new Promise((resolve) => {
-    pendingConfirmations.set(requestId, { resolve });
+  return new Promise((resolve, reject) => {
+    // Handle abort signal
+    const abortHandler = () => {
+      if (pendingConfirmations.has(requestId)) {
+        pendingConfirmations.delete(requestId);
+        reject(new DOMException("Aborted", "AbortError"));
+      }
+    };
+
+    if (signal) {
+      signal.addEventListener("abort", abortHandler, { once: true });
+    }
+
+    pendingConfirmations.set(requestId, {
+      resolve: (allowed: boolean) => {
+        signal?.removeEventListener("abort", abortHandler);
+        resolve(allowed);
+      },
+      reject: (reason: Error) => {
+        signal?.removeEventListener("abort", abortHandler);
+        reject(reason);
+      },
+    });
+
     event.sender.send("terminal:request-confirmation", {
       command,
       requestId,
@@ -71,6 +107,7 @@ async function waitForUserConfirmation(
     setTimeout(() => {
       if (pendingConfirmations.has(requestId)) {
         pendingConfirmations.delete(requestId);
+        signal?.removeEventListener("abort", abortHandler);
         resolve(false);
       }
     }, 300000);
@@ -256,7 +293,8 @@ async function executeTerminalStep(
   context: OrchestratorContext,
   event: IpcMainInvokeEvent,
   apiKey: string,
-  config: any
+  config: any,
+  signal?: AbortSignal
 ): Promise<{
   output: string;
   success: boolean;
@@ -270,6 +308,14 @@ async function executeTerminalStep(
     type: "log",
   });
 
+  // Check if already cancelled
+  if (signal?.aborted) {
+    return {
+      output: "Cancelled by user",
+      success: false,
+    };
+  }
+
   // Use adaptive executor with loop-based goal completion
   const result = await adaptiveTerminalExecutor(
     goal,
@@ -282,7 +328,8 @@ async function executeTerminalStep(
     },
     // Confirmation callback - requests user approval for each command
     (command: string, cwd: string) =>
-      waitForUserConfirmation(event, command, cwd)
+      waitForUserConfirmation(event, command, cwd, signal),
+    signal
   );
 
   if (!result.success) {
@@ -445,7 +492,8 @@ export async function orchestrate(
         context,
         event,
         apiKey,
-        config
+        config,
+        signal
       );
 
       if (result.newCwd) {
