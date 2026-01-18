@@ -32,7 +32,7 @@ const CodeBlock = memo(function CodeBlock({
       <code
         className={clsx(
           "px-1.5 py-0.5 rounded text-sm font-mono",
-          isUser ? "bg-white/20 text-white" : "bg-border text-text-main"
+          isUser ? "bg-white/20 text-white" : "bg-border text-text-main",
         )}
       >
         {children}
@@ -93,14 +93,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
       },
       th({ children }: { children?: React.ReactNode }) {
         return (
-          <th className="border border-border px-4 py-2 bg-surface text-left font-semibold text-text-muted">
+          <th className="border border-border px-4 py-2 bg-surface text-left font-semibold text-text-main">
             {children}
           </th>
         );
       },
       td({ children }: { children?: React.ReactNode }) {
         return (
-          <td className="border border-border px-4 py-2 text-text-muted">
+          <td className="border border-border px-4 py-2 text-text-main">
             {children}
           </td>
         );
@@ -113,7 +113,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             rel="noopener noreferrer"
             className={clsx(
               "underline hover:no-underline",
-              isUser ? "text-blue-200" : "text-blue-600 dark:text-blue-400"
+              isUser ? "text-blue-200" : "text-blue-600 dark:text-blue-400",
             )}
           >
             {children}
@@ -127,7 +127,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               "border-l-4 pl-4 my-4 italic",
               isUser
                 ? "border-white/50 text-white/90"
-                : "border-border text-text-muted"
+                : "border-border text-text-main",
             )}
           >
             {children}
@@ -135,14 +135,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         );
       },
     }),
-    [isUser, isDark]
+    [isUser, isDark],
   );
 
   return (
     <div
       className={clsx(
         "markdown-body",
-        isUser ? "text-white" : "text-text-main"
+        isUser ? "text-white" : "text-text-main",
       )}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

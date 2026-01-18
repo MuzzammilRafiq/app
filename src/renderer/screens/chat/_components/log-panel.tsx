@@ -101,7 +101,7 @@ function MessageDetailsSidebar({
           <h3 className="text-sm font-semibold text-text-main">Details</h3>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-text-muted hover:text-text-main hover:bg-border transition-colors"
+            className="rounded-md px-2 py-1 text-text-main hover:text-text-main hover:bg-border transition-colors"
             aria-label="Close details"
           >
             ✕
@@ -109,12 +109,12 @@ function MessageDetailsSidebar({
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-3 hide-scrollbar">
           {!hasAny && (
-            <div className="text-xs text-text-muted">No content available.</div>
+            <div className="text-xs text-text-main">No content available.</div>
           )}
 
           {plans && plans.length > 0 && (
             <section>
-              <div className="text-xs font-semibold text-text-muted mb-1">
+              <div className="text-xs font-semibold text-text-main mb-1">
                 Plan
               </div>
               <div className="space-y-2">

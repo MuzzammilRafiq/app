@@ -90,7 +90,7 @@ function Row({
     <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors">
       <div className="min-w-0">
         <div className="text-sm font-medium text-text-main">{title}</div>
-        <div className="text-xs text-text-muted">{description}</div>
+        <div className="text-xs text-text-main">{description}</div>
       </div>
       <button
         onClick={onClick}

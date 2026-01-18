@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
 import { PauseSVG, SendSVG, iconClass } from "../../../components/icons";
 import { useVisionLogStore } from "../../../utils/store";
 import { loadSettings } from "../../../utils/localstore";
@@ -39,7 +40,7 @@ export default function VisionInput() {
           title: `Step: ${data.step}`,
           content: data.message,
         },
-        data.runId
+        data.runId,
       );
     };
 
@@ -51,7 +52,7 @@ export default function VisionInput() {
     }) => {
       addLog(
         { type: data.type, title: data.title, content: data.content },
-        data.runId
+        data.runId,
       );
     };
 
@@ -67,7 +68,7 @@ export default function VisionInput() {
           content: "",
           imageBase64: data.imageBase64,
         },
-        data.runId
+        data.runId,
       );
     };
 
@@ -90,7 +91,7 @@ export default function VisionInput() {
       try {
         await window.electronAPI.dbUpdateVisionSessionStatus(
           currentSessionId,
-          status
+          status,
         );
       } catch (err) {
         console.error("Failed to update vision session status:", err);
@@ -101,13 +102,26 @@ export default function VisionInput() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (isExecuting) {
+        toast.error(
+          "A vision run is already in progress. Cancel it before starting a new one.",
+        );
+        return;
+      }
       handleExecute();
     }
   };
 
   const handleExecute = async () => {
     const trimmedContent = content.trim();
-    if (!trimmedContent || isExecuting) return;
+    if (!trimmedContent || isExecuting) {
+      if (isExecuting) {
+        toast.error(
+          "A vision run is already in progress. Cancel it before starting a new one.",
+        );
+      }
+      return;
+    }
 
     const settings = loadSettings();
     if (!settings.openrouterApiKey) {
@@ -142,7 +156,7 @@ export default function VisionInput() {
         title: "Started",
         content: `Goal: "${trimmedContent}"`,
       },
-      runId
+      runId,
     );
 
     try {
@@ -151,10 +165,15 @@ export default function VisionInput() {
         trimmedContent,
         settings.imageModel || undefined,
         DEBUG_MODE,
-        runId
+        runId,
       );
 
       if (!result.success) {
+        if (result.error === "Vision run already in progress") {
+          toast.error(
+            "A vision run is already in progress. Cancel it before starting a new one.",
+          );
+        }
         addLog(
           {
             type: "error",
@@ -162,10 +181,10 @@ export default function VisionInput() {
               result.error === "Cancelled by user" ? "Cancelled" : "Failed",
             content: result.error || "Unknown error",
           },
-          runId
+          runId,
         );
         await updateSessionStatus(
-          result.error === "Cancelled by user" ? "cancelled" : "failed"
+          result.error === "Cancelled by user" ? "cancelled" : "failed",
         );
       } else {
         addLog(
@@ -174,7 +193,7 @@ export default function VisionInput() {
             title: "Complete",
             content: `Completed ${result.stepsCompleted}/${result.totalSteps} steps`,
           },
-          runId
+          runId,
         );
         await updateSessionStatus("completed");
       }
@@ -185,7 +204,7 @@ export default function VisionInput() {
           title: "Error",
           content: err instanceof Error ? err.message : "Unknown error",
         },
-        runId
+        runId,
       );
       await updateSessionStatus("failed");
     } finally {
@@ -210,7 +229,7 @@ export default function VisionInput() {
     setExecuting(false);
     addLog(
       { type: "status", title: "Cancelled", content: "Action cancelled" },
-      currentRunId
+      currentRunId,
     );
     await updateSessionStatus("cancelled");
     setCurrentSessionId(null);
@@ -218,9 +237,9 @@ export default function VisionInput() {
   };
 
   return (
-    <div className="shrink-0 px-6 pb-6 pt-4">
-      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface/80 rounded-2xl shadow-float border border-border-strong">
-        <div className="flex items-end gap-2 p-4">
+    <div className="px-6 pb-6 pt-2">
+      <div className="mx-auto max-w-3xl transition-all duration-300 relative bg-surface rounded-2xl shadow-float border border-border">
+        <div className="flex items-center gap-2 p-3">
           <textarea
             ref={textareaRef}
             value={content}
@@ -228,7 +247,7 @@ export default function VisionInput() {
             onKeyDown={handleKeyDown}
             placeholder="Enter the Query :)"
             disabled={isExecuting}
-            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-8 leading-relaxed"
+            className="flex-1 bg-transparent border-none text-text-main placeholder-text-subtle text-[15px] resize-none focus:ring-0 focus:outline-none max-h-48 min-h-6 leading-relaxed py-2"
             rows={1}
           />
 

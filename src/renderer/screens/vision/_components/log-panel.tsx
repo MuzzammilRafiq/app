@@ -1,58 +1,46 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useVisionLogStore, type VisionLogEntry } from "../../../utils/store";
 import { LoadingSVG } from "../../../components/icons";
+import {
+  Globe,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Brain,
+  Zap,
+  Search,
+  XCircle,
+  ImageIcon,
+  Activity,
+} from "lucide-react";
 
-const LOG_TYPE_STYLES: Record<
-  VisionLogEntry["type"],
-  { bg: string; border: string; icon: string; titleColor: string }
-> = {
+type LogTypeStyle = {
+  icon: ReactNode;
+};
+
+const LOG_TYPE_STYLES: Record<VisionLogEntry["type"], LogTypeStyle> = {
   server: {
-    bg: "bg-text-subtle/10",
-    border: "border-border",
-    icon: "🌐",
-    titleColor: "text-text-main",
+    icon: <Globe size={16} />,
   },
   "llm-request": {
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
-    icon: "📤",
-    titleColor: "text-blue-600 dark:text-blue-400",
+    icon: <ArrowUpRight size={16} />,
   },
   "llm-response": {
-    bg: "bg-green-500/10",
-    border: "border-green-500/20",
-    icon: "📥",
-    titleColor: "text-green-600 dark:text-green-400",
+    icon: <ArrowDownLeft size={16} />,
   },
   thinking: {
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/20",
-    icon: "🧠",
-    titleColor: "text-purple-600 dark:text-purple-400",
+    icon: <Brain size={16} />,
   },
   status: {
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    icon: "⚡",
-    titleColor: "text-amber-600 dark:text-amber-400",
+    icon: <Zap size={16} />,
   },
   "vision-status": {
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    icon: "🔍",
-    titleColor: "text-amber-600 dark:text-amber-400",
+    icon: <Search size={16} />,
   },
   error: {
-    bg: "bg-red-500/10",
-    border: "border-red-500/20",
-    icon: "❌",
-    titleColor: "text-red-600 dark:text-red-400",
+    icon: <XCircle size={16} />,
   },
   "image-preview": {
-    bg: "bg-indigo-500/10",
-    border: "border-indigo-500/20",
-    icon: "🖼️",
-    titleColor: "text-indigo-600 dark:text-indigo-400",
+    icon: <ImageIcon size={16} />,
   },
 };
 
@@ -71,32 +59,32 @@ function LogEntry({ entry }: { entry: VisionLogEntry }) {
       ? `file://${entry.imagePath}`
       : null;
 
+  const isError = entry.type === "error";
+
   return (
     <div
-      className={`p-3 rounded-xl border ${style.bg} ${style.border} animate-fade-in shadow-sm`}
+      className={`py-3 ${isError ? "border-l-2 border-red-500 dark:border-red-400 pl-3 bg-red-50/30 dark:bg-red-950/20 rounded-r-md" : ""}`}
     >
-      <div className="flex items-start gap-2">
-        <span className="text-base shrink-0">{style.icon}</span>
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 mt-0.5 text-primary">{style.icon}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className={`text-xs font-semibold ${style.titleColor} truncate`}>
-              {entry.title}
-            </p>
-            <span className="text-[10px] text-text-subtle shrink-0">
+            <p className="text-sm font-medium text-text-main">{entry.title}</p>
+            <span className="text-xs text-text-subtle shrink-0 tabular-nums">
               {time}
             </span>
           </div>
           {entry.content && (
-            <p className="text-[12px] text-text-muted mt-1 whitespace-pre-wrap break-all font-mono leading-relaxed">
+            <p className="text-base text-text-main mt-1 whitespace-pre-wrap wrap-break-word leading-relaxed">
               {entry.content}
             </p>
           )}
           {imageSrc && (
-            <div className="mt-2">
+            <div className="mt-3">
               <img
                 src={imageSrc}
                 alt="Preview"
-                className="w-full max-h-40 object-contain rounded-lg border border-border shadow-sm"
+                className="w-full max-h-80 object-contain rounded-lg border border-border"
               />
             </div>
           )}
@@ -120,10 +108,10 @@ export default function VisionLogPanel() {
 
   if (logs.length === 0 && !isExecuting) {
     return (
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex items-center justify-center px-6 bg-bg-app">
         <div className="text-center max-w-md">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-primary-light/40 border border-primary/20 flex items-center justify-center text-xl mb-3">
-            🔍
+          <div className="mx-auto w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center mb-3">
+            <Activity size={20} className="text-text-subtle" />
           </div>
           <p className="text-text-main text-sm font-medium">
             Enter a target description to begin
@@ -139,16 +127,16 @@ export default function VisionLogPanel() {
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto px-5 py-5 space-y-4 bg-bg-app"
+      className="flex-1 overflow-y-auto px-5 py-4 space-y-1 bg-bg-app"
     >
       {logs.map((entry) => (
         <LogEntry key={entry.id} entry={entry} />
       ))}
 
       {isExecuting && (
-        <div className="flex items-center gap-2 p-3 bg-primary-light/20 rounded-xl border border-primary-light/40 animate-pulse">
+        <div className="flex items-center gap-3 py-3">
           <span className="animate-spin text-primary">{LoadingSVG}</span>
-          <span className="text-sm text-primary font-medium">
+          <span className="text-sm text-text-muted font-medium">
             Processing...
           </span>
         </div>

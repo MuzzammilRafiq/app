@@ -186,7 +186,7 @@ export default function Text() {
             }}
           >
             <div
-              className="text-sm text-text-muted mb-2 truncate"
+              className="text-sm text-text-main mb-2 truncate"
               title={scanningState.folder}
             >
               {scanningState.folder}
@@ -237,7 +237,7 @@ export default function Text() {
                   : undefined,
               }}
             >
-              <div className="flex items-center gap-2 text-sm text-text-muted mb-2">
+              <div className="flex items-center gap-2 text-sm text-text-main mb-2">
                 {pathInfo.isFile ? (
                   <File className="w-4 h-4 flex-shrink-0" />
                 ) : (
@@ -333,7 +333,7 @@ export default function Text() {
           className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
             isProcessing
               ? "border-border text-text-subtle cursor-not-allowed"
-              : "border-border text-text-muted hover:bg-primary-light hover:border-primary hover:text-primary"
+              : "border-border text-text-main hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
           <FolderPlus className="w-4 h-4" /> Select Folder
@@ -344,7 +344,7 @@ export default function Text() {
           className={`flex-1 px-3 py-2 border rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
             isProcessing
               ? "border-border text-text-subtle cursor-not-allowed"
-              : "border-border text-text-muted hover:bg-primary-light hover:border-primary hover:text-primary"
+              : "border-border text-text-main hover:bg-primary-light hover:border-primary hover:text-primary"
           }`}
         >
           <FilePlus className="w-4 h-4" /> Select Files

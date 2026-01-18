@@ -30,7 +30,7 @@ export default function AdvancedSettings() {
         <div className="rounded-lg border border-border p-3 bg-surface space-y-4">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-2">
+              <label className="block text-xs font-medium text-text-main mb-2">
                 OpenRouter API Key
               </label>
               <div className="relative">
@@ -50,14 +50,14 @@ export default function AdvancedSettings() {
                   type="button"
                   onClick={() => setShowKey((v) => !v)}
                   aria-label={showKey ? "Hide API key" : "Show API key"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-primary hover:bg-primary-light rounded-md transition-all duration-200 border border-border hover:border-primary"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-main hover:text-primary hover:bg-primary-light rounded-md transition-all duration-200 border border-border hover:border-primary"
                 >
                   {showKey ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-2">
+              <label className="block text-xs font-medium text-text-main mb-2">
                 Text Model (ID)
               </label>
               <input
@@ -74,7 +74,7 @@ export default function AdvancedSettings() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-2">
+              <label className="block text-xs font-medium text-text-main mb-2">
                 Image Model (ID)
               </label>
               <input

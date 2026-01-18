@@ -325,11 +325,6 @@ function ChatInput({
           }
         />
       </div>
-      <div className="text-center mt-3">
-        <p className="text-[10px] text-text-subtle">
-          AI can make mistakes. Check important info.
-        </p>
-      </div>
     </div>
   );
 }

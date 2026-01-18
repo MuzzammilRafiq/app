@@ -53,10 +53,10 @@ export function PlanRenderer({ content }: { content: string }) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 rounded"
         >
-          <div className="text-xs font-semibold text-text-muted">Plan</div>
+          <div className="text-xs font-semibold text-text-main">Plan</div>
           <ChevronDownIcon
             className={clsx(
-              "w-4 h-4 text-text-muted transition-transform duration-200",
+              "w-4 h-4 text-text-main transition-transform duration-200",
               isExpanded ? "rotate-180" : "rotate-0",
             )}
           />
@@ -67,7 +67,7 @@ export function PlanRenderer({ content }: { content: string }) {
             isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0",
           )}
         >
-          <pre className="text-sm text-text-muted whitespace-pre-wrap font-mono max-h-150 overflow-y-auto">
+          <pre className="text-sm text-text-main whitespace-pre-wrap font-mono max-h-150 overflow-y-auto">
             {content}
           </pre>
         </div>
@@ -80,13 +80,13 @@ export function PlanRenderer({ content }: { content: string }) {
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between text-left px-2 py-1"
       >
-        <div className="text-xs font-semibold text-text-muted flex items-center">
+        <div className="text-xs font-semibold text-text-main flex items-center">
           <ClipboardIcon className="w-3 h-3 mr-1" />
           Plan
         </div>
         <ChevronDownIcon
           className={clsx(
-            "w-3 h-3 text-text-muted transition-transform duration-200",
+            "w-3 h-3 text-text-main transition-transform duration-200",
             isExpanded ? "rotate-180" : "rotate-0",
           )}
         />
@@ -119,7 +119,7 @@ export function PlanRenderer({ content }: { content: string }) {
                         "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
                         step.status === "done"
                           ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800"
-                          : "bg-surface text-text-muted border-border",
+                          : "bg-surface text-text-main border-border",
                       )}
                     >
                       {step.status === "done" && (
@@ -140,10 +140,10 @@ export function PlanRenderer({ content }: { content: string }) {
           ))}
           {extracted.logs && (
             <div className="bg-surface border border-border rounded-lg p-3 mt-4">
-              <div className="text-xs font-semibold text-text-muted mb-2">
+              <div className="text-xs font-semibold text-text-main mb-2">
                 Execution Log
               </div>
-              <pre className="text-xs whitespace-pre-wrap text-text-muted max-h-64 overflow-y-auto">
+              <pre className="text-xs whitespace-pre-wrap text-text-main max-h-64 overflow-y-auto">
                 {extracted.logs}
               </pre>
             </div>
@@ -276,7 +276,7 @@ export function SourceRenderer({ content }: { content: string }) {
                   {s.document.slice(0, 200)}
                   {s.document.length > 200 ? "…" : ""}
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                <div className="mt-1 flex items-center gap-2 text-xs text-text-main">
                   <span className="truncate">{s.metadata.path}</span>
                   <span className="h-1 w-1 rounded-full bg-text-subtle" />
                   {getExtension(s.metadata.path).toLocaleLowerCase() ===
