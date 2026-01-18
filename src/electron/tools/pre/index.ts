@@ -12,7 +12,7 @@ export const preProcessMessage = async (
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) => {
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
@@ -28,7 +28,7 @@ export const preProcessMessage = async (
         lastUserMessage.imagePaths,
         {
           overrideModel: config?.imageModelOverride,
-        }
+        },
       );
 
       let description = "";
@@ -81,7 +81,9 @@ export const preProcessMessage = async (
     const retreivedDocuments = await ragAnswer(
       event,
       apiKey,
-      lastUserMessage.content
+      lastUserMessage.content,
+      3,
+      signal,
     );
     lastUserMessage.content =
       lastUserMessage.content +
@@ -101,7 +103,7 @@ export const preProcessMessage = async (
       apiKey,
       lastUserMessage.content,
       1, // limitPerQuery
-      signal
+      signal,
     );
     lastUserMessage.content =
       lastUserMessage.content +

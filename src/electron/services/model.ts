@@ -1,7 +1,4 @@
 import { OpenRouter } from "@openrouter/sdk";
-import { promises as fs } from "fs";
-import path from "node:path";
-import { LOG } from "../utils/logging.js";
 
 const TAG = "model";
 
@@ -30,23 +27,6 @@ export type MultimodalMessage = {
   content: string | MessageContent[];
 };
 
-function guessMimeFromPath(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  switch (ext) {
-    case ".png":
-      return "image/png";
-    case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".gif":
-      return "image/gif";
-    case ".webp":
-      return "image/webp";
-    default:
-      return "image/jpeg";
-  }
-}
-
 export const ASK_TEXT = async function* (
   apiKey: string,
   messages: ChatMessage[],
@@ -66,20 +46,24 @@ export const ASK_TEXT = async function* (
     throw new DOMException("Aborted", "AbortError");
   }
 
-  const stream = await openrouter.chat.send({
-    model: (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
-    messages,
-    ...opts,
-    stream: true as const,
-    provider: {
-      sort: "throughput",
+  const stream = await openrouter.chat.send(
+    {
+      model: (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
+      messages,
+      ...opts,
+      stream: true as const,
+      provider: {
+        sort: "throughput",
+      },
     },
-  });
+    {
+      signal,
+    },
+  );
 
   for await (const chunk of stream) {
     if (signal?.aborted) {
-      // Clean up iterator if possible, though 'break' usually suffices
-      break;
+      throw new DOMException("Aborted", "AbortError");
     }
     const delta = chunk.choices?.[0]?.delta;
     if (delta?.content || delta?.reasoning) {
@@ -88,6 +72,10 @@ export const ASK_TEXT = async function* (
         reasoning: delta?.reasoning ?? undefined,
       };
     }
+  }
+
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
   }
 };
 

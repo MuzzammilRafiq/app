@@ -20,7 +20,7 @@ const TAG = "orchestrator";
 const MAX_OUTPUT_LENGTH = 2000;
 function truncateOutput(
   output: string,
-  maxLen: number = MAX_OUTPUT_LENGTH
+  maxLen: number = MAX_OUTPUT_LENGTH,
 ): string {
   if (!output || output.length <= maxLen) return output;
   const half = Math.floor(maxLen / 2);
@@ -56,7 +56,7 @@ ipcMain.handle(
       pending.resolve(allowed);
       pendingConfirmations.delete(requestId);
     }
-  }
+  },
 );
 
 // Wait for user confirmation before executing a command
@@ -64,7 +64,7 @@ async function waitForUserConfirmation(
   event: IpcMainInvokeEvent,
   command: string,
   cwd: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<boolean> {
   // If already aborted, return false immediately
   if (signal?.aborted) {
@@ -185,9 +185,13 @@ async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
   event: IpcMainInvokeEvent,
-  config: any
+  config: any,
+  signal?: AbortSignal,
 ): Promise<{ steps: OrchestratorStep[]; error?: string }> {
   try {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
     const chatHistory: ChatMessage[] = messages.map((msg) => ({
       role: msg.role === "user" ? "user" : "assistant",
       content: msg.content,
@@ -241,6 +245,7 @@ async function generatePlan(
       },
       temperature: 0.2,
       overrideModel: config?.textModelOverride,
+      signal,
     };
 
     const response = ASK_TEXT(apiKey, M, options);
@@ -269,12 +274,15 @@ async function generatePlan(
         agent: s.agent,
         action: s.action,
         status: "pending" as const,
-      })
+      }),
     );
 
     LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
     return { steps };
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     LOG(TAG).ERROR("Failed to generate plan:", error);
     return {
       steps: [],
@@ -294,7 +302,7 @@ async function executeTerminalStep(
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{
   output: string;
   success: boolean;
@@ -329,7 +337,7 @@ async function executeTerminalStep(
     // Confirmation callback - requests user approval for each command
     (command: string, cwd: string) =>
       waitForUserConfirmation(event, command, cwd, signal),
-    signal
+    signal,
   );
 
   if (!result.success) {
@@ -362,7 +370,7 @@ async function executeGeneralStep(
   event: IpcMainInvokeEvent,
   apiKey: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ output: string }> {
   // Build context summary from all previous steps
   const contextSummary =
@@ -380,7 +388,7 @@ async function executeGeneralStep(
     event,
     apiKey,
     config,
-    signal
+    signal,
   );
 }
 
@@ -393,14 +401,20 @@ export async function orchestrate(
   apiKey: string,
   sessionId: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
 
   // Generate the plan
   // Note: generatePlan could also take signal if we want to cancel plan generation
   // For now, we mainly care about cancelling execution and heavy generation
-  const planResult = await generatePlan(messages, apiKey, event, config);
+  const planResult = await generatePlan(
+    messages,
+    apiKey,
+    event,
+    config,
+    signal,
+  );
 
   if (planResult.error || planResult.steps.length === 0) {
     return {
@@ -476,7 +490,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2
+        2,
       ),
       type: "plan",
     });
@@ -493,7 +507,7 @@ export async function orchestrate(
         event,
         apiKey,
         config,
-        signal
+        signal,
       );
 
       if (result.newCwd) {
@@ -512,7 +526,7 @@ export async function orchestrate(
             (cmd: AdaptiveExecutorCommand, idx: number) =>
               `Command ${idx + 1}: ${cmd.command}\n` +
               `Output: ${cmd.output}\n` +
-              `Success: ${cmd.success}`
+              `Success: ${cmd.success}`,
           )
           .join("\n\n");
         detailedOutput += "\n</COMMAND_EXECUTIONS>";
@@ -530,7 +544,7 @@ export async function orchestrate(
       // Stop the entire plan if a terminal step fails
       if (!result.success) {
         LOG(TAG).ERROR(
-          `Step ${step.step_number} failed, aborting remaining steps`
+          `Step ${step.step_number} failed, aborting remaining steps`,
         );
 
         // Mark remaining steps as failed/cancelled
@@ -549,7 +563,7 @@ export async function orchestrate(
               status: s.status === "pending" ? "todo" : s.status,
             })),
             null,
-            2
+            2,
           ),
           type: "plan",
         });
@@ -567,7 +581,7 @@ export async function orchestrate(
         event,
         apiKey,
         config,
-        signal
+        signal,
       );
 
       step.status = "done";
@@ -598,7 +612,7 @@ export async function orchestrate(
           status: s.status === "pending" ? "todo" : s.status,
         })),
         null,
-        2
+        2,
       ),
       type: "plan",
     });

@@ -8,8 +8,13 @@ const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
   event: any,
   apiKey: string,
-  userQuery: string
+  userQuery: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+
   const prompt = `
 You are a search assistant for a similarity search system. 
 Given a user query, generate 3 alternative search queries that capture 
@@ -47,6 +52,7 @@ User query: "${userQuery}"
       },
     },
     stream: false,
+    signal,
   };
   const response = ASK_TEXT(apiKey, messages, options);
   if (!response) {
@@ -69,7 +75,7 @@ User query: "${userQuery}"
   } catch (error) {
     LOG(TAG).ERROR(
       "Error parsing search queries response:",
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
     );
     return [];
   }
@@ -101,25 +107,33 @@ export async function ragAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
-  limit = 3
+  limit = 3,
+  signal?: AbortSignal,
 ): Promise<string> {
   LOG(TAG).INFO("RAG enabled, performing retrieval...", {
     userQuery,
     limit,
   });
-  const queries = await generateSearchQueries(event, apiKey, userQuery);
+  const queries = await generateSearchQueries(event, apiKey, userQuery, signal);
   const results: any[] = [];
   for (const q of queries) {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
     try {
       const r = await searchLocalAPI(q, limit);
       results.push(r);
     } catch (err) {
       LOG(TAG).ERROR(
         `Error searching for "${q}":`,
-        err instanceof Error ? err.message : String(err)
+        err instanceof Error ? err.message : String(err),
       );
     }
   }
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+
   // now elemenate the duplicate in results based on ids
   const set = new Set<string>();
   const uniqueResults = [];

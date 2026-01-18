@@ -69,10 +69,9 @@ interface Window {
     removeStreamChunkListener: () => void;
 
     /**
-     * Cancels an active stream
-     * @param sessionId The ID of the session to cancel
+     * Cancels the active stream
      */
-    cancelStream: (sessionId: string) => Promise<void>;
+    cancelStream: () => Promise<boolean>;
 
     /**
      * Vision click: analyze image with grid to find target cell

@@ -6,7 +6,12 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
-const activeStreams = new Map<string, AbortController>();
+type ActiveStream = {
+  sessionId: string;
+  controller: AbortController;
+} | null;
+
+const activeStream: { current: ActiveStream } = { current: null };
 
 export function setupStreamHandlers() {
   ipcMain.handle(
@@ -20,22 +25,16 @@ export function setupStreamHandlers() {
       // OR we can pass a controller to 'stream' and let it use it.
       // Better: The renderer should theoretically send sessionId, but here we just have messages.
       // Let's assume the last message has the sessionId, as is common in this app.
+      if (activeStream.current) {
+        return { text: "", error: "Chat stream already in progress" };
+      }
+
       const lastMsg = messages[messages.length - 1];
       const sessionId = lastMsg?.sessionId;
-
-      if (!sessionId) {
-        return stream(event, messages, config, apiKey);
-      }
-
-      // cleanup previous controller for this session if exists
-      if (activeStreams.has(sessionId)) {
-        activeStreams.get(sessionId)?.abort();
-        cancelAllPendingConfirmations();
-        activeStreams.delete(sessionId);
-      }
+      const streamSessionId = sessionId ?? "unknown";
 
       const controller = new AbortController();
-      activeStreams.set(sessionId, controller);
+      activeStream.current = { sessionId: streamSessionId, controller };
 
       try {
         return await stream(event, messages, config, apiKey, controller.signal);
@@ -46,17 +45,19 @@ export function setupStreamHandlers() {
         }
         throw error;
       } finally {
-        activeStreams.delete(sessionId);
+        if (activeStream.current?.sessionId === streamSessionId) {
+          activeStream.current = null;
+        }
       }
-    }
+    },
   );
 
-  ipcMain.handle("cancel-chat-stream", (_event, sessionId: string) => {
-    if (activeStreams.has(sessionId)) {
-      activeStreams.get(sessionId)?.abort();
+  ipcMain.handle("cancel-chat-stream", () => {
+    if (activeStream.current) {
+      activeStream.current.controller.abort();
       // Cancel all pending terminal command confirmations
       cancelAllPendingConfirmations();
-      activeStreams.delete(sessionId);
+      activeStream.current = null;
       return true;
     }
     return false;
@@ -70,7 +71,7 @@ export function setupStreamHandlers() {
       apiKey: string,
       imageBase64: string,
       prompt: string,
-      imageModelOverride?: string
+      imageModelOverride?: string,
     ) => {
       let tempFilePath: string | null = null;
       try {
@@ -104,6 +105,6 @@ export function setupStreamHandlers() {
           } catch {}
         }
       }
-    }
+    },
   );
 }

@@ -404,6 +404,11 @@ export default function ChatScreen() {
     const hasAnyImage =
       !!selectedImage || (imagePaths && imagePaths.length > 0);
     if ((!trimmedContent && !hasAnyImage) || isLoading || isStreaming) {
+      if (isLoading || isStreaming) {
+        toast.error(
+          "A chat run is already in progress. Cancel it before starting a new one.",
+        );
+      }
       return;
     }
 
@@ -432,24 +437,32 @@ export default function ChatScreen() {
         addMessage,
       );
 
+      const existingMessages = currentSession?.messages
+        ? [...currentSession.messages]
+        : [];
+      const history = existingMessages.concat([newMessage]);
+
       setupStreaming();
 
       try {
-        const existingMessages = currentSession?.messages
-          ? [...currentSession.messages]
-          : [];
-        const history = existingMessages.concat([newMessage]);
+        const streamResponse =
+          await window.electronAPI.streamMessageWithHistory(
+            history,
+            {
+              rag: isRAGEnabled,
+              webSearch: isWebSearchEnabled,
+              textModelOverride: settings.textModel || "",
+              imageModelOverride: settings.imageModel || "",
+            },
+            settings.openrouterApiKey,
+          );
 
-        await window.electronAPI.streamMessageWithHistory(
-          history,
-          {
-            rag: isRAGEnabled,
-            webSearch: isWebSearchEnabled,
-            textModelOverride: settings.textModel || "",
-            imageModelOverride: settings.imageModel || "",
-          },
-          settings.openrouterApiKey,
-        );
+        if (streamResponse?.error === "Chat stream already in progress") {
+          toast.error(
+            "A chat run is already in progress. Cancel it before starting a new one.",
+          );
+          return;
+        }
 
         // Persist streaming segments from the streaming store
         const streamingSegments =
@@ -543,7 +556,7 @@ export default function ChatScreen() {
         }
       }
 
-      await window.electronAPI.cancelStream(currentSession.id);
+      await window.electronAPI.cancelStream();
       toast.success("Generation stopped");
     } catch (err) {
       console.error("Failed to stop generation:", err);

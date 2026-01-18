@@ -16,6 +16,7 @@ import {
   handleImageSelect,
 } from "../../../services/chat-handlers";
 import { useEffect, useRef, useState, memo } from "react";
+import toast from "react-hot-toast";
 
 interface ChatInputProps {
   selectedImage: ImageData | null;
@@ -85,6 +86,12 @@ function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (isLoading || isStreaming) {
+        toast.error(
+          "A chat run is already in progress. Cancel it before starting a new one.",
+        );
+        return;
+      }
       handleSendMessage();
     }
   };

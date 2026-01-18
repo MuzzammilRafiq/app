@@ -17,7 +17,8 @@ const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateWebSearchQueries(
   event: IpcMainInvokeEvent,
   apiKey: string,
-  userQuery: string
+  userQuery: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const prompt = `
 You are a search query optimizer for web search.
@@ -62,6 +63,7 @@ User query: "${userQuery}"
       },
     },
     stream: false,
+    signal,
   };
 
   const response = ASK_TEXT(apiKey, messages, options);
@@ -85,7 +87,7 @@ User query: "${userQuery}"
     const parsedResponse = JSON.parse(c);
     LOG(TAG).INFO(
       "Generated web search queries:",
-      JSON_PRINT(parsedResponse.queries)
+      JSON_PRINT(parsedResponse.queries),
     );
     return parsedResponse.queries;
   } catch (error) {
@@ -113,7 +115,7 @@ function createAbortPromise(signal?: AbortSignal): Promise<never> {
       () => {
         reject(new DOMException("Aborted", "AbortError"));
       },
-      { once: true }
+      { once: true },
     );
   });
 }
@@ -126,7 +128,7 @@ function createAbortPromise(signal?: AbortSignal): Promise<never> {
 async function searchWebAPI(
   queries: string[],
   limitPerQuery: number = 1,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ results: any[]; errors: string[] | null }> {
   const fetchPromise = fetch(`${URL}/web/search`, {
     method: "POST",
@@ -147,7 +149,7 @@ async function searchWebAPI(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      errorData.detail || `Web search failed: ${response.status}`
+      errorData.detail || `Web search failed: ${response.status}`,
     );
   }
 
@@ -163,7 +165,7 @@ export async function webSearchAnswer(
   apiKey: string,
   userQuery: string,
   limitPerQuery: number = 1,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string> {
   LOG(TAG).INFO("Web search enabled, generating queries...", { userQuery });
 
@@ -177,7 +179,12 @@ export async function webSearchAnswer(
   });
 
   // Generate optimized search queries
-  const queries = await generateWebSearchQueries(event, apiKey, userQuery);
+  const queries = await generateWebSearchQueries(
+    event,
+    apiKey,
+    userQuery,
+    signal,
+  );
 
   // Check if cancelled - bail out early (server query may still run, we just won't use it)
   if (signal?.aborted) {
@@ -251,7 +258,7 @@ export async function webSearchAnswer(
     const combinedMarkdown = successfulResults
       .map(
         (r, i) =>
-          `## Source ${i + 1}: ${r.title}\nURL: ${r.url}\n\n${r.markdown}`
+          `## Source ${i + 1}: ${r.title}\nURL: ${r.url}\n\n${r.markdown}`,
       )
       .join("\n\n---\n\n");
 
@@ -268,7 +275,7 @@ export async function webSearchAnswer(
     const extractedInfo = await EXTRACT_WEB_SEARCH(
       apiKey,
       userQuery,
-      combinedMarkdown
+      combinedMarkdown,
     );
 
     // Send search status event - complete
@@ -278,7 +285,7 @@ export async function webSearchAnswer(
     });
 
     LOG(TAG).SUCCESS(
-      `Web search completed with ${successfulResults.length} results, extracted relevant info`
+      `Web search completed with ${successfulResults.length} results, extracted relevant info`,
     );
 
     return (

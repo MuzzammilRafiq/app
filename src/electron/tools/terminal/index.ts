@@ -103,7 +103,7 @@ const SYSTEM_MODIFY_PATTERNS = [
  */
 export const optimizeCatCommand = (
   command: string,
-  cwd?: string
+  cwd?: string,
 ): { command: string; message?: string } => {
   const trimmed = command.trim();
 
@@ -185,7 +185,7 @@ You are a macOS terminal agent. Output only a single JSON object with keys: upda
 - Avoid commands that require user interaction or run indefinitely
 `;
 export const checkCommandSecurity = (
-  command: string
+  command: string,
 ): { needConformation: boolean; reason: string } => {
   const normalizedCommand = command.toLowerCase().trim();
 
@@ -219,7 +219,7 @@ export const terminalTool = async (
   event: any,
   command: string,
   confirm = false,
-  cwd?: string
+  cwd?: string,
 ): Promise<{
   output: string;
   needConformation: boolean;
@@ -291,7 +291,7 @@ export const terminalTool = async (
  */
 export const terminalExecutor = async (
   command: string,
-  cwd?: string
+  cwd?: string,
 ): Promise<{ output: string; success: boolean }> => {
   try {
     // Optimize cat commands for large files
@@ -363,7 +363,7 @@ export const adaptiveTerminalExecutor = async (
   apiKey: string,
   config: AdaptiveExecutorConfig,
   confirmCommand: (command: string, cwd: string) => Promise<boolean>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<AdaptiveExecutorResult> => {
   LOG(TAG).INFO(`Adaptive executor started with goal: ${goal}`);
 
@@ -478,6 +478,7 @@ export const adaptiveTerminalExecutor = async (
         },
       },
       temperature: 0.2,
+      signal,
     };
 
     let parsed: { updated_context: string; command: string } | null = null;
@@ -693,7 +694,8 @@ export const terminalStep = async (
   event: any,
   apiKey: string,
   context: string,
-  index: number
+  index: number,
+  signal?: AbortSignal,
 ): Promise<{
   updatedContext: string;
   command: string;
@@ -732,6 +734,7 @@ export const terminalStep = async (
         },
       },
       temperature: 0.2,
+      signal,
     };
     let parsed: { updated_context: string; command: string } | null = null;
     let tries = 0;
@@ -814,7 +817,7 @@ export const terminalAgent = async (
   initialContext: string,
   event: any,
   apiKey: string,
-  maxIterations: number = 20
+  maxIterations: number = 20,
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
   let currentContext = initialContext;
@@ -864,11 +867,12 @@ export const terminalAgent = async (
       event,
       apiKey,
       currentContext,
-      iteration
+      iteration,
     );
+
     if (!agentResponse.success) {
       LOG(TAG).ERROR(
-        "terminal agent failed:" + agentResponse.error || "Unknown error"
+        "terminal agent failed:" + agentResponse.error || "Unknown error",
       );
       executionLog.push({
         iteration,
@@ -905,7 +909,7 @@ export const terminalAgent = async (
       event,
       prepared,
       false,
-      currentCwd
+      currentCwd,
     );
 
     // Send command output to UI
@@ -962,7 +966,7 @@ export const terminalAgent = async (
 
   LOG(TAG).WARN("max iterations reached");
   LOG(TAG).WARN(
-    "task may not be fully completed. consider increasing maxIterations or checking the plan."
+    "task may not be fully completed. consider increasing maxIterations or checking the plan.",
   );
 
   return { output: currentContext };
