@@ -50,7 +50,7 @@ function guessMimeFromPath(filePath: string): string {
 export const ASK_TEXT = async function* (
   apiKey: string,
   messages: ChatMessage[],
-  options?: Record<string, unknown> & { signal?: AbortSignal }
+  options?: Record<string, unknown> & { signal?: AbortSignal },
 ) {
   const openrouter = new OpenRouter({ apiKey });
 
@@ -61,14 +61,13 @@ export const ASK_TEXT = async function* (
     signal,
     ...opts
   } = options ?? {};
-  
+
   if (signal?.aborted) {
     throw new DOMException("Aborted", "AbortError");
   }
 
   const stream = await openrouter.chat.send({
-    model:
-      (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
+    model: (overrideModel as string | undefined) || "moonshotai/kimi-k2-0905",
     messages,
     ...opts,
     stream: true as const,
@@ -95,21 +94,17 @@ export const ASK_TEXT = async function* (
 export const ASK_IMAGE = async function* (
   apiKey: string,
   textContent: string,
-  imagePaths: string[],
-  options?: Record<string, unknown> & { signal?: AbortSignal }
+  base64Images: string[],
+  options?: Record<string, unknown> & { controller?: AbortController },
 ) {
   const openrouter = new OpenRouter({ apiKey });
   const {
     stream: _ignored,
     provider: __ignored,
     overrideModel,
-    signal,
+    controller,
     ...opts
   } = options ?? {};
-
-  if (signal?.aborted) {
-    throw new DOMException("Aborted", "AbortError");
-  }
 
   // Build multimodal content array
   const contentArray: MessageContent[] = [
@@ -119,24 +114,13 @@ export const ASK_IMAGE = async function* (
     },
   ];
 
-  // Add images as base64 encoded data URLs
-  for (const imagePath of imagePaths) {
-    try {
-      const buffer = await fs.readFile(imagePath);
-      const base64Image = buffer.toString("base64");
-      const mimeType = guessMimeFromPath(imagePath);
-      contentArray.push({
-        type: "image_url",
-        imageUrl: {
-          url: `data:${mimeType};base64,${base64Image}`,
-        },
-      });
-    } catch (err) {
-      LOG(TAG).ERROR(
-        `Failed to read image at ${imagePath}:`,
-        err instanceof Error ? err.message : String(err)
-      );
-    }
+  for (const base64Image of base64Images) {
+    contentArray.push({
+      type: "image_url",
+      imageUrl: {
+        url: base64Image,
+      },
+    });
   }
 
   const messages: MultimodalMessage[] = [
@@ -146,21 +130,25 @@ export const ASK_IMAGE = async function* (
     },
   ];
 
-  const stream = await openrouter.chat.send({
-    model:
-      (overrideModel as string | undefined) ||
-      "qwen/qwen3-vl-30b-a3b-thinking",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: messages as any,
-    ...opts,
-    stream: true as const,
-    provider: {
-      sort: "throughput",
+  const stream = await openrouter.chat.send(
+    {
+      model:
+        (overrideModel as string | undefined) ||
+        "qwen/qwen3-vl-30b-a3b-thinking",
+      messages: messages as any,
+      ...opts,
+      stream: true as const,
+      provider: {
+        sort: "throughput",
+      },
     },
-  });
+    {
+      signal: controller?.signal,
+    },
+  );
 
   for await (const chunk of stream) {
-    if (signal?.aborted) {
+    if (controller?.signal?.aborted) {
       break;
     }
     const delta = chunk.choices?.[0]?.delta;
@@ -176,7 +164,7 @@ export const ASK_IMAGE = async function* (
 export const EXTRACT_WEB_SEARCH = async function (
   apiKey: string,
   query: string,
-  webPageContent: string
+  webPageContent: string,
 ): Promise<string | null | undefined> {
   const openrouter = new OpenRouter({ apiKey });
 

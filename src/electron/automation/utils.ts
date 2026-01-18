@@ -4,7 +4,6 @@
 
 export const AUTOMATION_SERVER_URL = "http://localhost:8000";
 export const GRID_SIZE = 6;
-export const MAX_ORCHESTRATOR_STEPS = 6;
 
 /** Vision identification status */
 export type VisionStatus = "found" | "not_found" | "ambiguous";
@@ -25,7 +24,7 @@ export type SendLogFn = (
     | "error"
     | "vision-status",
   title: string,
-  content: string
+  content: string,
 ) => void;
 
 export interface CellIdentificationResult {
@@ -75,7 +74,7 @@ export interface ActionHistoryEntry {
 
 /** Sub-agent's decision for the next action */
 export interface NextActionDecision {
-  action: "click" | "type" | "press" | "wait" | "scroll" | "done";
+  action: "click" | "type" | "press" | "wait" | "scroll" | "done" | "error";
   target?: string;
   data?: string;
   reason: string;
