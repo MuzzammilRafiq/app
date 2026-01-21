@@ -27,6 +27,7 @@ function MessageDetailsSidebar({
   const [width, setWidth] = useState(MIN_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -66,6 +67,13 @@ function MessageDetailsSidebar({
       document.body.style.cursor = "";
     };
   }, [isResizing]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [isOpen, plans, logs, sources]);
 
   return (
     <aside
@@ -107,7 +115,10 @@ function MessageDetailsSidebar({
             ✕
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 hide-scrollbar">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-3 space-y-3 hide-scrollbar"
+        >
           {!hasAny && (
             <div className="text-xs text-text-main">No content available.</div>
           )}

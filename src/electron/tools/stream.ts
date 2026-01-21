@@ -4,11 +4,6 @@ import { ChatMessageRecord } from "../../common/types.js";
 import { LOG ,JSON_PRINT} from "../utils/logging.js";
 
 const TAG = "stream";
-
-/**
- * Main stream function - preprocesses messages and delegates to orchestrator.
- * The orchestrator handles plan generation and step execution.
- */
 export const stream = async (
   event: any,
   messages: ChatMessageRecord[],
@@ -48,10 +43,6 @@ export const stream = async (
     const sessionId = lastUserMessage.sessionId;
 
     LOG(TAG).INFO(`Starting orchestration for session ${sessionId}`);
-    event.sender.send("stream-chunk", {
-      chunk: `*Starting orchestration for session ${sessionId}*`,
-      type: "log",
-    });
 
     // Delegate to orchestrator for plan generation and execution
     const result = await orchestrate(

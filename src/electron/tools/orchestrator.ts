@@ -1,118 +1,22 @@
-import { ASK_TEXT, type ChatMessage } from "../services/model.js";
+import { type ChatMessage } from "../services/model.js";
 import dbService from "../services/database.js";
 import { LOG } from "../utils/logging.js";
 import {
   ChatMessageRecord,
   OrchestratorStep,
   OrchestratorContext,
-  AdaptiveExecutorCommand,
 } from "../../common/types.js";
-import { IpcMainInvokeEvent, ipcMain } from "electron";
-import { adaptiveTerminalExecutor } from "./terminal/index.js";
+import { IpcMainInvokeEvent } from "electron";
 import { generalTool } from "./general/index.js";
 import { StreamChunkBuffer } from "../utils/stream-buffer.js";
 import os from "node:os";
-import crypto from "node:crypto";
+import { terminalAgent } from "./terminal/index.js";
+
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { streamText, Output } from "ai";
+import * as z from "zod";
 
 const TAG = "orchestrator";
-
-// Truncate large outputs to prevent context bloat
-const MAX_OUTPUT_LENGTH = 2000;
-function truncateOutput(
-  output: string,
-  maxLen: number = MAX_OUTPUT_LENGTH,
-): string {
-  if (!output || output.length <= maxLen) return output;
-  const half = Math.floor(maxLen / 2);
-  return (
-    output.slice(0, half) +
-    "\n\n... [truncated " +
-    (output.length - maxLen) +
-    " chars] ...\n\n" +
-    output.slice(-half)
-  );
-}
-
-// Pending confirmation requests mapped by requestId
-const pendingConfirmations = new Map<
-  string,
-  { resolve: (allowed: boolean) => void; reject: (reason: Error) => void }
->();
-
-// Cancel all pending confirmations - called when stream is aborted
-export function cancelAllPendingConfirmations() {
-  for (const [requestId, pending] of pendingConfirmations) {
-    pending.reject(new DOMException("Aborted", "AbortError"));
-    pendingConfirmations.delete(requestId);
-  }
-}
-
-// IPC handler for confirmation responses from renderer
-ipcMain.handle(
-  "terminal:confirmation-response",
-  (_event, requestId: string, allowed: boolean) => {
-    const pending = pendingConfirmations.get(requestId);
-    if (pending) {
-      pending.resolve(allowed);
-      pendingConfirmations.delete(requestId);
-    }
-  },
-);
-
-// Wait for user confirmation before executing a command
-async function waitForUserConfirmation(
-  event: IpcMainInvokeEvent,
-  command: string,
-  cwd: string,
-  signal?: AbortSignal,
-): Promise<boolean> {
-  // If already aborted, return false immediately
-  if (signal?.aborted) {
-    return false;
-  }
-
-  const requestId = crypto.randomUUID();
-
-  return new Promise((resolve, reject) => {
-    // Handle abort signal
-    const abortHandler = () => {
-      if (pendingConfirmations.has(requestId)) {
-        pendingConfirmations.delete(requestId);
-        reject(new DOMException("Aborted", "AbortError"));
-      }
-    };
-
-    if (signal) {
-      signal.addEventListener("abort", abortHandler, { once: true });
-    }
-
-    pendingConfirmations.set(requestId, {
-      resolve: (allowed: boolean) => {
-        signal?.removeEventListener("abort", abortHandler);
-        resolve(allowed);
-      },
-      reject: (reason: Error) => {
-        signal?.removeEventListener("abort", abortHandler);
-        reject(reason);
-      },
-    });
-
-    event.sender.send("terminal:request-confirmation", {
-      command,
-      requestId,
-      cwd,
-    });
-
-    // Timeout after 5 minutes - auto-deny if no response
-    setTimeout(() => {
-      if (pendingConfirmations.has(requestId)) {
-        pendingConfirmations.delete(requestId);
-        signal?.removeEventListener("abort", abortHandler);
-        resolve(false);
-      }
-    }, 300000);
-  });
-}
 
 const SYSTEM_PROMPT_PLANNER = `
 You are a task orchestrator for a macOS system. Your job is to break down user requests into HIGH-LEVEL GOALS.
@@ -176,11 +80,10 @@ User: "Hello!"
     {"step_number": 1, "agent": "general", "action": "Greet the user warmly"}
   ]
 }
+
+IMPORTANT: Keep in mind that for agents give a proper action description eg if the user asks how many folders in A dont pass the action as it is check if there is any context about A in the previous messages and build the action around that context
 `;
 
-/**
- * Generate a granular execution plan from user messages
- */
 async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
@@ -192,91 +95,58 @@ async function generatePlan(
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
+    const openrouter = createOpenRouter({ apiKey: apiKey });
     const chatHistory: ChatMessage[] = messages.map((msg) => ({
       role: msg.role === "user" ? "user" : "assistant",
       content: msg.content,
     }));
 
-    const M: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT_PLANNER },
-      ...chatHistory,
-    ];
-
-    const options = {
-      responseFormat: {
-        type: "json_schema",
-        jsonSchema: {
-          name: "orchestrator_plan",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              steps: {
-                type: "array",
-                minItems: 1,
-                maxItems: 5,
-                items: {
-                  type: "object",
-                  properties: {
-                    step_number: {
-                      type: "number",
-                      description: "Sequential step number starting from 1",
-                    },
-                    agent: {
-                      type: "string",
-                      enum: ["terminal", "general"],
-                      description: "The agent to execute this step",
-                    },
-                    action: {
-                      type: "string",
-                      description:
-                        "For terminal: goal to achieve. For general: task description",
-                    },
-                  },
-                  required: ["step_number", "agent", "action"],
-                  additionalProperties: false,
-                },
-              },
-            },
-            required: ["steps"],
-            additionalProperties: false,
-          },
-        },
-      },
-      temperature: 0.2,
-      overrideModel: config?.textModelOverride,
-      signal,
-    };
-
-    const response = ASK_TEXT(apiKey, M, options);
-    if (!response) {
-      throw new Error("No response from LLM");
-    }
-
+    const result = streamText({
+      model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
+      abortSignal: signal,
+      system: SYSTEM_PROMPT_PLANNER,
+      prompt: chatHistory,
+      output: Output.array({
+        element: z.object({
+          step_number: z
+            .number()
+            .describe("Sequential step number starting from 1"),
+          agent: z
+            .enum(["terminal", "general"])
+            .describe("The agent to execute this step"),
+          action: z
+            .string()
+            .describe(
+              "For terminal: goal to achieve. For general: task description",
+            ),
+        }),
+      }),
+    });
+    
     const buffer = new StreamChunkBuffer(event.sender);
-    let content = "";
-    for await (const { content: chunk, reasoning } of response) {
-      if (chunk) content += chunk;
-      if (reasoning) {
-        buffer.send(reasoning, "log");
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case "reasoning-delta": {
+          buffer.send(part.text, "log");
+          break;
+        }
+        case "error": {
+          buffer.send(`\nError: ${(part as any).error}\n`, "log");
+          LOG(TAG).ERROR("Stream error:", (part as any).error);
+          break;
+        }
       }
     }
     buffer.flush();
-
-    const parsed = JSON.parse(content);
-    const steps: OrchestratorStep[] = parsed.steps.map(
-      (s: {
-        step_number: number;
-        agent: "terminal" | "general";
-        action: string;
-      }) => ({
+    const output= await result.output;
+    const steps: OrchestratorStep[] = output.map(
+      (s) => ({
         step_number: s.step_number,
         agent: s.agent,
         action: s.action,
         status: "pending" as const,
       }),
     );
-
     LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
     return { steps };
   } catch (error) {
@@ -291,78 +161,6 @@ async function generatePlan(
   }
 }
 
-/**
- * Execute a terminal step using the adaptive executor.
- * The adaptive executor loops internally to achieve the goal,
- * requesting user confirmation for each command.
- */
-async function executeTerminalStep(
-  step: OrchestratorStep,
-  context: OrchestratorContext,
-  event: IpcMainInvokeEvent,
-  apiKey: string,
-  config: any,
-  signal?: AbortSignal,
-): Promise<{
-  output: string;
-  success: boolean;
-  newCwd?: string;
-  commands?: AdaptiveExecutorCommand[];
-}> {
-  const goal = step.action.trim();
-
-  event.sender.send("stream-chunk", {
-    chunk: `🎯 Goal: ${goal}\n`,
-    type: "log",
-  });
-
-  // Check if already cancelled
-  if (signal?.aborted) {
-    return {
-      output: "Cancelled by user",
-      success: false,
-    };
-  }
-
-  // Use adaptive executor with loop-based goal completion
-  const result = await adaptiveTerminalExecutor(
-    goal,
-    context.cwd,
-    event,
-    apiKey,
-    {
-      maxIterations: 10,
-      maxConsecutiveErrors: 2,
-    },
-    // Confirmation callback - requests user approval for each command
-    (command: string, cwd: string) =>
-      waitForUserConfirmation(event, command, cwd, signal),
-    signal,
-  );
-
-  if (!result.success) {
-    event.sender.send("stream-chunk", {
-      chunk: `❌ Goal failed: ${result.failureReason}\n`,
-      type: "log",
-    });
-  } else {
-    event.sender.send("stream-chunk", {
-      chunk: `✅ Goal achieved in ${result.iterations} iteration(s)\n`,
-      type: "log",
-    });
-  }
-
-  return {
-    output: result.output,
-    success: result.success,
-    newCwd: result.finalCwd !== context.cwd ? result.finalCwd : undefined,
-    commands: result.commands,
-  };
-}
-
-/**
- * Execute a general agent step (final response formatting)
- */
 async function executeGeneralStep(
   step: OrchestratorStep,
   messages: ChatMessageRecord[],
@@ -392,9 +190,6 @@ async function executeGeneralStep(
   );
 }
 
-/**
- * Main orchestrator function - generates plan and executes steps sequentially
- */
 export async function orchestrate(
   messages: ChatMessageRecord[],
   event: IpcMainInvokeEvent,
@@ -404,10 +199,6 @@ export async function orchestrate(
   signal?: AbortSignal,
 ): Promise<{ text: string; error?: string }> {
   LOG(TAG).INFO("Starting orchestration");
-
-  // Generate the plan
-  // Note: generatePlan could also take signal if we want to cancel plan generation
-  // For now, we mainly care about cancelling execution and heavy generation
   const planResult = await generatePlan(
     messages,
     apiKey,
@@ -501,78 +292,21 @@ export async function orchestrate(
     });
 
     if (step.agent === "terminal") {
-      const result = await executeTerminalStep(
-        step,
-        context,
+      const result = await terminalAgent(
+        step.action,
         event,
         apiKey,
-        config,
-        signal,
+        20,
+        config.textModelOverride,
+        signal!,
       );
-
-      if (result.newCwd) {
-        context.cwd = result.newCwd;
-      }
-
-      // Build detailed output including actual command executions
-      // The result.output contains the LLM's context summary
-      // The result.commands contains the actual command executions with their outputs
-      let detailedOutput = result.output;
-
-      if (result.commands && result.commands.length > 0) {
-        detailedOutput += "\n\n<COMMAND_EXECUTIONS>\n";
-        detailedOutput += result.commands
-          .map(
-            (cmd: AdaptiveExecutorCommand, idx: number) =>
-              `Command ${idx + 1}: ${cmd.command}\n` +
-              `Output: ${cmd.output}\n` +
-              `Success: ${cmd.success}`,
-          )
-          .join("\n\n");
-        detailedOutput += "\n</COMMAND_EXECUTIONS>";
-      }
-
       context.history.push({
         step: step.step_number,
         command: step.action,
-        output: detailedOutput,
+        output: result.output,
       });
-
-      step.status = result.success ? "done" : "failed";
-      step.result = detailedOutput;
-
-      // Stop the entire plan if a terminal step fails
-      if (!result.success) {
-        LOG(TAG).ERROR(
-          `Step ${step.step_number} failed, aborting remaining steps`,
-        );
-
-        // Mark remaining steps as failed/cancelled
-        for (let j = i + 1; j < steps.length; j++) {
-          steps[j].status = "failed";
-        }
-
-        // Send updated plan status
-        event.sender.send("stream-chunk", {
-          chunk: JSON.stringify(
-            steps.map((s) => ({
-              step_number: s.step_number,
-              tool_name:
-                s.agent === "terminal" ? "terminal_tool" : "general_tool",
-              description: s.action,
-              status: s.status === "pending" ? "todo" : s.status,
-            })),
-            null,
-            2,
-          ),
-          type: "plan",
-        });
-
-        return {
-          text: "",
-          error: `Step ${step.step_number} failed: ${result.output}`,
-        };
-      }
+      step.status = "done";
+      step.result = result.output;
     } else if (step.agent === "general") {
       const result = await executeGeneralStep(
         step,

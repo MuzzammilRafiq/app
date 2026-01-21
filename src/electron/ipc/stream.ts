@@ -1,10 +1,10 @@
 import { ipcMain } from "electron";
 import { stream } from "../tools/stream.js";
 import { ASK_IMAGE } from "../services/model.js";
-import { cancelAllPendingConfirmations } from "../tools/orchestrator.js";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
+import { cancelAllPendingConfirmations } from "../tools/terminal/index.js";
 
 type ActiveStream = {
   sessionId: string;
@@ -17,14 +17,6 @@ export function setupStreamHandlers() {
   ipcMain.handle(
     "stream-message-with-history",
     async (event, messages, config, apiKey) => {
-      // Extract session ID from the last message (which is user message or processed user message)
-      // We need to peek at the messages or return a session ID from stream function
-      // But 'stream' expects 'messages'.
-      // Let's rely on the fact that 'stream' extracts sessionId.
-      // However, we need the sessionId BEFORE calling 'stream' to setup the controller map if possible,
-      // OR we can pass a controller to 'stream' and let it use it.
-      // Better: The renderer should theoretically send sessionId, but here we just have messages.
-      // Let's assume the last message has the sessionId, as is common in this app.
       if (activeStream.current) {
         return { text: "", error: "Chat stream already in progress" };
       }

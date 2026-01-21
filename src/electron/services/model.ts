@@ -1,7 +1,5 @@
 import { OpenRouter } from "@openrouter/sdk";
-
 const TAG = "model";
-
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
