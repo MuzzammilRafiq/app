@@ -6,7 +6,8 @@ type ChatType =
   | "user"
   | "source"
   | "search-status"
-  | "cancelled";
+  | "cancelled"
+  | "terminal-confirmation";
 
 interface MakePlanResponse {
   step_number: number;

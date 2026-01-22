@@ -26,7 +26,9 @@ export const generalTool = async (
 
 Current task: ${taskDescription}
 
-Provide a clear, concise, well-formatted markdown response based on the conversation context and the current task. Do not wrap the output in \`\`\`markdown\`\`\`.`;
+Provide a clear, concise, well-formatted markdown response based on the conversation context and the current task.
+KEEP in MIND: Your response should be conslusive ur response is what user sees. you are the end part of the chain.
+Do not wrap the output in \`\`\`markdown\`\`\`.`;
 
     // Convert ChatMessageRecord[] to ChatMessage[] for the LLM
     const chatHistory: ChatMessage[] = messages.map((msg) => ({

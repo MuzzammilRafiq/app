@@ -1,5 +1,9 @@
 import type { ChatMessageRecord } from "../../../../common/types";
-import { PlanRenderer, LogRenderer } from "./renderers";
+import {
+  PlanRenderer,
+  LogRenderer,
+  TerminalConfirmationRenderer,
+} from "./renderers";
 import { MarkdownRenderer } from "./markdown-renderer";
 import clsx from "clsx";
 export default function ChatMessage(message: ChatMessageRecord) {
@@ -59,6 +63,10 @@ export default function ChatMessage(message: ChatMessageRecord) {
                   return <PlanRenderer content={message.content} />;
                 case "log":
                   return <LogRenderer content={message.content} />;
+                case "terminal-confirmation":
+                  return (
+                    <TerminalConfirmationRenderer content={message.content} />
+                  );
                 case "stream":
                   return (
                     <MarkdownRenderer

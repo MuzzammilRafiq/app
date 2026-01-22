@@ -14,7 +14,7 @@ export const stream = async (
   try {
     LOG(TAG).INFO(JSON_PRINT(config));
     const filteredMessages = messages.filter(
-      (msg) => msg.type === "user" || msg.type === "stream"
+      (msg) => msg.type === "user" || (msg.type === "stream" && msg.role !== "execution")
     );
 
     // Safety check for empty messages

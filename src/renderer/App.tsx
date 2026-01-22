@@ -56,7 +56,7 @@ function App() {
         style={{ backgroundColor: "var(--bg-app)" }}
       >
         <TitleBar />
-        <Toaster position="top-center" toastOptions={{ duration: 1000 }} />
+        <Toaster position="top-center" toastOptions={{ duration: 500 }} />
         <div
           className="flex-1 flex overflow-hidden"
           style={{ backgroundColor: "transparent" }}

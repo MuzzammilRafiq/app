@@ -1,7 +1,8 @@
 import { MarkdownRenderer } from "./markdown-renderer";
+import { TerminalConfirmationRenderer } from "./renderers";
 import type { ChatMessageRecord } from "../../../../common/types";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { useRef, useEffect, memo } from "react";
+import { useRef, useEffect, memo, useMemo } from "react";
 
 interface MessageGroup {
   id: string; // Unique stable ID for the group
@@ -17,6 +18,8 @@ interface MessageGroupsProps {
     sources: ChatMessageRecord[];
   }) => void;
   isStreaming?: boolean; // To hint auto-scroll behavior
+  onAllowCommand?: (requestId: string) => void;
+  onRejectCommand?: (requestId: string) => void;
 }
 
 function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
@@ -150,17 +153,39 @@ function AssistantMessageSection({
   messages,
   onOpenDetails,
   isStreaming,
+  onAllowCommand,
+  onRejectCommand,
 }: {
   messages: ChatMessageRecord[];
   onOpenDetails?: MessageGroupsProps["onOpenDetails"];
   isStreaming?: boolean;
+  onAllowCommand?: (requestId: string) => void;
+  onRejectCommand?: (requestId: string) => void;
 }) {
-  const planMessages = messages.filter((msg) => msg.type === "plan");
-  const logMessages = messages.filter((msg) => msg.type === "log");
-  const streamMessages = messages.filter((msg) => msg.type === "stream");
-  const sourceMessages = messages.filter((msg) => msg.type === "source");
-  const searchStatusMessages = messages.filter(
-    (msg) => msg.type === "search-status",
+  const planMessages = useMemo(
+    () => messages.filter((msg) => msg.type === "plan"),
+    [messages],
+  );
+  const logMessages = useMemo(
+    () => messages.filter((msg) => msg.type === "log"),
+    [messages],
+  );
+  const sourceMessages = useMemo(
+    () => messages.filter((msg) => msg.type === "source"),
+    [messages],
+  );
+  const searchStatusMessages = useMemo(
+    () => messages.filter((msg) => msg.type === "search-status"),
+    [messages],
+  );
+
+  // Filter stream and terminal-confirmation messages - they maintain insertion order from messages array
+  const chronologicalMessages = useMemo(
+    () =>
+      messages.filter(
+        (msg) => msg.type === "stream" || msg.type === "terminal-confirmation",
+      ),
+    [messages],
   );
 
   // Get the latest search status (if still active)
@@ -198,13 +223,20 @@ function AssistantMessageSection({
           </div>
         )}
 
-        {/* Stream messages - Content */}
-        {streamMessages.map((msg) => (
-          <div
-            key={msg.id}
-            className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]"
-          >
-            <MarkdownRenderer content={msg.content} isUser={false} />
+        {/* Stream and Terminal Confirmation messages - rendered chronologically */}
+        {chronologicalMessages.map((msg) => (
+          <div key={msg.id}>
+            {msg.type === "terminal-confirmation" ? (
+              <TerminalConfirmationRenderer
+                content={msg.content}
+                onAllow={onAllowCommand}
+                onReject={onRejectCommand}
+              />
+            ) : (
+              <div className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]">
+                <MarkdownRenderer content={msg.content} isUser={false} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -216,6 +248,8 @@ function MessageGroups({
   messages,
   onOpenDetails,
   isStreaming = false,
+  onAllowCommand,
+  onRejectCommand,
 }: MessageGroupsProps) {
   const groupedMessages = groupMessages(messages);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -283,6 +317,8 @@ function MessageGroups({
                 messages={group.assistantMessages}
                 onOpenDetails={onOpenDetails}
                 isStreaming={isStreaming}
+                onAllowCommand={onAllowCommand}
+                onRejectCommand={onRejectCommand}
               />
             </div>
           )}

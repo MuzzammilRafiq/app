@@ -105,7 +105,7 @@ export async function createUserMessage(
  * Note: search-status segments are ephemeral and not persisted.
  */
 export async function persistStreamingSegments(
-  segments: Array<{ id: string; type: string; content: string }>,
+  segments: Array<{ id: string; type: string; content: string; role?: string }>,
   session: ChatSession,
   options?: {
     typeOverride?: ChatMessageRecord["type"];
@@ -142,17 +142,13 @@ export async function persistStreamingSegments(
       }
     }
 
-    const appendedContent = appendContent
-      ? `${contentToSave.trim()}
-
-${appendContent}`.trim()
-      : contentToSave.trim();
+    const appendedContent = appendContent ? `${contentToSave.trim()} ${appendContent}`.trim(): contentToSave.trim();
 
     const record: ChatMessageRecord = {
       id: seg.id, // Keep the same ID from streaming segment
       sessionId: session.id,
       content: appendedContent,
-      role: "assistant",
+      role: (seg.role ?? "assistant") as ChatMessageRecord["role"],
       timestamp: Date.now(),
       isError: "",
       imagePaths: null,

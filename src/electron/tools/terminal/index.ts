@@ -5,6 +5,7 @@ import * as z from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { IpcMainInvokeEvent, ipcMain } from "electron";
+import { ChatRole, ChatType } from "../../../common/types.js";
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
 
@@ -305,7 +306,8 @@ export const terminalAgent = async (
         const textContent = (part as any).text || (part as any).textDelta || "";
         event.sender.send("stream-chunk", {
           chunk: textContent,
-          type: "log",
+          type: "stream" satisfies ChatType,
+          role:"execution" satisfies ChatRole
         });
         currentStepHasText = true;
         summaryText += textContent;
@@ -327,6 +329,7 @@ export const terminalAgent = async (
             type: "log",
           });
         }
+        LOG(TAG).ERROR("Tool call:", part.input);
         break;
       }
 

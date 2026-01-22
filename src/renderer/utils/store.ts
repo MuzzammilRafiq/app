@@ -318,6 +318,7 @@ interface StreamingStore {
   streamingSegments: StreamingSegment[];
   setStreaming: (isStreaming: boolean) => void;
   addStreamingChunk: (chunk: StreamChunk) => void;
+  updateStreamingSegment: (id: string, content: string) => void;
   clearStreaming: () => void;
 }
 
@@ -364,6 +365,13 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
           });
         }
       }
+      return { streamingSegments: updated };
+    }),
+  updateStreamingSegment: (id: string, content: string) =>
+    set((state) => {
+      const updated = state.streamingSegments.map((segment) =>
+        segment.id === id ? { ...segment, content } : segment,
+      );
       return { streamingSegments: updated };
     }),
   clearStreaming: () => set({ streamingSegments: [], isStreaming: false }),

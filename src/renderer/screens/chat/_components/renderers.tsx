@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 
 import type { MakePlanResponse, UniqueResult } from "../../../../common/types";
@@ -373,4 +373,131 @@ export function SourceRenderer({ content }: { content: string }) {
   }
 
   return null;
+}
+
+// Terminal Command Confirmation Renderer
+interface TerminalConfirmationData {
+  command: string;
+  cwd: string;
+  requestId: string;
+  status: "pending" | "allowed" | "rejected";
+}
+
+function parseTerminalConfirmation(
+  content: string,
+): TerminalConfirmationData | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (
+      parsed &&
+      typeof parsed.command === "string" &&
+      typeof parsed.cwd === "string" &&
+      typeof parsed.requestId === "string" &&
+      typeof parsed.status === "string"
+    ) {
+      return parsed as TerminalConfirmationData;
+    }
+  } catch {}
+  return null;
+}
+
+export function TerminalConfirmationRenderer({
+  content,
+  onAllow,
+  onReject,
+}: {
+  content: string;
+  onAllow?: (requestId: string) => void;
+  onReject?: (requestId: string) => void;
+}) {
+  const data = parseTerminalConfirmation(content);
+  const allowButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (data?.status === "pending" && allowButtonRef.current) {
+      allowButtonRef.current.focus();
+    }
+  }, [data?.status]);
+
+  useEffect(() => {
+    if (data?.status !== "pending") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (data && onAllow) {
+          onAllow(data.requestId);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        if (data && onReject) {
+          onReject(data.requestId);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [data, onAllow, onReject]);
+
+  if (!data) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-3">
+        <p className="text-xs text-text-subtle">
+          Invalid terminal confirmation data
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-border rounded-md p-2 bg-surface/50">
+      <div className="flex items-center gap-2">
+        <code className="flex-1 font-mono text-xs text-text-main truncate">
+          $ {data.command}
+        </code>
+        {data.status === "allowed" && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+            <CheckSolidIcon className="w-2.5 h-2.5 mr-0.5" />
+            Allowed
+          </span>
+        )}
+        {data.status === "rejected" && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-subtle/10 text-text-subtle">
+            <svg
+              className="w-2.5 h-2.5 mr-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            Rejected
+          </span>
+        )}
+        {data.status === "pending" && (
+          <div className="flex gap-1.5">
+            <button
+              ref={allowButtonRef}
+              className="px-2 py-0.5 rounded text-[10px] font-medium bg-primary text-white hover:bg-primary-hover cursor-pointer"
+              onClick={() => onAllow && onAllow(data.requestId)}
+            >
+              Allow ⏎
+            </button>
+            <button
+              className="px-2 py-0.5 rounded text-[10px] font-medium border border-border bg-transparent text-text-main hover:border-primary cursor-pointer"
+              onClick={() => onReject && onReject(data.requestId)}
+            >
+              Reject
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

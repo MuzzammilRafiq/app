@@ -79,7 +79,7 @@ function MessageDetailsSidebar({
     <aside
       ref={sidebarRef}
       className={clsx(
-        "h-full bg-bg-app border-l border-border shrink-0 overflow-hidden relative",
+        "h-full bg-bg-surface border-l border-border shrink-0 overflow-hidden relative",
         !isResizing && "transition-all duration-300 ease-in-out",
       )}
       style={{ width: isOpen ? width : 0 }}
@@ -120,7 +120,7 @@ function MessageDetailsSidebar({
           className="flex-1 overflow-y-auto p-3 space-y-3 hide-scrollbar"
         >
           {!hasAny && (
-            <div className="text-xs text-text-main">No content available.</div>
+            <div className="text-xs text-text-muted">No content available.</div>
           )}
 
           {plans && plans.length > 0 && (
@@ -140,7 +140,7 @@ function MessageDetailsSidebar({
 
           {logs && logs.length > 0 && (
             <section>
-              <div className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">
+              <div className="text-xs font-semibold text-text-main mb-1">
                 Log
               </div>
               <div className="space-y-2 text-xs">
@@ -155,7 +155,7 @@ function MessageDetailsSidebar({
 
           {sources && sources.length > 0 && (
             <section>
-              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+              <div className="text-xs font-semibold text-text-main mb-1">
                 Sources
               </div>
               <div className="space-y-2">

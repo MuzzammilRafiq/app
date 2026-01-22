@@ -23,7 +23,6 @@ import {
   type ChatSession,
 } from "../../utils/chat";
 import { loadSettings } from "../../utils/localstore";
-import { CommandConfirmationDialog } from "./_components/terminal-command-conformation";
 import EmptyPanel from "./_components/emptypanel";
 
 export default function ChatScreen() {
@@ -49,13 +48,6 @@ export default function ChatScreen() {
   const [autoOpenEnabled] = useState(true);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  // Command confirmation dialog state
-  const [pendingCommand, setPendingCommand] = useState<{
-    command: string;
-    requestId: string;
-    cwd: string;
-  } | null>(null);
-
   const { isStreaming, setupStreaming, cleanupStreaming } = useStreaming();
   const streamingSegments = useStreamingStore((s) => s.streamingSegments);
 
@@ -75,7 +67,16 @@ export default function ChatScreen() {
       requestId: string;
       cwd: string;
     }) => {
-      setPendingCommand(data);
+      // Add confirmation message to streaming segments
+      useStreamingStore.getState().addStreamingChunk({
+        chunk: JSON.stringify({
+          command: data.command,
+          cwd: data.cwd,
+          requestId: data.requestId,
+          status: "pending",
+        }),
+        type: "terminal-confirmation",
+      });
     };
 
     window.electronAPI.onCommandConfirmation(handleConfirmationRequest);
@@ -85,15 +86,61 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const handleAllowCommand = useCallback((requestId: string) => {
-    window.electronAPI.respondToCommandConfirmation(requestId, true);
-    setPendingCommand(null);
-  }, []);
+  const handleAllowCommand = useCallback(
+    (requestId: string) => {
+      window.electronAPI.respondToCommandConfirmation(requestId, true);
 
-  const handleDenyCommand = useCallback((requestId: string) => {
-    window.electronAPI.respondToCommandConfirmation(requestId, false);
-    setPendingCommand(null);
-  }, []);
+      // Find and update the confirmation segment
+      const confirmationSegment = streamingSegments.find((seg) => {
+        if (seg.type === "terminal-confirmation") {
+          try {
+            const data = JSON.parse(seg.content);
+            return data.requestId === requestId;
+          } catch {}
+        }
+        return false;
+      });
+
+      if (confirmationSegment) {
+        const data = JSON.parse(confirmationSegment.content);
+        useStreamingStore
+          .getState()
+          .updateStreamingSegment(
+            confirmationSegment.id,
+            JSON.stringify({ ...data, status: "allowed" }),
+          );
+      }
+    },
+    [streamingSegments],
+  );
+
+  const handleDenyCommand = useCallback(
+    (requestId: string) => {
+      window.electronAPI.respondToCommandConfirmation(requestId, false);
+
+      // Find and update the confirmation segment
+      const confirmationSegment = streamingSegments.find((seg) => {
+        if (seg.type === "terminal-confirmation") {
+          try {
+            const data = JSON.parse(seg.content);
+            return data.requestId === requestId;
+          } catch {}
+        }
+        return false;
+      });
+
+      if (confirmationSegment) {
+        const data = JSON.parse(confirmationSegment.content);
+        useStreamingStore
+          .getState()
+          .updateStreamingSegment(
+            confirmationSegment.id,
+            JSON.stringify({ ...data, status: "rejected" }),
+          );
+      }
+    },
+    [streamingSegments],
+  );
 
   const resetInputState = useCallback(() => {
     setContent("");
@@ -513,9 +560,6 @@ export default function ChatScreen() {
       return;
     }
 
-    // Clear pending terminal command confirmation dialog
-    setPendingCommand(null);
-
     try {
       const streamingSegments = useStreamingStore.getState().streamingSegments;
       const streamChunks = streamingSegments.filter(
@@ -567,6 +611,7 @@ export default function ChatScreen() {
   }, [currentSession, addMessage, cleanupStreaming]);
 
   // Memoize messages array to prevent unnecessary re-renders
+  // Streaming segments are appended in insertion order (backend sends sequentially)
   const allMessages = useMemo(
     () => [
       ...(currentSession?.messages || []),
@@ -590,13 +635,16 @@ export default function ChatScreen() {
     <div className="flex-1 flex h-full overflow-hidden">
       {/* Left column: messages + input */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        {currentSession &&
-        (currentSession?.messages?.length > 0 || isStreaming) ? (
+        {(currentSession?.messages?.length ?? 0) > 0 ||
+        isStreaming ||
+        streamingSegments.length > 0 ? (
           <div className="flex-1 min-h-0">
             <MessageGroups
               messages={allMessages}
               onOpenDetails={openSidebar}
               isStreaming={isStreaming}
+              onAllowCommand={handleAllowCommand}
+              onRejectCommand={handleDenyCommand}
             />
           </div>
         ) : (
@@ -631,16 +679,6 @@ export default function ChatScreen() {
           sources={sidebarSources}
         />
       )}
-
-      {/* Command confirmation dialog */}
-      <CommandConfirmationDialog
-        isOpen={!!pendingCommand}
-        command={pendingCommand?.command ?? ""}
-        cwd={pendingCommand?.cwd ?? ""}
-        requestId={pendingCommand?.requestId ?? ""}
-        onAllow={handleAllowCommand}
-        onDeny={handleDenyCommand}
-      />
     </div>
   );
 }

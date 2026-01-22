@@ -60,7 +60,7 @@ export class DatabaseService {
       timestamp INTEGER NOT NULL,
       is_error TEXT NOT NULL DEFAULT '',
       images TEXT DEFAULT NULL, -- store JSON array (string[]) or NULL
-      type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source')),
+      type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','terminal-confirmation')),
       FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
     `;
@@ -92,10 +92,13 @@ export class DatabaseService {
         this.db.exec(createIdx1);
         this.db.exec(createIdx2);
         this.db.exec("COMMIT");
-      } else if (!row.sql.includes("'cancelled'")) {
-        // Migrate table to include 'cancelled' in CHECK constraint
+      } else if (
+        !row.sql.includes("'cancelled'") ||
+        !row.sql.includes("'terminal-confirmation'")
+      ) {
+        // Migrate table to include 'cancelled' and 'terminal-confirmation' in CHECK constraint
         LOG(TAG).WARN(
-          "Migrating chat_messages schema to include 'cancelled' type...",
+          "Migrating chat_messages schema to include new message types...",
         );
         try {
           this.db.exec("PRAGMA foreign_keys = OFF");
@@ -111,7 +114,7 @@ export class DatabaseService {
               timestamp INTEGER NOT NULL,
               is_error TEXT NOT NULL DEFAULT '',
               images TEXT DEFAULT NULL,
-              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','cancelled')),
+              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','cancelled','terminal-confirmation')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );`,
           );
@@ -469,6 +472,7 @@ export class DatabaseService {
       "user",
       "source",
       "cancelled",
+      "terminal-confirmation",
     ];
 
     if (!validRoles.includes(message.role)) {

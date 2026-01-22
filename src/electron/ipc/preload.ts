@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 export interface StreamChunk {
   chunk: string;
-  type: "stream" | "log" | "plan" | "source";
+  type: "stream" | "log" | "plan" | "source"
+  role?: "user" | "assistant" | "execution";
 }
 contextBridge.exposeInMainWorld("electronAPI", {
   streamMessageWithHistory: (messages: any[], config: any, apiKey: string) =>
