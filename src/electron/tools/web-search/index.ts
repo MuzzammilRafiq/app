@@ -18,6 +18,7 @@ async function generateWebSearchQueries(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
+  sessionId: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
   const prompt = `
@@ -71,7 +72,7 @@ User query: "${userQuery}"
     throw new Error("No response content received from LLM");
   }
 
-  const buffer = new StreamChunkBuffer(event.sender);
+  const buffer = new StreamChunkBuffer(event.sender, sessionId);
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
@@ -164,6 +165,7 @@ export async function webSearchAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
+  sessionId: string,
   limitPerQuery: number = 1,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -176,6 +178,7 @@ export async function webSearchAnswer(
       message: "Generating search queries",
     }),
     type: "search-status",
+    sessionId,
   });
 
   // Generate optimized search queries
@@ -183,6 +186,7 @@ export async function webSearchAnswer(
     event,
     apiKey,
     userQuery,
+    sessionId,
     signal,
   );
 
@@ -196,6 +200,7 @@ export async function webSearchAnswer(
   event.sender.send("stream-chunk", {
     chunk: `*Generated queries:*\n${queries.map((q, i) => `  ${i + 1}. "${q}"`).join("\n")}`,
     type: "log",
+    sessionId,
   });
 
   // Send search status event - searching
@@ -205,6 +210,7 @@ export async function webSearchAnswer(
       message: `Searching ${queries.length} queries`,
     }),
     type: "search-status",
+    sessionId,
   });
 
   try {
@@ -231,6 +237,7 @@ export async function webSearchAnswer(
           message: "No results found",
         }),
         type: "search-status",
+        sessionId,
       });
       return "No relevant web search results found.";
     }
@@ -242,6 +249,7 @@ export async function webSearchAnswer(
         message: `Found ${successfulResults.length} pages`,
       }),
       type: "search-status",
+      sessionId,
     });
 
     // Send sources to UI
@@ -252,6 +260,7 @@ export async function webSearchAnswer(
     event.sender.send("stream-chunk", {
       chunk: JSON.stringify(sources),
       type: "source",
+      sessionId,
     });
 
     // Combine all markdown into one pile
@@ -269,6 +278,7 @@ export async function webSearchAnswer(
         message: "Extracting relevant info",
       }),
       type: "search-status",
+      sessionId,
     });
 
     // Use cheap model to extract only relevant info
@@ -282,6 +292,7 @@ export async function webSearchAnswer(
     event.sender.send("stream-chunk", {
       chunk: JSON.stringify({ phase: "complete", message: "Search complete" }),
       type: "search-status",
+      sessionId,
     });
 
     LOG(TAG).SUCCESS(
@@ -308,6 +319,7 @@ export async function webSearchAnswer(
         message: error instanceof Error ? error.message : "Search failed",
       }),
       type: "search-status",
+      sessionId,
     });
     return `Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`;
   }

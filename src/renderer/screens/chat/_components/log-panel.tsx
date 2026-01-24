@@ -138,21 +138,6 @@ function MessageDetailsSidebar({
             </section>
           )}
 
-          {logs && logs.length > 0 && (
-            <section>
-              <div className="text-xs font-semibold text-text-main mb-1">
-                Log
-              </div>
-              <div className="space-y-2 text-xs">
-                {logs.map((m) => (
-                  <div key={m.id}>
-                    <LogRenderer content={m.content} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
           {sources && sources.length > 0 && (
             <section>
               <div className="text-xs font-semibold text-text-main mb-1">
@@ -162,6 +147,21 @@ function MessageDetailsSidebar({
                 {sources.map((m) => (
                   <div key={m.id}>
                     <SourceRenderer content={m.content} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {logs && logs.length > 0 && (
+            <section>
+              <div className="text-xs font-semibold text-text-main mb-1">
+                Log
+              </div>
+              <div className="space-y-2 text-xs">
+                {logs.map((m) => (
+                  <div key={m.id}>
+                    <LogRenderer content={m.content} />
                   </div>
                 ))}
               </div>

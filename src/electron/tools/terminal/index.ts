@@ -10,7 +10,10 @@ let currentCwd = process.cwd();
 const TAG = "terminal-agent";
 
 // Pending confirmation requests mapped by requestId
-const pendingConfirmations = new Map<string,{ resolve: (allowed: boolean) => void; reject: (reason: Error) => void }>();
+const pendingConfirmations = new Map<
+  string,
+  { resolve: (allowed: boolean) => void; reject: (reason: Error) => void }
+>();
 
 ipcMain.handle(
   "terminal:confirmation-response",
@@ -136,6 +139,7 @@ async function confirmCommand(
     event?.sender?.send("stream-chunk", {
       chunk: `REQUIRES CONFIRMATION: ${reason}\n`,
       type: "log",
+      sessionId: event?.sessionId,
     });
   }
   try {
@@ -161,10 +165,10 @@ const executeCommandTool = (CONFIG: any, event: any) => {
         event.sender.send("stream-chunk", {
           chunk: `REASON: ${reason}\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         LOG(TAG).INFO("Reason for command:", reason);
       }
-
 
       const confirmed = await confirmCommand(
         event,
@@ -175,6 +179,7 @@ const executeCommandTool = (CONFIG: any, event: any) => {
         event.sender.send("stream-chunk", {
           chunk: `Command rejected by user\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         LOG(TAG).INFO("Command rejected by user");
         return {
@@ -188,12 +193,14 @@ const executeCommandTool = (CONFIG: any, event: any) => {
       event.sender.send("stream-chunk", {
         chunk: `Executing command: ${command}\n`,
         type: "log",
+        sessionId: event.sessionId,
       });
       LOG(TAG).INFO("Executing command:", command);
       const result = await executeCommand(command, CONFIG);
       event.sender.send("stream-chunk", {
         chunk: `${result.output}\n`,
         type: "log",
+        sessionId: event.sessionId,
       });
       LOG(TAG).INFO("Command output:", result.output);
       return {
@@ -237,16 +244,17 @@ export const terminalAgent = async (
     stopWhen: stepCountIs(CONFIG.maxSteps),
     onStepFinish: ({ text, toolCalls, finishReason }) => {
       // Log step completion info
-      summaryText = text
+      summaryText = text;
       if (toolCalls && toolCalls.length > 0) {
         event.sender.send("stream-chunk", {
           chunk: `Tool executed\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         LOG(TAG).INFO(`Tool executed`);
       }
     },
-    abortSignal: signal
+    abortSignal: signal,
   });
 
   for await (const part of result.fullStream) {
@@ -257,6 +265,7 @@ export const terminalAgent = async (
           event.sender.send("stream-chunk", {
             chunk: `\n--- Starting step ${stepCount} ---\n`,
             type: "log",
+            sessionId: event.sessionId,
           });
         }
         currentStepHasText = false;
@@ -268,6 +277,7 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: `\n💭 Thinking...\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         hasReasoning = true;
         break;
@@ -279,6 +289,7 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: reasoningContent,
           type: "log",
+          sessionId: event.sessionId,
         });
         break;
       }
@@ -288,6 +299,7 @@ export const terminalAgent = async (
           event.sender.send("stream-chunk", {
             chunk: `\n`,
             type: "log",
+            sessionId: event.sessionId,
           });
         }
 
@@ -298,6 +310,7 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: `\n🤖 Assistant: `,
           type: "log",
+          sessionId: event.sessionId,
         });
         break;
       }
@@ -307,7 +320,8 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: textContent,
           type: "stream" satisfies ChatType,
-          role:"execution" satisfies ChatRole
+          role: "execution" satisfies ChatRole,
+          sessionId: event.sessionId,
         });
         currentStepHasText = true;
         summaryText += textContent;
@@ -318,6 +332,7 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: `\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         break;
       }
@@ -327,6 +342,7 @@ export const terminalAgent = async (
           event.sender.send("stream-chunk", {
             chunk: `\n`,
             type: "log",
+            sessionId: event.sessionId,
           });
         }
         LOG(TAG).ERROR("Tool call:", part.input);
@@ -349,6 +365,7 @@ export const terminalAgent = async (
         event.sender.send("stream-chunk", {
           chunk: `\nError: ${(part as any).error}\n`,
           type: "log",
+          sessionId: event.sessionId,
         });
         LOG(TAG).ERROR("Stream error:", (part as any).error);
         break;
@@ -357,21 +374,22 @@ export const terminalAgent = async (
   }
   await result;
   if (stepCount > 0) {
-        event.sender.send("stream-chunk", {
-            chunk: `\nCompleted in ${stepCount} step(s)\n`,
-            type: "log",
-        });
-        LOG(TAG).SUCCESS(`Completed in ${stepCount} step(s)`);
+    event.sender.send("stream-chunk", {
+      chunk: `\nCompleted in ${stepCount} step(s)\n`,
+      type: "log",
+      sessionId: event.sessionId,
+    });
+    LOG(TAG).SUCCESS(`Completed in ${stepCount} step(s)`);
   } else {
-        event.sender.send("stream-chunk", {
-            chunk: `\nNo steps were executed.\n`,
-            type: "log",
-        });
-        LOG(TAG).WARN(`No steps were executed.`);
+    event.sender.send("stream-chunk", {
+      chunk: `\nNo steps were executed.\n`,
+      type: "log",
+      sessionId: event.sessionId,
+    });
+    LOG(TAG).WARN(`No steps were executed.`);
   }
 
-    return {
-      output:
-        summaryText.trim() || "Terminal agent execution completed.",
-    };
+  return {
+    output: summaryText.trim() || "Terminal agent execution completed.",
+  };
 };

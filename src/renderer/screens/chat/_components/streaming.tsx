@@ -8,6 +8,7 @@ interface Segment {
   id: string;
   type: string;
   content: string;
+  sessionId?: string;
 }
 
 // Custom hook for managing streaming state and logic
@@ -21,12 +22,13 @@ export function useStreaming() {
     segmentsRef.current = streamingSegments;
   }, [streamingSegments]);
 
-  const setupStreaming = () => {
+  const setupStreaming = (streamingSessionId: string) => {
     useStreamingStore.getState().clearStreaming();
     useStreamingStore.getState().setStreaming(true);
+    useStreamingStore.getState().setStreamingSessionId(streamingSessionId);
 
     const handleStreamChunk = (data: StreamChunk) => {
-      useStreamingStore.getState().addStreamingChunk(data);
+      useStreamingStore.getState().addStreamingChunk(data, streamingSessionId);
     };
 
     window.electronAPI.onStreamChunk(handleStreamChunk);

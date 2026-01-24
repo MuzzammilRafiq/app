@@ -311,28 +311,39 @@ interface StreamingSegment {
   id: string;
   type: ChatType;
   content: string;
+  sessionId: string;
 }
 
 interface StreamingStore {
   isStreaming: boolean;
+  streamingSessionId: string | null;
   streamingSegments: StreamingSegment[];
   setStreaming: (isStreaming: boolean) => void;
-  addStreamingChunk: (chunk: StreamChunk) => void;
+  setStreamingSessionId: (sessionId: string | null) => void;
+  addStreamingChunk: (chunk: StreamChunk, sessionId?: string) => void;
   updateStreamingSegment: (id: string, content: string) => void;
   clearStreaming: () => void;
 }
 
 export const useStreamingStore = create<StreamingStore>((set) => ({
   isStreaming: false,
+  streamingSessionId: null,
   streamingSegments: [],
   setStreaming: (isStreaming) => set({ isStreaming }),
-  addStreamingChunk: (chunk) =>
+  setStreamingSessionId: (sessionId) => set({ streamingSessionId: sessionId }),
+  addStreamingChunk: (chunk, sessionId) =>
     set((state) => {
+      const activeSessionId = sessionId ?? state.streamingSessionId;
+      if (!activeSessionId) {
+        return state;
+      }
       const updated = [...state.streamingSegments];
 
       if (chunk.type === "plan") {
         // Overwrite existing plan
-        const existingIndex = updated.findIndex((s) => s.type === "plan");
+        const existingIndex = updated.findIndex(
+          (s) => s.type === "plan" && s.sessionId === activeSessionId,
+        );
         if (existingIndex >= 0) {
           const existing = updated[existingIndex];
           if (existing) {
@@ -340,6 +351,7 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
               id: existing.id,
               type: existing.type,
               content: chunk.chunk,
+              sessionId: existing.sessionId,
             };
           }
         } else {
@@ -347,12 +359,17 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
             id: crypto.randomUUID(),
             type: "plan",
             content: chunk.chunk,
+            sessionId: activeSessionId,
           });
         }
       } else {
         // Append to last segment of same type
         const last = updated[updated.length - 1];
-        if (last && last.type === chunk.type) {
+        if (
+          last &&
+          last.type === chunk.type &&
+          last.sessionId === activeSessionId
+        ) {
           updated[updated.length - 1] = {
             ...last,
             content: last.content + chunk.chunk,
@@ -362,6 +379,7 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
             id: crypto.randomUUID(),
             type: chunk.type,
             content: chunk.chunk,
+            sessionId: activeSessionId,
           });
         }
       }
@@ -374,7 +392,12 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
       );
       return { streamingSegments: updated };
     }),
-  clearStreaming: () => set({ streamingSegments: [], isStreaming: false }),
+  clearStreaming: () =>
+    set({
+      streamingSegments: [],
+      isStreaming: false,
+      streamingSessionId: null,
+    }),
 }));
 
 export interface VisionLogEntry {

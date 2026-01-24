@@ -43,6 +43,29 @@
   --btn-accent-bg: #3e2723;
   --btn-accent-bg-hover: #5d4037;
   --btn-accent-text: #ffffff;
+
+  /* Log renderer colors - accent-based */
+  --log-bg: rgba(62, 39, 35, 0.04);
+  --log-border: rgba(62, 39, 35, 0.15);
+  --log-text: #3e2723;
+  --log-text-content: #5d4037;
+
+  /* Source renderer colors (RAG) - accent-based */
+  --source-bg: rgba(62, 39, 35, 0.04);
+  --source-border: rgba(62, 39, 35, 0.15);
+  --source-text: #3e2723;
+  --source-text-content: #5d4037;
+
+  /* Web source colors - accent-based */
+  --web-bg: rgba(62, 39, 35, 0.04);
+  --web-border: rgba(62, 39, 35, 0.15);
+  --web-text: #3e2723;
+  --web-text-content: #5d4037;
+
+  /* Plan status colors - accent-based */
+  --plan-done-bg: rgba(62, 39, 35, 0.04);
+  --plan-done-border: rgba(62, 39, 35, 0.15);
+  --plan-done-text: #3e2723;
 }
 
 /* Dark mode - Warm Chocolate */
@@ -62,6 +85,29 @@
   --btn-accent-bg: #3b2001;
   --btn-accent-bg-hover: #5d4037;
   --btn-accent-text: #ffffff;
+
+  /* Log renderer colors - accent-based */
+  --log-bg: rgba(215, 204, 200, 0.08);
+  --log-border: rgba(215, 204, 200, 0.2);
+  --log-text: #d7ccc8;
+  --log-text-content: #efebe9;
+
+  /* Source renderer colors (RAG) - accent-based */
+  --source-bg: rgba(215, 204, 200, 0.08);
+  --source-border: rgba(215, 204, 200, 0.2);
+  --source-text: #d7ccc8;
+  --source-text-content: #efebe9;
+
+  /* Web source colors - accent-based */
+  --web-bg: rgba(215, 204, 200, 0.08);
+  --web-border: rgba(215, 204, 200, 0.2);
+  --web-text: #d7ccc8;
+  --web-text-content: #efebe9;
+
+  /* Plan status colors - accent-based */
+  --plan-done-bg: rgba(215, 204, 200, 0.08);
+  --plan-done-border: rgba(215, 204, 200, 0.2);
+  --plan-done-text: #d7ccc8;
 }
 
 /* ========================================

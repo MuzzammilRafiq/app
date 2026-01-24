@@ -13,8 +13,9 @@ export class StreamChunkBuffer {
 
   constructor(
     private sender: WebContents,
+    private sessionId: string,
     private eventName: string = "stream-chunk",
-    bufferMs: number = 400
+    bufferMs: number = 400,
   ) {
     this.BUFFER_MS = bufferMs;
   }
@@ -25,7 +26,11 @@ export class StreamChunkBuffer {
   send(chunk: string, type: string): void {
     if (type !== "stream") {
       // Non-stream types bypass buffer for immediate delivery
-      this.sender.send(this.eventName, { chunk, type });
+      this.sender.send(this.eventName, {
+        chunk,
+        type,
+        sessionId: this.sessionId,
+      });
       return;
     }
 
@@ -46,7 +51,11 @@ export class StreamChunkBuffer {
       this.timer = null;
     }
     if (this.buffer) {
-      this.sender.send(this.eventName, { chunk: this.buffer, type: "stream" });
+      this.sender.send(this.eventName, {
+        chunk: this.buffer,
+        type: "stream",
+        sessionId: this.sessionId,
+      });
       this.buffer = "";
     }
   }

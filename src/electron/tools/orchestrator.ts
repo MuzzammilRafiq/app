@@ -88,6 +88,7 @@ async function generatePlan(
   messages: ChatMessageRecord[],
   apiKey: string,
   event: IpcMainInvokeEvent,
+  sessionId: string,
   config: any,
   signal?: AbortSignal,
 ): Promise<{ steps: OrchestratorStep[]; error?: string }> {
@@ -122,8 +123,8 @@ async function generatePlan(
         }),
       }),
     });
-    
-    const buffer = new StreamChunkBuffer(event.sender);
+
+    const buffer = new StreamChunkBuffer(event.sender, sessionId);
     for await (const part of result.fullStream) {
       switch (part.type) {
         case "reasoning-delta": {
@@ -138,15 +139,13 @@ async function generatePlan(
       }
     }
     buffer.flush();
-    const output= await result.output;
-    const steps: OrchestratorStep[] = output.map(
-      (s) => ({
-        step_number: s.step_number,
-        agent: s.agent,
-        action: s.action,
-        status: "pending" as const,
-      }),
-    );
+    const output = await result.output;
+    const steps: OrchestratorStep[] = output.map((s) => ({
+      step_number: s.step_number,
+      agent: s.agent,
+      action: s.action,
+      status: "pending" as const,
+    }));
     LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
     return { steps };
   } catch (error) {
@@ -203,6 +202,7 @@ export async function orchestrate(
     messages,
     apiKey,
     event,
+    sessionId,
     config,
     signal,
   );
@@ -243,6 +243,7 @@ export async function orchestrate(
   event.sender.send("stream-chunk", {
     chunk: JSON.stringify(planPayload, null, 2),
     type: "plan",
+    sessionId,
   });
   // Artificial delay to simulate processing time
 
@@ -284,11 +285,13 @@ export async function orchestrate(
         2,
       ),
       type: "plan",
+      sessionId,
     });
 
     event.sender.send("stream-chunk", {
       chunk: `\n📍 Step ${step.step_number}: [${step.agent}] ${step.action}\n`,
       type: "log",
+      sessionId,
     });
 
     if (step.agent === "terminal") {
@@ -327,6 +330,7 @@ export async function orchestrate(
     event.sender.send("stream-chunk", {
       chunk: `✓ Step ${step.step_number} completed\n`,
       type: "log",
+      sessionId,
     });
 
     // Persist step completion
@@ -349,6 +353,7 @@ export async function orchestrate(
         2,
       ),
       type: "plan",
+      sessionId,
     });
   }
 

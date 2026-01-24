@@ -59,6 +59,7 @@ interface AdaptiveExecutorResult {
 interface StreamChunk {
   chunk: string;
   type: ChatType;
+  sessionId?: string;
 }
 interface VideoDetails {
   title: string;

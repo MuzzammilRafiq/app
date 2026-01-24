@@ -9,6 +9,7 @@ async function generateSearchQueries(
   event: any,
   apiKey: string,
   userQuery: string,
+  sessionId: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
   if (signal?.aborted) {
@@ -58,7 +59,7 @@ User query: "${userQuery}"
   if (!response) {
     throw new Error("No response content received from LLM");
   }
-  const buffer = new StreamChunkBuffer(event.sender);
+  const buffer = new StreamChunkBuffer(event.sender, sessionId);
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
@@ -107,6 +108,7 @@ export async function ragAnswer(
   event: IpcMainInvokeEvent,
   apiKey: string,
   userQuery: string,
+  sessionId: string,
   limit = 3,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -114,7 +116,13 @@ export async function ragAnswer(
     userQuery,
     limit,
   });
-  const queries = await generateSearchQueries(event, apiKey, userQuery, signal);
+  const queries = await generateSearchQueries(
+    event,
+    apiKey,
+    userQuery,
+    sessionId,
+    signal,
+  );
   const results: any[] = [];
   for (const q of queries) {
     if (signal?.aborted) {
@@ -157,6 +165,7 @@ export async function ragAnswer(
   event.sender.send("stream-chunk", {
     chunk: JSON.stringify(uniqueResults),
     type: "source",
+    sessionId,
   });
   return uniqueResults.map((ur) => ur.document).join("\n\n");
 }

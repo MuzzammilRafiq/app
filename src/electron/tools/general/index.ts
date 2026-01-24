@@ -1,7 +1,9 @@
-import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
+import { type ChatMessage } from "../../services/model.js";
 import { LOG, truncate } from "../../utils/logging.js";
 import { ChatMessageRecord } from "../../../common/types.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { streamText } from "ai";
 
 const TAG = "general";
 export const generalTool = async (
@@ -10,9 +12,10 @@ export const generalTool = async (
   event: any,
   apiKey: string,
   config: any,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ output: string }> => {
-  const buffer = new StreamChunkBuffer(event.sender);
+  const sessionId = messages[messages.length - 1]?.sessionId ?? "unknown";
+  const buffer = new StreamChunkBuffer(event.sender, sessionId);
 
   try {
     LOG(TAG).INFO("taskDescription:", taskDescription);
@@ -36,31 +39,39 @@ Do not wrap the output in \`\`\`markdown\`\`\`.`;
       content: msg.content,
     }));
 
-    const response = ASK_TEXT(
-      apiKey,
-      [{ role: "system", content: system }, ...chatHistory],
-      { overrideModel: config?.textModelOverride, signal }
-    );
-    if (!response) {
-      throw new Error("No response content received from LLM");
-    }
+    const openrouter = createOpenRouter({ apiKey });
+    const result = streamText({
+      model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
+      system,
+      prompt: chatHistory,
+      abortSignal: signal,
+    });
+
     let c = "";
-    for await (const { content, reasoning } of response) {
+    for await (const part of result.fullStream) {
       if (signal?.aborted) {
         buffer.flush();
         break;
       }
-      if (content) {
-        c += content;
-      }
-      if (reasoning) {
-        buffer.send(reasoning, "log");
-      }
-      if (content) {
-        buffer.send(content, "stream");
+      switch (part.type) {
+        case "reasoning-delta": {
+          buffer.send(part.text, "log");
+          break;
+        }
+        case "text-delta": {
+          c += part.text;
+          buffer.send(part.text, "stream");
+          break;
+        }
+        case "error": {
+          buffer.send(`\nError: ${(part as any).error}\n`, "log");
+          LOG(TAG).ERROR("Stream error:", (part as any).error);
+          break;
+        }
       }
     }
     buffer.flush();
+    await result;
     LOG(TAG).INFO(`Response generated: ${truncate(c, 100)}`);
     // Streaming complete - no need to send final chunk
 
@@ -74,7 +85,7 @@ Do not wrap the output in \`\`\`markdown\`\`\`.`;
       throw error; // Re-throw abort error to be handled by caller
     }
     LOG(TAG).ERROR(
-      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`
+      `[generalTool] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
     return {
       output: `# Error\n\nSorry, I encountered an error while processing your request:\n\n\`${error instanceof Error ? error.message : "Unknown error"}\`\n\nPlease try again or contact support if the issue persists.`,

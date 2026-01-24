@@ -16,7 +16,10 @@ export const preProcessMessage = async (
 ) => {
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
-    const buffer = new StreamChunkBuffer(event.sender);
+    const buffer = new StreamChunkBuffer(
+      event.sender,
+      lastUserMessage.sessionId,
+    );
     try {
       LOG(TAG).INFO("generating image description using OpenRouter");
       buffer.send(`*Analyzing image(s) with vision model...*`, "log");
@@ -82,6 +85,7 @@ export const preProcessMessage = async (
       event,
       apiKey,
       lastUserMessage.content,
+      lastUserMessage.sessionId,
       3,
       signal,
     );
@@ -102,6 +106,7 @@ export const preProcessMessage = async (
       event,
       apiKey,
       lastUserMessage.content,
+      lastUserMessage.sessionId,
       1, // limitPerQuery
       signal,
     );

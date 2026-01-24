@@ -45,7 +45,20 @@ function extractPlan(
 
 export function PlanRenderer({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const extracted = extractPlan(content);
+
+  const toggleStep = (index: number) => {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
   if (!extracted) {
     return (
       <div className="bg-surface border border-border rounded-lg p-3">
@@ -98,46 +111,64 @@ export function PlanRenderer({ content }: { content: string }) {
         )}
       >
         <div className="space-y-3 max-h-150 overflow-y-auto px-2 pb-2">
-          {extracted.steps.map((step, index) => (
-            <div
-              key={index}
-              className="bg-surface rounded-lg border border-border p-3 shadow-sm"
-            >
-              <div className="flex items-start space-x-3">
-                <div className="border border-border bg-border w-8 items-center justify-center flex py-0.5 rounded-full">
-                  <span className="text-sm text-text-main">
-                    {step.step_number}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-surface text-text-main border border-border">
-                      {step.tool_name}
-                    </span>
-                    <span
-                      className={clsx(
-                        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
-                        step.status === "done"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800"
-                          : "bg-surface text-text-main border-border",
-                      )}
-                    >
-                      {step.status === "done" && (
-                        <CheckSolidIcon className="w-3 h-3 mr-1" />
-                      )}
-                      {step.status === "todo" && (
-                        <ClockIcon className="w-3 h-3 mr-1" />
-                      )}
-                      {step.status}
+          {extracted.steps.map((step, index) => {
+            const isStepExpanded = expandedSteps.has(index);
+            const shouldTruncate = step.description.length > 80;
+            const displayText = shouldTruncate && !isStepExpanded
+              ? step.description.slice(0, 80) + "..."
+              : step.description;
+
+            return (
+              <div
+                key={index}
+                className="bg-surface rounded-lg border border-border p-3 shadow-sm"
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="border border-border bg-border w-8 items-center justify-center flex py-0.5 rounded-full shrink-0">
+                    <span className="text-sm text-text-main">
+                      {step.step_number}
                     </span>
                   </div>
-                  <p className="text-sm text-text-main leading-relaxed wrap-break-words overflow-wrap-anywhere">
-                    {step.description}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-surface text-text-main border border-border">
+                        {step.tool_name}
+                      </span>
+                      <span
+                        className={clsx(
+                          "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border",
+                          step.status === "done"
+                            ? "bg-[var(--plan-done-bg)] text-[var(--plan-done-text)] border-[var(--plan-done-border)]"
+                            : "bg-surface text-text-main border-border",
+                        )}
+                      >
+                        {step.status === "done" && (
+                          <CheckSolidIcon className="w-3 h-3 mr-1" />
+                        )}
+                        {step.status === "todo" && (
+                          <ClockIcon className="w-3 h-3 mr-1" />
+                        )}
+                        {step.status}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-text-main leading-relaxed break-words">
+                        {displayText}
+                      </p>
+                      {shouldTruncate && (
+                        <button
+                          onClick={() => toggleStep(index)}
+                          className="mt-1 text-xs text-primary hover:text-primary-hover transition-colors"
+                        >
+                          {isStepExpanded ? "Show less" : "Show more"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {extracted.logs && (
             <div className="bg-surface border border-border rounded-lg p-3 mt-4">
               <div className="text-xs font-semibold text-text-main mb-2">
@@ -158,18 +189,18 @@ export function PlanRenderer({ content }: { content: string }) {
 export function LogRenderer({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(true);
   return (
-    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg">
+    <div className="bg-[var(--log-bg)] border border-[var(--log-border)] rounded-lg">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between text-left px-2 py-1"
       >
-        <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center">
+        <div className="text-xs font-semibold text-[var(--log-text)] flex items-center">
           <BadgeCheckIcon className="w-3 h-3 mr-1" />
           Log
         </div>
         <ChevronDownIcon
           className={clsx(
-            "w-3 h-3 text-amber-600 dark:text-amber-400 transition-transform duration-200",
+            "w-3 h-3 text-[var(--log-text)] transition-transform duration-200",
             isExpanded ? "rotate-180" : "rotate-0",
           )}
         />
@@ -180,7 +211,7 @@ export function LogRenderer({ content }: { content: string }) {
           isExpanded ? "opacity-100 mt-2" : "max-h-0 opacity-0",
         )}
       >
-        <pre className="text-xs text-amber-700 dark:text-amber-300 whitespace-pre-wrap font-mono wrap-break-words px-2 pb-2">
+        <pre className="text-xs text-[var(--log-text-content)] whitespace-pre-wrap font-mono wrap-break-words px-2 pb-2">
           {content}
         </pre>
       </div>
@@ -244,18 +275,18 @@ export function SourceRenderer({ content }: { content: string }) {
   // Render RAG sources if present
   if (ragSources && ragSources.length > 0) {
     return (
-      <div className="rounded-md border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-900/20">
+      <div className="rounded-md border border-[var(--source-border)] bg-[var(--source-bg)]">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center justify-between text-left px-2 py-1"
         >
-          <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center">
+          <div className="text-xs font-semibold text-[var(--source-text)] flex items-center">
             {FileSVG}
             Source ({ragSources.length})
           </div>
           <ChevronDownIcon
             className={clsx(
-              "w-3 h-3 text-emerald-700 dark:text-emerald-400 transition-transform duration-200",
+              "w-3 h-3 text-[var(--source-text)] transition-transform duration-200",
               isExpanded ? "rotate-180" : "rotate-0",
             )}
           />
@@ -270,7 +301,7 @@ export function SourceRenderer({ content }: { content: string }) {
             {ragSources.map((s) => (
               <li
                 key={s.id}
-                className="group rounded border border-emerald-200/60 dark:border-emerald-800/60 bg-surface p-2 text-sm shadow-sm"
+                className="group rounded border border-[var(--source-border)] bg-surface p-2 text-sm shadow-sm"
               >
                 <div className="font-medium text-text-main">
                   {s.document.slice(0, 200)}
@@ -297,12 +328,12 @@ export function SourceRenderer({ content }: { content: string }) {
   // Render web sources if present
   if (webSources && webSources.length > 0) {
     return (
-      <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/20">
+      <div className="rounded-md border border-[var(--web-border)] bg-[var(--web-bg)]">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center justify-between text-left px-2 py-1"
         >
-          <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+          <div className="text-xs font-semibold text-[var(--web-text)] flex items-center gap-1">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -321,7 +352,7 @@ export function SourceRenderer({ content }: { content: string }) {
           </div>
           <ChevronDownIcon
             className={clsx(
-              "w-3 h-3 text-blue-700 dark:text-blue-400 transition-transform duration-200",
+              "w-3 h-3 text-[var(--web-text)] transition-transform duration-200",
               isExpanded ? "rotate-180" : "rotate-0",
             )}
           />
@@ -336,7 +367,7 @@ export function SourceRenderer({ content }: { content: string }) {
             {webSources.map((s, index) => (
               <li
                 key={`${s.url}-${index}`}
-                className="group rounded border border-blue-200/60 dark:border-blue-800/60 bg-surface p-2 text-sm shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                className="group rounded border border-[var(--web-border)] bg-surface p-2 text-sm shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
               >
                 <a
                   href={s.url}
@@ -360,7 +391,7 @@ export function SourceRenderer({ content }: { content: string }) {
                       />
                     </svg>
                   </div>
-                  <div className="mt-1 text-xs text-blue-600/80 dark:text-blue-400/80 truncate">
+                  <div className="mt-1 text-xs text-[var(--web-text-content)] truncate">
                     {s.url}
                   </div>
                 </a>

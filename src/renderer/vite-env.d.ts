@@ -60,6 +60,8 @@ interface Window {
       callback: (data: {
         chunk: string;
         type: "stream" | "log" | "plan" | "source";
+        role?: "user" | "assistant" | "execution";
+        sessionId?: string;
       }) => void,
     ) => void;
 
