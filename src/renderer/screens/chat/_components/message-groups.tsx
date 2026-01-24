@@ -1,8 +1,15 @@
 import { MarkdownRenderer } from "./markdown-renderer";
-import { TerminalConfirmationRenderer } from "./renderers";
+import {
+  TerminalConfirmationRenderer,
+  PlanRenderer,
+  LogRenderer,
+  SourceRenderer,
+} from "./renderers";
 import type { ChatMessageRecord } from "../../../../common/types";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { useRef, useEffect, memo, useMemo } from "react";
+import { useRef, useEffect, memo, useMemo, useState } from "react";
+import { ChevronDownIcon } from "../../../components/icons";
+import clsx from "clsx";
 
 interface MessageGroup {
   id: string; // Unique stable ID for the group
@@ -12,11 +19,6 @@ interface MessageGroup {
 
 interface MessageGroupsProps {
   messages: ChatMessageRecord[];
-  onOpenDetails?: (payload: {
-    plans: ChatMessageRecord[];
-    logs: ChatMessageRecord[];
-    sources: ChatMessageRecord[];
-  }) => void;
   isStreaming?: boolean; // To hint auto-scroll behavior
   onAllowCommand?: (requestId: string) => void;
   onRejectCommand?: (requestId: string) => void;
@@ -95,6 +97,129 @@ function parseSearchStatus(content: string): SearchStatus | null {
   return null;
 }
 
+const djb2Hash = (str: string): string => {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+};
+
+const buildSyntheticPlan = (
+  plans: ChatMessageRecord[],
+  logs: ChatMessageRecord[],
+): ChatMessageRecord[] => {
+  if (!plans || plans.length === 0) return [];
+  const latest = plans[plans.length - 1]!;
+  let steps: any[] | null = null;
+  try {
+    const parsed = JSON.parse(latest.content);
+    if (Array.isArray(parsed)) steps = parsed;
+    else if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.steps)
+    )
+      steps = parsed.steps;
+  } catch {}
+  if (!steps) return plans;
+  const completedFromLogs = new Set<number>();
+  const logPatterns = [
+    /Step\s+(\d+)\s+completed/i,
+    /Step\s+(\d+)\s+done/i,
+    /✓\s*Step\s+(\d+)/i,
+  ];
+  for (const l of logs) {
+    for (const re of logPatterns) {
+      const m = l.content.match(re);
+      if (m) {
+        const n = Number(m[1]);
+        if (!Number.isNaN(n)) completedFromLogs.add(n);
+        break;
+      }
+    }
+  }
+  const updated = steps.map((s: any) => {
+    const num = Number(s.step_number);
+    const statusInPlan = s.status;
+    const normalized =
+      typeof statusInPlan === "string" ? statusInPlan.toLowerCase() : "";
+    const usePlan = normalized === "done" || normalized === "failed";
+    const isCompletedByLogs = completedFromLogs.has(num);
+    const status = usePlan
+      ? normalized
+      : isCompletedByLogs
+        ? "done"
+        : normalized || "todo";
+    return { ...s, status };
+  });
+  const synthetic: ChatMessageRecord = {
+    id: latest.id ?? `synthetic-plan-${Date.now()}`,
+    sessionId: latest.sessionId,
+    content: JSON.stringify({ steps: updated }, null, 2),
+    role: latest.role,
+    timestamp: Date.now(),
+    isError: "",
+    imagePaths: null,
+    type: "plan",
+  };
+  return [synthetic];
+};
+
+const buildSyntheticPlanFromDB = async (
+  plans: ChatMessageRecord[],
+): Promise<ChatMessageRecord[]> => {
+  if (!plans || plans.length === 0) return [];
+  const latest = plans[plans.length - 1]!;
+  let steps: any[] | null = null;
+  try {
+    const parsed = JSON.parse(latest.content);
+    if (Array.isArray(parsed)) steps = parsed;
+    else if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.steps)
+    )
+      steps = parsed.steps;
+  } catch {}
+  if (!steps) return plans;
+  const normalizedForHash = steps.map((s: any) => ({
+    step_number: Number(s.step_number),
+    tool_name: s.tool_name,
+    description: s.description,
+    status: "todo",
+  }));
+  const planHash = djb2Hash(JSON.stringify(normalizedForHash));
+  try {
+    const dbSteps = await window.electronAPI.dbGetPlanSteps(
+      latest.sessionId,
+      planHash,
+    );
+    if (Array.isArray(dbSteps) && dbSteps.length > 0) {
+      const merged = steps.map((s: any) => {
+        const matched = dbSteps.find(
+          (d: any) => Number(d.step_number) === Number(s.step_number),
+        );
+        return matched
+          ? { ...s, status: matched.status }
+          : { ...s, status: s.status ?? "todo" };
+      });
+      const synthetic: ChatMessageRecord = {
+        id: latest.id ?? `synthetic-plan-${Date.now()}`,
+        sessionId: latest.sessionId,
+        content: JSON.stringify({ steps: merged }, null, 2),
+        role: latest.role,
+        timestamp: Date.now(),
+        isError: "",
+        imagePaths: null,
+        type: "plan",
+      };
+      return [synthetic];
+    }
+  } catch {}
+  return plans;
+};
+
 // Animated searching indicator for web search
 function SearchingIndicator({ status }: { status: SearchStatus }) {
   // Don't show indicator for complete or error phases
@@ -151,17 +276,16 @@ function SearchingIndicator({ status }: { status: SearchStatus }) {
 
 function AssistantMessageSection({
   messages,
-  onOpenDetails,
   isStreaming,
   onAllowCommand,
   onRejectCommand,
 }: {
   messages: ChatMessageRecord[];
-  onOpenDetails?: MessageGroupsProps["onOpenDetails"];
   isStreaming?: boolean;
   onAllowCommand?: (requestId: string) => void;
   onRejectCommand?: (requestId: string) => void;
 }) {
+  const [isAllOpen, setIsAllOpen] = useState(true);
   const planMessages = useMemo(
     () => messages.filter((msg) => msg.type === "plan"),
     [messages],
@@ -170,21 +294,8 @@ function AssistantMessageSection({
     () => messages.filter((msg) => msg.type === "log"),
     [messages],
   );
-  const sourceMessages = useMemo(
-    () => messages.filter((msg) => msg.type === "source"),
-    [messages],
-  );
   const searchStatusMessages = useMemo(
     () => messages.filter((msg) => msg.type === "search-status"),
-    [messages],
-  );
-
-  // Filter stream and terminal-confirmation messages - they maintain insertion order from messages array
-  const chronologicalMessages = useMemo(
-    () =>
-      messages.filter(
-        (msg) => msg.type === "stream" || msg.type === "terminal-confirmation",
-      ),
     [messages],
   );
 
@@ -196,35 +307,69 @@ function AssistantMessageSection({
       ? parseSearchStatus(latestSearchStatusContent)
       : null;
 
+  const [planDisplayMessages, setPlanDisplayMessages] = useState<
+    ChatMessageRecord[]
+  >([]);
+  useEffect(() => {
+    if (planMessages.length === 0) {
+      setPlanDisplayMessages([]);
+      return;
+    }
+    const immediate = buildSyntheticPlan(planMessages, logMessages);
+    setPlanDisplayMessages(immediate);
+    let isActive = true;
+    void (async () => {
+      const fromDb = await buildSyntheticPlanFromDB(planMessages);
+      if (!isActive) return;
+      if (fromDb.length > 0) setPlanDisplayMessages(fromDb);
+    })();
+    return () => {
+      isActive = false;
+    };
+  }, [planMessages, logMessages]);
+
+  const planDisplayMap = useMemo(() => {
+    const map = new Map<string, ChatMessageRecord>();
+    for (const msg of planDisplayMessages) {
+      map.set(msg.id, msg);
+    }
+    return map;
+  }, [planDisplayMessages]);
+
+  const orderedDisplayMessages = useMemo(() => {
+    if (!messages.length) return [] as ChatMessageRecord[];
+    return messages
+      .filter((msg) => msg.type !== "search-status")
+      .map((msg) =>
+        msg.type === "plan" ? (planDisplayMap.get(msg.id) ?? msg) : msg,
+      );
+  }, [messages, planDisplayMap]);
+
   return (
     <div className="flex flex-col gap-2">
+      {/* Global Toggle Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setIsAllOpen(!isAllOpen)}
+          className="flex items-center gap-1 text-xs text-text-muted hover:text-text-main transition-colors"
+        >
+          <ChevronDownIcon
+            className={clsx(
+              "w-3 h-3 transition-transform duration-200",
+              isAllOpen ? "rotate-180" : "rotate-0",
+            )}
+          />
+          {isAllOpen ? 'Collapse All' : 'Expand All'}
+        </button>
+      </div>
+
       {/* Messages Wrapper */}
       <div className="w-full text-text-main space-y-4 ">
         {/* Web Search Indicator - shown prominently when searching */}
         {searchStatus && <SearchingIndicator status={searchStatus} />}
 
-        {/* Detail Toggle for non-chat artifacts */}
-        {planMessages.length + logMessages.length + sourceMessages.length >
-          0 && (
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() =>
-                onOpenDetails &&
-                onOpenDetails({
-                  plans: planMessages,
-                  logs: logMessages,
-                  sources: sourceMessages,
-                })
-              }
-              className="text-xs font-semibold text-text-subtle uppercase tracking-wider hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <span>View Process & Sources</span>
-            </button>
-          </div>
-        )}
-
         {/* Stream and Terminal Confirmation messages - rendered chronologically */}
-        {chronologicalMessages.map((msg) => (
+        {orderedDisplayMessages.map((msg) => (
           <div key={msg.id}>
             {msg.type === "terminal-confirmation" ? (
               <TerminalConfirmationRenderer
@@ -232,6 +377,18 @@ function AssistantMessageSection({
                 onAllow={onAllowCommand}
                 onReject={onRejectCommand}
               />
+            ) : msg.type === "plan" ? (
+              <div className="inline-details-panel">
+                <PlanRenderer content={msg.content} open={isAllOpen} />
+              </div>
+            ) : msg.type === "log" ? (
+              <div className="inline-details-panel">
+                <LogRenderer content={msg.content} open={isAllOpen} />
+              </div>
+            ) : msg.type === "source" ? (
+              <div className="inline-details-panel">
+                <SourceRenderer content={msg.content} open={isAllOpen} />
+              </div>
             ) : (
               <div className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]">
                 <MarkdownRenderer content={msg.content} isUser={false} />
@@ -246,7 +403,6 @@ function AssistantMessageSection({
 
 function MessageGroups({
   messages,
-  onOpenDetails,
   isStreaming = false,
   onAllowCommand,
   onRejectCommand,
@@ -315,7 +471,6 @@ function MessageGroups({
             <div className="animate-fade-in delay-75">
               <AssistantMessageSection
                 messages={group.assistantMessages}
-                onOpenDetails={onOpenDetails}
                 isStreaming={isStreaming}
                 onAllowCommand={onAllowCommand}
                 onRejectCommand={onRejectCommand}

@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
 
 import {
@@ -13,7 +12,6 @@ import { type ImageData } from "../../utils/image";
 import type { ChatMessageRecord } from "../../../common/types";
 import ChatInput from "./_components/input";
 import MessageGroups from "./_components/message-groups";
-import MessageDetailsSidebar from "./_components/log-panel";
 import { useStreaming } from "./_components/streaming";
 import {
   handleImagePersistence,
@@ -27,7 +25,7 @@ import EmptyPanel from "./_components/emptypanel";
 
 export default function ChatScreen() {
   const sessionId = useSessionId();
-  const messages = useSessionMessages();
+  useSessionMessages();
   const chatSessions = useChatSessions();
   const currentSession = chatSessions.find(
     (s) => s.id === sessionId,
@@ -41,12 +39,6 @@ export default function ChatScreen() {
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isRAGEnabled, setIsRAGEnabled] = useState(false);
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarPlans, setSidebarPlans] = useState<ChatMessageRecord[]>([]);
-  const [sidebarLogs, setSidebarLogs] = useState<ChatMessageRecord[]>([]);
-  const [sidebarSources, setSidebarSources] = useState<ChatMessageRecord[]>([]);
-  const [autoOpenEnabled] = useState(true);
-  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   const { isStreaming, setupStreaming, cleanupStreaming } = useStreaming();
   const streamingSessionId = useStreamingStore((s) => s.streamingSessionId);
@@ -59,18 +51,6 @@ export default function ChatScreen() {
         (seg) => seg.sessionId && seg.sessionId === currentSession?.id,
       ),
     [streamingSegments, currentSession?.id],
-  );
-
-  // Optimization: Only subscribe to changes in Plans, Logs, or Sources for sidebar updates
-  const streamingDetailsSegments = useStreamingStore(
-    useShallow((s) =>
-      s.streamingSegments.filter(
-        (seg) =>
-          ["plan", "log", "source"].includes(seg.type) &&
-          seg.sessionId &&
-          seg.sessionId === currentSession?.id,
-      ),
-    ),
   );
 
   // Listen for terminal command confirmation requests
@@ -167,299 +147,6 @@ export default function ChatScreen() {
     setImagePaths(null);
     setSelectedImage(null);
   }, []);
-
-  const djb2Hash = (str: string): string => {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash * 33) ^ str.charCodeAt(i);
-    }
-    return (hash >>> 0).toString(16);
-  };
-
-  const buildSyntheticPlanFromDB = async (
-    plans: ChatMessageRecord[],
-  ): Promise<ChatMessageRecord[]> => {
-    if (!plans || plans.length === 0) return [];
-    const latest = plans[plans.length - 1]!;
-    let steps: any[] | null = null;
-    try {
-      const parsed = JSON.parse(latest.content);
-      if (Array.isArray(parsed)) steps = parsed;
-      else if (
-        parsed &&
-        typeof parsed === "object" &&
-        Array.isArray(parsed.steps)
-      )
-        steps = parsed.steps;
-    } catch {}
-    if (!steps) return plans;
-    const normalizedForHash = steps.map((s: any) => ({
-      step_number: Number(s.step_number),
-      tool_name: s.tool_name,
-      description: s.description,
-      status: "todo",
-    }));
-    const planHash = djb2Hash(JSON.stringify(normalizedForHash));
-    try {
-      const dbSteps = await window.electronAPI.dbGetPlanSteps(
-        latest.sessionId,
-        planHash,
-      );
-      if (Array.isArray(dbSteps) && dbSteps.length > 0) {
-        const merged = steps.map((s: any) => {
-          const matched = dbSteps.find(
-            (d: any) => Number(d.step_number) === Number(s.step_number),
-          );
-          return matched
-            ? { ...s, status: matched.status }
-            : { ...s, status: s.status ?? "todo" };
-        });
-        const synthetic: ChatMessageRecord = {
-          id: latest.id ?? `synthetic-plan-${Date.now()}`,
-          sessionId: latest.sessionId,
-          content: JSON.stringify({ steps: merged }, null, 2),
-          role: latest.role,
-          timestamp: Date.now(),
-          isError: "",
-          imagePaths: null,
-          type: "plan",
-        };
-        return [synthetic];
-      }
-    } catch (err) {
-      // Silent fallback to log-based synthetic plan
-      // eslint-disable-next-line no-console
-      console.error("Failed to fetch plan steps from DB:", err);
-    }
-    return plans;
-  };
-
-  const openSidebar = useCallback(
-    (payload: {
-      plans: ChatMessageRecord[];
-      logs: ChatMessageRecord[];
-      sources: ChatMessageRecord[];
-    }) => {
-      const immediate = buildSyntheticPlan(
-        payload.plans || [],
-        payload.logs || [],
-      );
-      setSidebarPlans(immediate);
-      void (async () => {
-        const fromDb = await buildSyntheticPlanFromDB(payload.plans || []);
-        if (fromDb.length > 0) setSidebarPlans(fromDb);
-      })();
-      setSidebarLogs(payload.logs || []);
-      setSidebarSources(payload.sources || []);
-      setSidebarOpen(true);
-    },
-    [],
-  );
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-
-  // Auto-open sidebar when new assistant details arrive
-  const prevCountRef = useRef(0);
-
-  const buildSyntheticPlan = (
-    plans: ChatMessageRecord[],
-    logs: ChatMessageRecord[],
-  ): ChatMessageRecord[] => {
-    if (!plans || plans.length === 0) return [];
-    const latest = plans[plans.length - 1]!;
-    let steps: any[] | null = null;
-    try {
-      const parsed = JSON.parse(latest.content);
-      if (Array.isArray(parsed)) steps = parsed;
-      else if (
-        parsed &&
-        typeof parsed === "object" &&
-        Array.isArray(parsed.steps)
-      )
-        steps = parsed.steps;
-    } catch {}
-    if (!steps) return plans;
-    // Prefer statuses provided by the plan itself; fall back to logs only if missing.
-    const completedFromLogs = new Set<number>();
-    const logPatterns = [
-      /Step\s+(\d+)\s+completed/i,
-      /Step\s+(\d+)\s+done/i,
-      /✓\s*Step\s+(\d+)/i,
-    ];
-    for (const l of logs) {
-      for (const re of logPatterns) {
-        const m = l.content.match(re);
-        if (m) {
-          const n = Number(m[1]);
-          if (!Number.isNaN(n)) completedFromLogs.add(n);
-          break;
-        }
-      }
-    }
-    const updated = steps.map((s: any) => {
-      const num = Number(s.step_number);
-      const statusInPlan = s.status;
-      const normalized =
-        typeof statusInPlan === "string" ? statusInPlan.toLowerCase() : "";
-      const usePlan = normalized === "done" || normalized === "failed";
-      const isCompletedByLogs = completedFromLogs.has(num);
-      const status = usePlan
-        ? normalized
-        : isCompletedByLogs
-          ? "done"
-          : normalized || "todo";
-      return { ...s, status };
-    });
-    const synthetic: ChatMessageRecord = {
-      id: latest.id ?? `synthetic-plan-${Date.now()}`,
-      sessionId: latest.sessionId,
-      content: JSON.stringify({ steps: updated }, null, 2),
-      role: latest.role,
-      timestamp: Date.now(),
-      isError: "",
-      imagePaths: null,
-      type: "plan",
-    };
-    return [synthetic];
-  };
-
-  const getStreamingMessages = useCallback(() => {
-    if (!currentSession?.id) return [];
-    const existingIds = new Set(messages.map((m) => m.id));
-    return streamingDetailsSegments
-      .filter((seg) => !existingIds.has(seg.id))
-      .map(
-        (seg): ChatMessageRecord => ({
-          id: seg.id,
-          sessionId: currentSession.id,
-          content: seg.content,
-          role: "assistant",
-          timestamp: Date.now(),
-          isError: "",
-          imagePaths: null,
-          type: seg.type,
-        }),
-      );
-  }, [streamingDetailsSegments, currentSession?.id, messages]);
-
-  const computeLastAssistantGroup = useCallback(() => {
-    const allMessages = [...messages, ...getStreamingMessages()];
-    if (!allMessages.length)
-      return {
-        plans: [] as ChatMessageRecord[],
-        logs: [] as ChatMessageRecord[],
-        sources: [] as ChatMessageRecord[],
-      };
-    let lastUserIdx = -1;
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-      const msg = allMessages[i];
-      if (msg && msg.role === "user") {
-        lastUserIdx = i;
-        break;
-      }
-    }
-    const assistantGroup = allMessages.slice(lastUserIdx + 1);
-    const plans = assistantGroup.filter((m) => m.type === "plan");
-    const logs = assistantGroup.filter((m) => m.type === "log");
-    const sources = assistantGroup.filter((m) => m.type === "source");
-    return { plans, logs, sources };
-  }, [messages, getStreamingMessages]);
-
-  useEffect(() => {
-    const currLen = currentSession?.messages?.length ?? 0;
-    prevCountRef.current = currLen;
-
-    if (!isCurrentSessionStreaming) {
-      setHasAutoOpened(false);
-    }
-
-    const { plans, logs, sources } = computeLastAssistantGroup();
-    const immediate = buildSyntheticPlan(plans, logs);
-    setSidebarPlans(immediate);
-    setSidebarLogs(logs);
-    setSidebarSources(sources);
-
-    // Only fetch from DB if not streaming
-    if (!isCurrentSessionStreaming) {
-      void (async () => {
-        const fromDb = await buildSyntheticPlanFromDB(plans);
-        if (fromDb.length > 0) setSidebarPlans(fromDb);
-      })();
-    }
-
-    if (!currentSession?.id) {
-      setSidebarPlans([]);
-      setSidebarLogs([]);
-      setSidebarSources([]);
-    }
-  }, [
-    currentSession?.id,
-    isCurrentSessionStreaming,
-    streamingDetailsSegments,
-    messages,
-    computeLastAssistantGroup,
-  ]);
-
-  // Effect to auto-open details sidebar for new messages
-  // Conditions:
-  // - Message count increased OR content changed significantly
-  // - There are any plans/logs/sources in the last assistant group
-  // - Open the sidebar if closed; update if open
-  // - Avoid auto-opening on very first render unless new content arrived
-  useEffect(() => {
-    if (!autoOpenEnabled) return;
-
-    const prev = prevCountRef.current as number;
-    const curr = messages.length;
-    const { plans, logs, sources } = computeLastAssistantGroup();
-    const hasDetails =
-      plans.length > 0 || logs.length > 0 || sources.length > 0;
-
-    const shouldAutoOpen =
-      (isCurrentSessionStreaming && !hasAutoOpened && hasDetails) ||
-      (!isCurrentSessionStreaming &&
-        (curr > prev || (!hasAutoOpened && prev === 0 && curr > 0)) &&
-        hasDetails);
-
-    if (shouldAutoOpen) {
-      if (!sidebarOpen) setSidebarOpen(true);
-      if (isCurrentSessionStreaming) setHasAutoOpened(true);
-
-      const immediate = buildSyntheticPlan(plans, logs);
-      setSidebarPlans(immediate);
-      setSidebarLogs(logs);
-      setSidebarSources(sources);
-
-      if (!isCurrentSessionStreaming) {
-        void (async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) setSidebarPlans(fromDb);
-          setHasAutoOpened(true);
-        })();
-      }
-    } else if (hasDetails && sidebarOpen) {
-      // Keep sidebar content in sync if it's already open
-      const immediate = buildSyntheticPlan(plans, logs);
-      setSidebarPlans(immediate);
-      setSidebarLogs(logs);
-      setSidebarSources(sources);
-
-      if (!isCurrentSessionStreaming) {
-        void (async () => {
-          const fromDb = await buildSyntheticPlanFromDB(plans);
-          if (fromDb.length > 0) setSidebarPlans(fromDb);
-        })();
-      }
-    }
-    prevCountRef.current = curr;
-  }, [
-    messages,
-    autoOpenEnabled,
-    sidebarOpen,
-    hasAutoOpened,
-    isCurrentSessionStreaming,
-    streamingDetailsSegments,
-    computeLastAssistantGroup,
-  ]);
 
   const handleSendMessage = useCallback(async () => {
     const settings = loadSettings();
@@ -672,7 +359,6 @@ export default function ChatScreen() {
           <div className="flex-1 min-h-0">
             <MessageGroups
               messages={allMessages}
-              onOpenDetails={openSidebar}
               isStreaming={isCurrentSessionStreaming}
               onAllowCommand={handleAllowCommand}
               onRejectCommand={handleDenyCommand}
@@ -699,17 +385,6 @@ export default function ChatScreen() {
           setIsWebSearchEnabled={setIsWebSearchEnabled}
         />
       </div>
-
-      {/* Right column: sidebar */}
-      {currentSession && currentSession?.messages?.length > 0 && (
-        <MessageDetailsSidebar
-          isOpen={sidebarOpen}
-          onClose={closeSidebar}
-          plans={sidebarPlans}
-          logs={sidebarLogs}
-          sources={sidebarSources}
-        />
-      )}
     </div>
   );
 }

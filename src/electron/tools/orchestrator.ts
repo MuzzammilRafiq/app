@@ -81,7 +81,8 @@ User: "Hello!"
   ]
 }
 
-IMPORTANT: Keep in mind that for agents give a proper action description eg if the user asks how many folders in A dont pass the action as it is check if there is any context about A in the previous messages and build the action around that context
+IMPORTANT: Keep in mind that for agents give a proper action description eg if the user asks how many folders in A dont pass the action as it is check if there is any context about A in the previous messages and build the action around that context.
+AND ALWAYS end with a general step to format the final response for the user.
 `;
 
 async function generatePlan(
@@ -325,13 +326,6 @@ export async function orchestrate(
       step.result = result.output;
       finalOutput = result.output;
     }
-
-    // Emit step completion
-    event.sender.send("stream-chunk", {
-      chunk: `✓ Step ${step.step_number} completed\n`,
-      type: "log",
-      sessionId,
-    });
 
     // Persist step completion
     if (step.status === "done") {

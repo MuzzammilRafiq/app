@@ -99,7 +99,9 @@ IMPORTANT GUIDELINES:
 - When done, provide a clear summary of what was accomplished
 
 Each command requires user confirmation before execution.So dont worry about safety checks.
-current working directory is ${currentCwd}`;
+current working directory is ${currentCwd}
+In the end, make sure to only provide the final output that user sees without any markdown formatting.
+`;
 
 const execAsync = promisify(exec);
 async function executeCommand(
@@ -273,16 +275,6 @@ export const terminalAgent = async (
         break;
       }
 
-      case "reasoning-start": {
-        event.sender.send("stream-chunk", {
-          chunk: `\n💭 Thinking...\n`,
-          type: "log",
-          sessionId: event.sessionId,
-        });
-        hasReasoning = true;
-        break;
-      }
-
       case "reasoning-delta": {
         const reasoningContent =
           (part as any).text || (part as any).textDelta || "";
@@ -294,46 +286,16 @@ export const terminalAgent = async (
         break;
       }
 
-      case "reasoning-end": {
-        if (hasReasoning) {
-          event.sender.send("stream-chunk", {
-            chunk: `\n`,
-            type: "log",
-            sessionId: event.sessionId,
-          });
-        }
-
-        break;
-      }
-
-      case "text-start": {
-        event.sender.send("stream-chunk", {
-          chunk: `\n🤖 Assistant: `,
-          type: "log",
-          sessionId: event.sessionId,
-        });
-        break;
-      }
 
       case "text-delta": {
         const textContent = (part as any).text || (part as any).textDelta || "";
         event.sender.send("stream-chunk", {
           chunk: textContent,
-          type: "stream" satisfies ChatType,
-          role: "execution" satisfies ChatRole,
+          type: "log" satisfies ChatType,
           sessionId: event.sessionId,
         });
         currentStepHasText = true;
         summaryText += textContent;
-        break;
-      }
-
-      case "text-end": {
-        event.sender.send("stream-chunk", {
-          chunk: `\n`,
-          type: "log",
-          sessionId: event.sessionId,
-        });
         break;
       }
 
