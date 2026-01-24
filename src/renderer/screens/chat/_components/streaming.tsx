@@ -1,6 +1,11 @@
 import { useRef, useEffect } from "react";
 import type { StreamChunk } from "../../../../common/types";
-import { PlanRenderer, LogRenderer, SourceRenderer } from "./renderers";
+import {
+  PlanRenderer,
+  LogRenderer,
+  SourceRenderer,
+  GeneralRenderer,
+} from "./renderers";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { useStreamingStore } from "../../../utils/store";
 
@@ -64,6 +69,7 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
   }
   const logSegments = segments.filter((seg) => seg.type === "log");
   const streamSegments = segments.filter((seg) => seg.type === "stream");
+  const generalSegments = segments.filter((seg) => seg.type === "general");
   const sourceSegments = segments.filter((seg) => seg.type === "source");
 
   return (
@@ -85,6 +91,13 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
         {streamSegments.map((msg) => (
           <div key={msg.id} className="prose prose-sm max-w-none">
             <MarkdownRenderer content={msg.content} isUser={false} />
+          </div>
+        ))}
+
+        {/* General */}
+        {generalSegments.map((msg) => (
+          <div key={msg.id}>
+            <GeneralRenderer content={msg.content} />
           </div>
         ))}
 

@@ -60,7 +60,7 @@ export class DatabaseService {
       timestamp INTEGER NOT NULL,
       is_error TEXT NOT NULL DEFAULT '',
       images TEXT DEFAULT NULL, -- store JSON array (string[]) or NULL
-      type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','terminal-confirmation')),
+      type TEXT NOT NULL CHECK(type IN ('stream','general','log','plan','user','source','terminal-confirmation')),
       FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
     `;
@@ -94,9 +94,10 @@ export class DatabaseService {
         this.db.exec("COMMIT");
       } else if (
         !row.sql.includes("'cancelled'") ||
-        !row.sql.includes("'terminal-confirmation'")
+        !row.sql.includes("'terminal-confirmation'") ||
+        !row.sql.includes("'summary'")
       ) {
-        // Migrate table to include 'cancelled' and 'terminal-confirmation' in CHECK constraint
+        // Migrate table to include newer message types in CHECK constraint
         LOG(TAG).WARN(
           "Migrating chat_messages schema to include new message types...",
         );
@@ -114,7 +115,7 @@ export class DatabaseService {
               timestamp INTEGER NOT NULL,
               is_error TEXT NOT NULL DEFAULT '',
               images TEXT DEFAULT NULL,
-              type TEXT NOT NULL CHECK(type IN ('stream','log','plan','user','source','cancelled','terminal-confirmation')),
+              type TEXT NOT NULL CHECK(type IN ('stream','summary','log','plan','user','source','cancelled','terminal-confirmation')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );`,
           );
@@ -467,6 +468,7 @@ export class DatabaseService {
     const validRoles: ChatRole[] = ["user", "assistant", "execution"];
     const validTypes: ChatType[] = [
       "stream",
+      "general",
       "log",
       "plan",
       "user",

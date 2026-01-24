@@ -339,7 +339,37 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
       }
       const updated = [...state.streamingSegments];
 
-      if (chunk.type === "plan") {
+      if (chunk.type === "general") {
+        const lastIndex = updated.length - 1;
+        const last = updated[lastIndex];
+        if (
+          last &&
+          last.sessionId === activeSessionId &&
+          last.type === "general"
+        ) {
+          updated[lastIndex] = {
+            ...last,
+            content: last.content + chunk.chunk,
+          };
+        } else if (
+          last &&
+          last.sessionId === activeSessionId &&
+          last.type === "stream"
+        ) {
+          updated[lastIndex] = {
+            ...last,
+            type: "general",
+            content: chunk.chunk ? chunk.chunk : last.content,
+          };
+        } else {
+          updated.push({
+            id: crypto.randomUUID(),
+            type: "general",
+            content: chunk.chunk,
+            sessionId: activeSessionId,
+          });
+        }
+      } else if (chunk.type === "plan") {
         // Overwrite existing plan
         const existingIndex = updated.findIndex(
           (s) => s.type === "plan" && s.sessionId === activeSessionId,

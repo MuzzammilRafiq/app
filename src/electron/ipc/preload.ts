@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 export interface StreamChunk {
   chunk: string;
-  type: "stream" | "log" | "plan" | "source";
+  type: "stream" | "general" | "log" | "plan" | "source";
   role?: "user" | "assistant" | "execution";
   sessionId?: string;
 }

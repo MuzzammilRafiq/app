@@ -9,6 +9,7 @@ import type { WebContents } from "electron";
 export class StreamChunkBuffer {
   private buffer: string = "";
   private timer: NodeJS.Timeout | null = null;
+  private bufferType: "stream" | "general" = "stream";
   private readonly BUFFER_MS: number;
 
   constructor(
@@ -24,7 +25,7 @@ export class StreamChunkBuffer {
    * Send a chunk. Stream-type chunks are buffered; others are sent immediately.
    */
   send(chunk: string, type: string): void {
-    if (type !== "stream") {
+    if (type !== "stream" && type !== "general") {
       // Non-stream types bypass buffer for immediate delivery
       this.sender.send(this.eventName, {
         chunk,
@@ -32,6 +33,14 @@ export class StreamChunkBuffer {
         sessionId: this.sessionId,
       });
       return;
+    }
+
+    const nextType = type === "general" ? "general" : "stream";
+    if (!this.buffer) {
+      this.bufferType = nextType;
+    } else if (this.bufferType !== nextType) {
+      this.flush();
+      this.bufferType = nextType;
     }
 
     this.buffer += chunk;
@@ -53,7 +62,7 @@ export class StreamChunkBuffer {
     if (this.buffer) {
       this.sender.send(this.eventName, {
         chunk: this.buffer,
-        type: "stream",
+        type: this.bufferType,
         sessionId: this.sessionId,
       });
       this.buffer = "";

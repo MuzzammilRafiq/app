@@ -4,6 +4,7 @@ import {
   PlanRenderer,
   LogRenderer,
   SourceRenderer,
+  GeneralRenderer,
 } from "./renderers";
 import type { ChatMessageRecord } from "../../../../common/types";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
@@ -374,6 +375,8 @@ function AssistantMessageSection({
               <div className="inline-details-panel">
                 <SourceRenderer content={msg.content} open={open} />
               </div>
+            ) : msg.type === "general" ? (
+              <GeneralRenderer content={msg.content} />
             ) : (
               <div className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]">
                 <MarkdownRenderer content={msg.content} isUser={false} />

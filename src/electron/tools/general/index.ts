@@ -60,7 +60,7 @@ Do not wrap the output in \`\`\`markdown\`\`\`.`;
         }
         case "text-delta": {
           c += part.text;
-          buffer.send(part.text, "stream");
+          buffer.send(part.text, "general");
           break;
         }
         case "error": {

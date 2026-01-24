@@ -59,7 +59,7 @@ interface Window {
     onStreamChunk: (
       callback: (data: {
         chunk: string;
-        type: "stream" | "log" | "plan" | "source";
+        type: "stream" | "general" | "log" | "plan" | "source";
         role?: "user" | "assistant" | "execution";
         sessionId?: string;
       }) => void,

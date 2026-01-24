@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 
 import type { MakePlanResponse, UniqueResult } from "../../../../common/types";
+import { MarkdownRenderer } from "./markdown-renderer";
 import {
   BadgeCheckIcon,
   ChevronDownIcon,
@@ -220,6 +221,16 @@ export function LogRenderer({
         <pre className="text-xs text-(--log-text-content) whitespace-pre-wrap font-mono wrap-break-words px-3 pb-3">
           {content}
         </pre>
+      </div>
+    </div>
+  );
+}
+
+export function GeneralRenderer({ content }: { content: string }) {
+  return (
+    <div className="rounded bg-(--general-bg) px-3 py-2">
+      <div className="prose prose-sm max-w-none ">
+        <MarkdownRenderer content={content} isUser={false} />
       </div>
     </div>
   );

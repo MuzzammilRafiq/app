@@ -13,7 +13,7 @@ import os from "node:os";
 import { terminalAgent } from "./terminal/index.js";
 
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText, Output } from "ai";
+import { streamText } from "ai";
 import * as z from "zod";
 
 const TAG = "orchestrator";
@@ -108,28 +108,18 @@ async function generatePlan(
       abortSignal: signal,
       system: SYSTEM_PROMPT_PLANNER,
       prompt: chatHistory,
-      output: Output.array({
-        element: z.object({
-          step_number: z
-            .number()
-            .describe("Sequential step number starting from 1"),
-          agent: z
-            .enum(["terminal", "general"])
-            .describe("The agent to execute this step"),
-          action: z
-            .string()
-            .describe(
-              "For terminal: goal to achieve. For general: task description",
-            ),
-        }),
-      }),
     });
 
     const buffer = new StreamChunkBuffer(event.sender, sessionId);
+    let rawText = "";
     for await (const part of result.fullStream) {
       switch (part.type) {
         case "reasoning-delta": {
           buffer.send(part.text, "log");
+          break;
+        }
+        case "text-delta": {
+          rawText += part.text;
           break;
         }
         case "error": {
@@ -140,8 +130,60 @@ async function generatePlan(
       }
     }
     buffer.flush();
-    const output = await result.output;
-    const steps: OrchestratorStep[] = output.map((s) => ({
+    await result;
+
+    const stepSchema = z.object({
+      step_number: z
+        .number()
+        .describe("Sequential step number starting from 1"),
+      agent: z
+        .enum(["terminal", "general"])
+        .describe("The agent to execute this step"),
+      action: z
+        .string()
+        .describe(
+          "For terminal: goal to achieve. For general: task description",
+        ),
+    });
+    const planSchema = z.object({
+      steps: z.array(stepSchema),
+    });
+
+    const parseJsonFromText = (text: string): unknown | null => {
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
+
+      const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+      const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+      const match =
+        objectMatch && arrayMatch
+          ? objectMatch.index! < arrayMatch.index!
+            ? objectMatch
+            : arrayMatch
+          : objectMatch ?? arrayMatch;
+      if (!match) return null;
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return null;
+      }
+    };
+
+    const parsed = parseJsonFromText(rawText);
+    const normalized = Array.isArray(parsed)
+      ? { steps: parsed }
+      : parsed;
+
+    const validated = planSchema.safeParse(normalized);
+    if (!validated.success) {
+      LOG(TAG).ERROR("Failed to parse plan JSON", validated.error);
+      return { steps: [], error: "Failed to parse plan JSON" };
+    }
+
+    const steps: OrchestratorStep[] = validated.data.steps.map((s) => ({
       step_number: s.step_number,
       agent: s.agent,
       action: s.action,

@@ -3,6 +3,7 @@ import {
   PlanRenderer,
   LogRenderer,
   TerminalConfirmationRenderer,
+  GeneralRenderer,
 } from "./renderers";
 import { MarkdownRenderer } from "./markdown-renderer";
 import clsx from "clsx";
@@ -74,6 +75,8 @@ export default function ChatMessage(message: ChatMessageRecord) {
                       isUser={message.role === "user"}
                     />
                   );
+                case "general":
+                  return <GeneralRenderer content={message.content} />;
                 case "cancelled":
                   return (
                     <MarkdownRenderer

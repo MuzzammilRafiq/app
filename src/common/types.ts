@@ -1,6 +1,7 @@
 type ChatRole = "user" | "assistant" | "execution";
 type ChatType =
   | "stream"
+  | "general"
   | "log"
   | "plan"
   | "user"

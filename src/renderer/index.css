@@ -50,6 +50,9 @@
   --log-text: #3e2723;
   --log-text-content: #5d4037;
 
+  /* general renderer colors - green accent */
+  --general-bg: #3e272340;
+
   /* Source renderer colors (RAG) - accent-based */
   --source-bg: rgba(62, 39, 35, 0.04);
   --source-border: rgba(62, 39, 35, 0.15);
@@ -91,6 +94,9 @@
   --log-border: rgba(215, 204, 200, 0.2);
   --log-text: #d7ccc8;
   --log-text-content: #efebe9;
+
+  /* general renderer colors - green accent */
+  --general-bg: #d7ccc840;
 
   /* Source renderer colors (RAG) - accent-based */
   --source-bg: rgba(215, 204, 200, 0.08);
