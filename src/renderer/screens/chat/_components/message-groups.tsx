@@ -277,15 +277,16 @@ function SearchingIndicator({ status }: { status: SearchStatus }) {
 function AssistantMessageSection({
   messages,
   isStreaming,
+  open,
   onAllowCommand,
   onRejectCommand,
 }: {
   messages: ChatMessageRecord[];
   isStreaming?: boolean;
+  open: boolean;
   onAllowCommand?: (requestId: string) => void;
   onRejectCommand?: (requestId: string) => void;
 }) {
-  const [isAllOpen, setIsAllOpen] = useState(true);
   const planMessages = useMemo(
     () => messages.filter((msg) => msg.type === "plan"),
     [messages],
@@ -347,24 +348,8 @@ function AssistantMessageSection({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Global Toggle Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setIsAllOpen(!isAllOpen)}
-          className="flex items-center gap-1 text-xs text-text-muted hover:text-text-main transition-colors"
-        >
-          <ChevronDownIcon
-            className={clsx(
-              "w-3 h-3 transition-transform duration-200",
-              isAllOpen ? "rotate-180" : "rotate-0",
-            )}
-          />
-          {isAllOpen ? 'Collapse All' : 'Expand All'}
-        </button>
-      </div>
-
       {/* Messages Wrapper */}
-      <div className="w-full text-text-main space-y-4 ">
+      <div className="w-full text-text-main space-y-4">
         {/* Web Search Indicator - shown prominently when searching */}
         {searchStatus && <SearchingIndicator status={searchStatus} />}
 
@@ -379,15 +364,15 @@ function AssistantMessageSection({
               />
             ) : msg.type === "plan" ? (
               <div className="inline-details-panel">
-                <PlanRenderer content={msg.content} open={isAllOpen} />
+                <PlanRenderer content={msg.content} open={open} />
               </div>
             ) : msg.type === "log" ? (
               <div className="inline-details-panel">
-                <LogRenderer content={msg.content} open={isAllOpen} />
+                <LogRenderer content={msg.content} open={open} />
               </div>
             ) : msg.type === "source" ? (
               <div className="inline-details-panel">
-                <SourceRenderer content={msg.content} open={isAllOpen} />
+                <SourceRenderer content={msg.content} open={open} />
               </div>
             ) : (
               <div className="prose prose-slate max-w-none leading-relaxed text-[15px] prose-headings:font-semibold prose-a:text-[#3e2723]">
@@ -409,6 +394,7 @@ function MessageGroups({
 }: MessageGroupsProps) {
   const groupedMessages = groupMessages(messages);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [isAllOpen, setIsAllOpen] = useState(true);
 
   // Auto-scroll effect
   useEffect(() => {
@@ -418,21 +404,36 @@ function MessageGroups({
   }, [groupedMessages.length]);
 
   return (
-    <Virtuoso
-      ref={virtuosoRef}
-      style={{ height: "100%" }} // Must be set to fill container
-      data={groupedMessages}
-      followOutput={"auto"}
-      atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
-      initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
-      itemContent={(_index, group) => (
+    <div className="flex flex-col h-full relative">
+      {/* Floating Global Collapse/Expand Button */}
+      <button
+        onClick={() => setIsAllOpen(!isAllOpen)}
+        className="absolute top-2 right-4 z-10 flex items-center gap-1 text-xs text-text-muted hover:text-text-main transition-colors bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm hover:shadow-md"
+      >
+        <ChevronDownIcon
+          className={clsx(
+            "w-3 h-3 transition-transform duration-200",
+            isAllOpen ? "rotate-180" : "rotate-0",
+          )}
+        />
+        {isAllOpen ? 'Collapse All' : 'Expand All'}
+      </button>
+      
+      <Virtuoso
+        ref={virtuosoRef}
+        style={{ height: "100%" }} // Must be set to fill container
+        data={groupedMessages}
+        followOutput={"auto"}
+        atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
+        initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
+        itemContent={(_index, group) => (
         <div className="max-w-3xl mx-auto px-4 py-6">
           {/* Group Content - Adds spacing via padding instead of margin to play nice with virtualization */}
 
           {group.userMessage && (
             <div className="flex justify-end pl-12 animate-fade-in mb-6">
               <div
-                className="rounded-[20px] rounded-br-[4px] px-5 py-3 shadow-md max-w-full wrap-break-words"
+                className="rounded-[20px] rounded-br-sm px-5 py-3 shadow-md max-w-full wrap-break-words"
                 style={{
                   backgroundColor: "var(--btn-accent-bg)",
                   color: "var(--btn-accent-text)",
@@ -472,6 +473,7 @@ function MessageGroups({
               <AssistantMessageSection
                 messages={group.assistantMessages}
                 isStreaming={isStreaming}
+                open={isAllOpen}
                 onAllowCommand={onAllowCommand}
                 onRejectCommand={onRejectCommand}
               />
@@ -480,6 +482,7 @@ function MessageGroups({
         </div>
       )}
     />
+    </div>
   );
 }
 
