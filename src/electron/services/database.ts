@@ -95,7 +95,7 @@ export class DatabaseService {
       } else if (
         !row.sql.includes("'cancelled'") ||
         !row.sql.includes("'terminal-confirmation'") ||
-        !row.sql.includes("'summary'")
+        !row.sql.includes("'general'")
       ) {
         // Migrate table to include newer message types in CHECK constraint
         LOG(TAG).WARN(
@@ -115,7 +115,7 @@ export class DatabaseService {
               timestamp INTEGER NOT NULL,
               is_error TEXT NOT NULL DEFAULT '',
               images TEXT DEFAULT NULL,
-              type TEXT NOT NULL CHECK(type IN ('stream','summary','log','plan','user','source','cancelled','terminal-confirmation')),
+              type TEXT NOT NULL CHECK(type IN ('stream','general','log','plan','user','source','cancelled','terminal-confirmation')),
               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );`,
           );
