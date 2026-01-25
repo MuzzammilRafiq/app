@@ -8,7 +8,7 @@ import { useCurrentViewStore, useSidebarCollapsedStore } from "./utils/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MenuSVG, GearSVG, PlusSVG } from "./components/icons";
 import { useStore, useVisionLogStore } from "./utils/store";
-import { useThemeInit } from "./hooks/useTheme";
+import { useThemeInit, useTheme } from "./hooks/useTheme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +29,7 @@ function App() {
 
   // Initialize theme on mount
   useThemeInit();
+  const { isDark } = useTheme();
 
   // Store actions for new session
   const setCurrentSession = useStore((s) => s.setCurrentSession);
@@ -56,7 +57,41 @@ function App() {
         style={{ backgroundColor: "var(--bg-app)" }}
       >
         <TitleBar />
-        <Toaster position="top-center" toastOptions={{ duration: 500 }} />
+        <Toaster 
+          position="top-center" 
+          toastOptions={{ 
+            duration: 2000,
+            style: {
+              background: isDark ? '#3e2723' : '#d7ccc8',
+              color: '#ffffff',
+              borderRadius: '12px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            },
+            success: {
+              style: {
+                background: isDark ? '#3a3019' : '#b8d49a',
+                color: '#ffffff',
+              },
+              iconTheme: {
+                primary: '#ffffff',
+                secondary: '#22c55e',
+              },
+            },
+            error: {
+              style: {
+                background: isDark ? '#532621' : '#dd9999',
+                color: '#ffffff',
+              },
+              iconTheme: {
+                primary: '#ffffff',
+                secondary: '#ef4444',
+              },
+            },
+          }} 
+        />
         <div
           className="flex-1 flex overflow-hidden"
           style={{ backgroundColor: "transparent" }}
