@@ -51,7 +51,7 @@ Do not wrap the output in \`\`\`markdown\`\`\`.`;
     for await (const part of result.fullStream) {
       if (signal?.aborted) {
         buffer.flush();
-        break;
+        throw new DOMException("Aborted", "AbortError");
       }
       switch (part.type) {
         case "reasoning-delta": {

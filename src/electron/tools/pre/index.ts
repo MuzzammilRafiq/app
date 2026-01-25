@@ -31,6 +31,7 @@ export const preProcessMessage = async (
         lastUserMessage.imagePaths,
         {
           overrideModel: config?.imageModelOverride,
+          signal,
         },
       );
 

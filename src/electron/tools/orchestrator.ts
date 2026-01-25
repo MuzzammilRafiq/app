@@ -113,6 +113,10 @@ async function generatePlan(
     const buffer = new StreamChunkBuffer(event.sender, sessionId);
     let rawText = "";
     for await (const part of result.fullStream) {
+      if (signal?.aborted) {
+        buffer.flush();
+        throw new DOMException("Aborted", "AbortError");
+      }
       switch (part.type) {
         case "reasoning-delta": {
           buffer.send(part.text, "log");
@@ -163,7 +167,7 @@ async function generatePlan(
           ? objectMatch.index! < arrayMatch.index!
             ? objectMatch
             : arrayMatch
-          : objectMatch ?? arrayMatch;
+          : (objectMatch ?? arrayMatch);
       if (!match) return null;
       try {
         return JSON.parse(match[0]);
@@ -173,9 +177,7 @@ async function generatePlan(
     };
 
     const parsed = parseJsonFromText(rawText);
-    const normalized = Array.isArray(parsed)
-      ? { steps: parsed }
-      : parsed;
+    const normalized = Array.isArray(parsed) ? { steps: parsed } : parsed;
 
     const validated = planSchema.safeParse(normalized);
     if (!validated.success) {

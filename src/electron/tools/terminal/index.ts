@@ -1,11 +1,12 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText, stepCountIs, tool } from "ai";
 import { LOG } from "../../utils/logging.js";
 import * as z from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { IpcMainInvokeEvent, ipcMain } from "electron";
 import { ChatRole, ChatType } from "../../../common/types.js";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { streamText, tool, stepCountIs } from "ai";
+
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
 
@@ -25,21 +26,23 @@ ipcMain.handle(
     }
   },
 );
+
 export function cancelAllPendingConfirmations() {
   for (const [requestId, pending] of pendingConfirmations) {
     pending.reject(new DOMException("Aborted", "AbortError"));
     pendingConfirmations.delete(requestId);
   }
 }
+
 async function waitForUserConfirmation(
   event: IpcMainInvokeEvent,
   command: string,
   cwd: string,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  // If already aborted, return false immediately
+  // If already aborted, throw immediately
   if (signal?.aborted) {
-    return false;
+    throw new DOMException("Aborted", "AbortError");
   }
 
   const requestId = crypto.randomUUID();
@@ -87,7 +90,7 @@ async function waitForUserConfirmation(
 
 const SYSTEM_PROMPT = `You are a helpful terminal assistant running on macOS.
 
-When the user asks you to perform tasks, use the executeCommand tool to run terminal commands.
+When you ask you to perform tasks, use executeCommand tool to run terminal commands.
 
 IMPORTANT GUIDELINES:
 - ALWAYS explain what you're about to do BEFORE calling a tool
@@ -100,7 +103,7 @@ IMPORTANT GUIDELINES:
 
 Each command requires user confirmation before execution.So dont worry about safety checks.
 current working directory is ${currentCwd}
-In the end, make sure to only provide the final output that user sees without any markdown formatting.
+In the end, make sure to only provide the final output that the user sees without any markdown formatting.
 `;
 
 const execAsync = promisify(exec);
@@ -108,6 +111,7 @@ async function executeCommand(
   command: string,
   CONFIG: any,
   cwd: string = currentCwd,
+  signal?: AbortSignal,
 ): Promise<{ output: string; success: boolean }> {
   try {
     const { stdout, stderr } = await execAsync(command, {
@@ -125,6 +129,12 @@ async function executeCommand(
       success: true,
     };
   } catch (error: any) {
+    if (
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error && error.message === "Aborted")
+    ) {
+      throw error; // Re-throw abort error
+    }
     return {
       output: error.message || "Command failed",
       success: false,
@@ -136,6 +146,7 @@ async function confirmCommand(
   event: any,
   command: string,
   reason?: string,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   if (reason) {
     event?.sender?.send("stream-chunk", {
@@ -145,16 +156,19 @@ async function confirmCommand(
     });
   }
   try {
-    return await waitForUserConfirmation(event, command, currentCwd);
-  } catch {
+    return await waitForUserConfirmation(event, command, currentCwd, signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error; // Re-throw abort error to be handled by caller
+    }
     return false;
   }
 }
 
-const executeCommandTool = (CONFIG: any, event: any) => {
+const executeCommandTool = (CONFIG: any, event: any, signal?: AbortSignal) => {
   return tool({
     description:
-      "Execute a terminal command. The command will be shown to the user for confirmation before execution. ",
+      "Execute a terminal command. The command will be shown to user for confirmation before execution. ",
     inputSchema: z.object({
       command: z.string().describe("The terminal command to execute"),
       reason: z
@@ -163,11 +177,15 @@ const executeCommandTool = (CONFIG: any, event: any) => {
         .describe("Brief explanation of why this command is needed"),
     }),
     execute: async ({ command, reason }) => {
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+
       if (reason) {
-        event.sender.send("stream-chunk", {
+        event?.sender?.send("stream-chunk", {
           chunk: `REASON: ${reason}\n`,
           type: "log",
-          sessionId: event.sessionId,
+          sessionId: event?.sessionId,
         });
         LOG(TAG).INFO("Reason for command:", reason);
       }
@@ -176,12 +194,13 @@ const executeCommandTool = (CONFIG: any, event: any) => {
         event,
         command,
         "Command confirmation",
+        signal,
       );
       if (!confirmed) {
-        event.sender.send("stream-chunk", {
+        event?.sender?.send("stream-chunk", {
           chunk: `Command rejected by user\n`,
           type: "log",
-          sessionId: event.sessionId,
+          sessionId: event?.sessionId,
         });
         LOG(TAG).INFO("Command rejected by user");
         return {
@@ -192,17 +211,17 @@ const executeCommandTool = (CONFIG: any, event: any) => {
         };
       }
 
-      event.sender.send("stream-chunk", {
+      event?.sender?.send("stream-chunk", {
         chunk: `Executing command: ${command}\n`,
         type: "log",
-        sessionId: event.sessionId,
+        sessionId: event?.sessionId,
       });
       LOG(TAG).INFO("Executing command:", command);
       const result = await executeCommand(command, CONFIG);
-      event.sender.send("stream-chunk", {
+      event?.sender?.send("stream-chunk", {
         chunk: `${result.output}\n`,
         type: "log",
-        sessionId: event.sessionId,
+        sessionId: event?.sessionId,
       });
       LOG(TAG).INFO("Command output:", result.output);
       return {
@@ -241,7 +260,7 @@ export const terminalAgent = async (
     system: SYSTEM_PROMPT,
     prompt: `${initialContext}`,
     tools: {
-      executeCommand: executeCommandTool(CONFIG, event),
+      executeCommand: executeCommandTool(CONFIG, event, signal),
     },
     stopWhen: stepCountIs(CONFIG.maxSteps),
     onStepFinish: ({ text, toolCalls, finishReason }) => {
@@ -285,7 +304,6 @@ export const terminalAgent = async (
         });
         break;
       }
-
 
       case "text-delta": {
         const textContent = (part as any).text || (part as any).textDelta || "";

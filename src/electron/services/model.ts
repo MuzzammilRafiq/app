@@ -81,7 +81,10 @@ export const ASK_IMAGE = async function* (
   apiKey: string,
   textContent: string,
   base64Images: string[],
-  options?: Record<string, unknown> & { controller?: AbortController },
+  options?: Record<string, unknown> & {
+    controller?: AbortController;
+    signal?: AbortSignal;
+  },
 ) {
   const openrouter = new OpenRouter({ apiKey });
   const {
@@ -89,8 +92,16 @@ export const ASK_IMAGE = async function* (
     provider: __ignored,
     overrideModel,
     controller,
+    signal,
     ...opts
   } = options ?? {};
+
+  // Prefer signal over controller for consistency
+  const abortSignal = signal || controller?.signal;
+
+  if (abortSignal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
   // Build multimodal content array
   const contentArray: MessageContent[] = [
@@ -129,13 +140,13 @@ export const ASK_IMAGE = async function* (
       },
     },
     {
-      signal: controller?.signal,
+      signal: abortSignal,
     },
   );
 
   for await (const chunk of stream) {
-    if (controller?.signal?.aborted) {
-      break;
+    if (abortSignal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
     }
     const delta = chunk.choices?.[0]?.delta;
     if (delta?.content || delta?.reasoning) {
@@ -144,6 +155,10 @@ export const ASK_IMAGE = async function* (
         reasoning: delta?.reasoning ?? undefined,
       };
     }
+  }
+
+  if (abortSignal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
   }
 };
 
