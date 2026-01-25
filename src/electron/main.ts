@@ -45,7 +45,7 @@ function createWindow(): BrowserWindow {
     mainWindow.loadURL("http://localhost:5173");
   } else {
     mainWindow.loadFile(
-      path.join(app.getAppPath(), "dist-renderer/index.html")
+      path.join(app.getAppPath(), "dist-renderer/index.html"),
     );
   }
 

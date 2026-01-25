@@ -4,6 +4,7 @@ import {
   LogRenderer,
   TerminalConfirmationRenderer,
   GeneralRenderer,
+  ErrorRenderer,
 } from "./renderers";
 import { MarkdownRenderer } from "./markdown-renderer";
 import clsx from "clsx";
@@ -91,6 +92,8 @@ export default function ChatMessage(message: ChatMessageRecord) {
                       isUser={message.role === "user"}
                     />
                   );
+                case "error":
+                  return <ErrorRenderer content={message.content} />;
                 default:
                   return <div>Can't render message, check errors</div>;
               }

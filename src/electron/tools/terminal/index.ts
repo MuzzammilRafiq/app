@@ -234,7 +234,7 @@ export const terminalAgent = async (
   let stepCount = 0;
   let currentStepHasText = false;
   let hasReasoning = false;
-  let summaryText = "";
+  let generalText = "";
 
   const result = streamText({
     model: openrouter(CONFIG.model),
@@ -246,7 +246,7 @@ export const terminalAgent = async (
     stopWhen: stepCountIs(CONFIG.maxSteps),
     onStepFinish: ({ text, toolCalls, finishReason }) => {
       // Log step completion info
-      summaryText = text;
+      generalText = text;
       if (toolCalls && toolCalls.length > 0) {
         event.sender.send("stream-chunk", {
           chunk: `Tool executed\n`,
@@ -295,7 +295,7 @@ export const terminalAgent = async (
           sessionId: event.sessionId,
         });
         currentStepHasText = true;
-        summaryText += textContent;
+        generalText += textContent;
         break;
       }
 
@@ -352,6 +352,6 @@ export const terminalAgent = async (
   }
 
   return {
-    output: summaryText.trim() || "Terminal agent execution completed.",
+    output: generalText.trim() || "Terminal agent execution completed.",
   };
 };

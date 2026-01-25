@@ -5,6 +5,7 @@ import {
   LogRenderer,
   SourceRenderer,
   GeneralRenderer,
+  ErrorRenderer,
 } from "./renderers";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { useStreamingStore } from "../../../utils/store";
@@ -71,6 +72,7 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
   const streamSegments = segments.filter((seg) => seg.type === "stream");
   const generalSegments = segments.filter((seg) => seg.type === "general");
   const sourceSegments = segments.filter((seg) => seg.type === "source");
+  const errorSegments = segments.filter((seg) => seg.type === "error");
 
   return (
     <div className="flex justify-start">
@@ -105,6 +107,13 @@ export function StreamingPreview({ segments }: { segments: Segment[] }) {
         {sourceSegments.map((msg) => (
           <div key={msg.id}>
             <SourceRenderer content={msg.content} />
+          </div>
+        ))}
+
+        {/* Errors */}
+        {errorSegments.map((msg) => (
+          <div key={msg.id}>
+            <ErrorRenderer content={msg.content} />
           </div>
         ))}
       </div>

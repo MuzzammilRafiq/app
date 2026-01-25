@@ -70,11 +70,9 @@ export function PlanRenderer({
     });
   };
   if (!extracted) {
-   return null
+    return null;
   }
-   const collapsedClass = isExpanded
-    ? "bg-[var(--log-bg)] rounded"
-    : "";
+  const collapsedClass = isExpanded ? "bg-[var(--log-bg)] rounded" : "";
   const buttonClass = isExpanded
     ? "w-full flex items-center  gap-2 text-left px-3 py-1 "
     : "w-full flex items-center  gap-2 text-left px-3 py-1 ";
@@ -189,9 +187,7 @@ export function LogRenderer({
   useEffect(() => {
     setIsExpanded(open);
   }, [open]);
-  const containerClass = isExpanded
-    ? "bg-[var(--log-bg)] rounded"
-    : "";
+  const containerClass = isExpanded ? "bg-[var(--log-bg)] rounded" : "";
   const buttonClass = isExpanded
     ? "w-full flex items-center gap-2 text-left px-3 py-1"
     : "w-full flex items-center gap-2 text-left px-3 py-1";
@@ -214,9 +210,9 @@ export function LogRenderer({
       </button>
       <div
         className={clsx(
-            "overflow-y-auto transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0",
-          )}
+          "overflow-y-auto transition-all duration-300 ease-in-out",
+          isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0",
+        )}
       >
         <pre className="text-xs text-(--log-text-content) whitespace-pre-wrap font-mono wrap-break-words px-3 pb-3">
           {content}
@@ -289,9 +285,7 @@ export function SourceRenderer({
   useEffect(() => {
     setIsExpanded(open);
   }, [open]);
-   const collapsedClass = isExpanded
-    ? "bg-[var(--log-bg)] rounded"
-    : "";
+  const collapsedClass = isExpanded ? "bg-[var(--log-bg)] rounded" : "";
   const buttonClass = isExpanded
     ? "w-full flex items-center gap-2 text-left px-3 py-1"
     : "w-full flex items-center gap-2 text-left px-3 py-1";
@@ -566,6 +560,37 @@ export function TerminalConfirmationRenderer({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Error Renderer - displays error messages prominently
+export function ErrorRenderer({ content }: { content: string }) {
+  return (
+    <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 p-4">
+      <div className="flex items-start gap-3">
+        <svg
+          className="w-5 h-5 text-red-500 dark:text-red-400 shrink-0 mt-0.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
+        </svg>
+        <div className="flex-1">
+          <h4 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
+            An error occurred
+          </h4>
+          <p className="text-sm text-red-700 dark:text-red-400 whitespace-pre-wrap">
+            {content}
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -81,20 +81,37 @@ export const preProcessMessage = async (
   }
 
   if (config?.rag) {
-    const retreivedDocuments = await ragAnswer(
-      event,
-      apiKey,
-      lastUserMessage.content,
-      lastUserMessage.sessionId,
-      3,
-      signal,
-    );
-    lastUserMessage.content =
-      lastUserMessage.content +
-      "\n" +
-      "<RAG_RESULT>\n" +
-      retreivedDocuments +
-      "\n</RAG_RESULT>";
+    try {
+      const retreivedDocuments = await ragAnswer(
+        event,
+        apiKey,
+        lastUserMessage.content,
+        lastUserMessage.sessionId,
+        3,
+        signal,
+      );
+      lastUserMessage.content =
+        lastUserMessage.content +
+        "\n" +
+        "<RAG_RESULT>\n" +
+        retreivedDocuments +
+        "\n</RAG_RESULT>";
+    } catch (err) {
+      // Re-throw abort errors
+      if (
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.message === "Aborted")
+      ) {
+        throw err;
+      }
+      LOG(TAG).ERROR(`RAG processing failed: ${err}`);
+      event.sender.send("stream-chunk", {
+        chunk: `*RAG processing failed: ${err instanceof Error ? err.message : "Unknown error"}*`,
+        type: "log",
+        sessionId: lastUserMessage.sessionId,
+      });
+      // Continue without RAG results rather than failing the whole request
+    }
   }
 
   if (config?.webSearch) {

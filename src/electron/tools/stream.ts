@@ -87,9 +87,22 @@ export const stream = async (
       };
     }
     LOG(TAG).ERROR("error in stream", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    // Get sessionId from the last message if available
+    const sessionId =
+      messages.length > 0 ? messages[messages.length - 1].sessionId : undefined;
+    // Send error to frontend so the chat can end properly
+    if (sessionId) {
+      event.sender.send("stream-chunk", {
+        chunk: `Error: ${errorMessage}`,
+        type: "error",
+        sessionId,
+      });
+    }
     return {
       text: "",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      error: errorMessage,
     };
   }
 };
