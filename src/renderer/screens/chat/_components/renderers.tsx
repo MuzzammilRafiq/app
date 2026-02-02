@@ -516,7 +516,7 @@ export function TerminalConfirmationRenderer({
   return (
     <div className="border border-border rounded-md p-2 bg-surface/50">
       <div className="flex items-center gap-2">
-        <code className="flex-1 font-mono text-xs text-text-main truncate">
+        <code className="flex-1 font-mono text-xs text-text-main whitespace-pre-wrap break-all">
           $ {data.command}
         </code>
         {data.status === "allowed" && (
