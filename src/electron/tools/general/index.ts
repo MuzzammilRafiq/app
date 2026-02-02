@@ -43,7 +43,7 @@ Do not wrap the output in \`\`\`markdown\`\`\`.`;
     const result = streamText({
       model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
       system,
-      prompt: chatHistory,
+      messages: chatHistory,
       abortSignal: signal,
     });
 

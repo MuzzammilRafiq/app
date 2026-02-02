@@ -12,11 +12,8 @@ export const stream = async (
   signal?: AbortSignal,
 ) => {
   try {
-    LOG(TAG).INFO(JSON_PRINT(config));
     const filteredMessages = messages.filter(
-      (msg) =>
-        msg.type === "user" ||
-        (msg.type === "stream" && msg.role !== "execution"),
+      (msg) => msg.type === "user" || msg.type === "general",
     );
 
     // Safety check for empty messages
@@ -43,8 +40,6 @@ export const stream = async (
     // No need to slice again - just spread the remaining messages
     const updatedMessages = [...filteredMessages, lastUserMessage];
     const sessionId = lastUserMessage.sessionId;
-
-    LOG(TAG).INFO(`Starting orchestration for session ${sessionId}`);
 
     // Delegate to orchestrator for plan generation and execution
     const scopedEvent = { ...event, sessionId };

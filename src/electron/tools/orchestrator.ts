@@ -107,7 +107,7 @@ async function generatePlan(
       model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
       abortSignal: signal,
       system: SYSTEM_PROMPT_PLANNER,
-      prompt: chatHistory,
+      messages: chatHistory,
     });
 
     const buffer = new StreamChunkBuffer(event.sender, sessionId);
@@ -191,7 +191,6 @@ async function generatePlan(
       action: s.action,
       status: "pending" as const,
     }));
-    LOG(TAG).INFO(`Generated plan with ${steps.length} steps`);
     return { steps };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -242,7 +241,6 @@ export async function orchestrate(
   config: any,
   signal?: AbortSignal,
 ): Promise<{ text: string; error?: string }> {
-  LOG(TAG).INFO("Starting orchestration");
   const planResult = await generatePlan(
     messages,
     apiKey,
@@ -308,8 +306,6 @@ export async function orchestrate(
   for (let i = 0; i < steps.length; i++) {
     // Check cancellation before starting step
     if (signal?.aborted) {
-      LOG(TAG).INFO("Orchestration aborted by user");
-      // Optionally throw to stop completely
       throw new DOMException("Aborted", "AbortError");
     }
 
@@ -396,7 +392,6 @@ export async function orchestrate(
   }
 
   context.done = true;
-  LOG(TAG).INFO("Orchestration complete");
 
   return { text: finalOutput };
 }
