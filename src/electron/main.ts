@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow, globalShortcut, Tray, Menu } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -14,6 +14,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 
 function createWindow(): BrowserWindow {
   if (mainWindow) {
@@ -68,7 +70,48 @@ function createWindow(): BrowserWindow {
     mainWindow = null;
   });
 
+  // Handle window close - hide instead of close when tray is active (macOS)
+  mainWindow.on("close", (event) => {
+    if (process.platform === "darwin" && !isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   return mainWindow;
+}
+
+function createTray(): void {
+  const iconPath = path.join(
+    app.isPackaged ? process.resourcesPath : path.join(__dirname, "..", ".."),
+    "resources",
+    "icons",
+    "trayTemplate.png",
+  );
+  tray = new Tray(iconPath);
+  tray.setToolTip("Open Desktop");
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Show",
+      click: () => {
+        createWindow();
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Quit",
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => {
+    createWindow();
+  });
 }
 
 app.whenReady().then(() => {
@@ -80,6 +123,7 @@ app.whenReady().then(() => {
   setupWindowHandlers();
   setupAutomationHandlers();
   createWindow();
+  createTray();
 });
 
 app.on("activate", () => {

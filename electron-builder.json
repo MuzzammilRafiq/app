@@ -4,5 +4,6 @@
   "productName": "My App",
   "mac": {
     "target": ["dmg"]
-  }
+  },
+  "extraResources": ["resources/**/*"]
 }
