@@ -1,13 +1,29 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pillow_heif import register_heif_opener
-from routes import image_router, text_router, web_search_router, automation_router
+from routes import (
+    image_router,
+    text_router,
+    web_search_router,
+    automation_router,
+    audio_router,
+)
 
 
 register_heif_opener()
 
 # -------------routes--------------------
 app = FastAPI()
+
+# Enable CORS for all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
@@ -19,6 +35,7 @@ app.include_router(image_router)
 app.include_router(text_router)
 app.include_router(web_search_router)
 app.include_router(automation_router)
+app.include_router(audio_router)
 
 
 @app.get("/help")
@@ -212,6 +229,49 @@ async def help_routes():
                         "duration_ms": "int (required) - Duration to sleep in milliseconds"
                     },
                     "returns": {"status": "string", "slept_ms": "int"},
+                },
+            },
+            "audio": {
+                "POST /audio/start": {
+                    "description": "Start audio recording and transcription session",
+                    "expects": "No parameters",
+                    "returns": {
+                        "status": "string - 'recording'",
+                        "session_id": "string - Unique session identifier",
+                        "message": "string - Status message",
+                    },
+                },
+                "POST /audio/stop": {
+                    "description": "Stop audio recording and get all transcriptions",
+                    "expects": "No parameters",
+                    "returns": {
+                        "status": "string - 'stopped'",
+                        "session_id": "string - Session identifier",
+                        "transcriptions": "list - All transcribed text segments with timestamps",
+                    },
+                },
+                "GET /audio/status": {
+                    "description": "Check current recording status",
+                    "expects": "No parameters",
+                    "returns": {
+                        "status": "string - 'active' or 'idle'",
+                        "session_id": "string|null - Active session ID if recording",
+                        "is_recording": "bool - Whether currently recording",
+                        "transcription_count": "int - Number of transcriptions so far",
+                    },
+                },
+                "WebSocket /audio/stream": {
+                    "description": "Real-time streaming transcription via WebSocket",
+                    "expects": "WebSocket connection",
+                    "notes": "Auto-starts recording on connect. Send 'stop' message to end.",
+                    "returns": {
+                        "type": "transcription",
+                        "data": {
+                            "text": "string - Transcribed text",
+                            "timestamp": "string - ISO timestamp",
+                            "is_final": "bool - Whether transcription is final",
+                        },
+                    },
                 },
             },
         },
