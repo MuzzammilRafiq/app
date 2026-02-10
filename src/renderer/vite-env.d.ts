@@ -335,6 +335,41 @@ interface Window {
     ) => Promise<{ success: boolean; error: string | null; results: any }>;
 
     /**
+     * Transcription API: start microphone listening via Electron main process.
+     */
+    transcriptionStartListening: (config?: {
+      vad_threshold?: number;
+      pre_roll_seconds?: number;
+      silence_timeout?: number;
+      max_chunk_duration?: number;
+    }) => Promise<{
+      success: boolean;
+      error: string | null;
+      data: {
+        status: string;
+        session_id: string;
+        message: string;
+      } | null;
+    }>;
+
+    /**
+     * Transcription API: stop listening and return captured transcriptions.
+     */
+    transcriptionStopListening: () => Promise<{
+      success: boolean;
+      error: string | null;
+      data: {
+        status: string;
+        session_id: string;
+        transcriptions: Array<{
+          text: string;
+          timestamp: string;
+          is_final: boolean;
+        }>;
+      } | null;
+    }>;
+
+    /**
      * Database API: create a new chat session
      */
     dbCreateSession: (

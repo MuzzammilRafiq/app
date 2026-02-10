@@ -31,10 +31,8 @@ export default function MeetScreen() {
     error: audioError,
     isConnecting,
     isRecording,
-    isPaused,
     startRecording,
     stopRecording,
-    toggleRecording: toggleAudioRecording,
   } = useAudioTranscription();
 
   // Handle new session callback from sidebar/App
@@ -58,11 +56,11 @@ export default function MeetScreen() {
         if (!prev) return null;
         return {
           ...prev,
-          isRecording: isRecording && !isPaused,
+          isRecording: isRecording,
         };
       });
     }
-  }, [isRecording, isPaused]);
+  }, [isRecording]);
 
   // Sync audio transcriptions to session
   useEffect(() => {
@@ -166,10 +164,6 @@ export default function MeetScreen() {
     setConnectionError(null);
   }, [timerInterval, stopRecording]);
 
-  const handleToggleRecording = async () => {
-    await toggleAudioRecording();
-  };
-
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-bg-app w-full max-w-6xl mx-auto">
       {/* Connection Error Banner */}
@@ -195,9 +189,7 @@ export default function MeetScreen() {
                   ? "bg-yellow-500 animate-pulse"
                   : isRecording
                     ? "bg-red-500 animate-pulse"
-                    : isPaused
-                      ? "bg-yellow-500"
-                      : "bg-gray-400"
+                    : "bg-gray-400"
               }`}
             />
             <span className="text-text-muted">
@@ -205,9 +197,7 @@ export default function MeetScreen() {
                 ? "Connecting to audio service..."
                 : isRecording
                   ? "Recording in progress"
-                  : isPaused
-                    ? "Recording paused"
-                    : "Initializing..."}
+                  : "Initializing..."}
             </span>
             {sessionId && (
               <span className="text-text-muted/50">
@@ -225,7 +215,6 @@ export default function MeetScreen() {
         <MeetingPanel
           session={activeSession}
           onEndSession={handleEndSession}
-          onToggleRecording={handleToggleRecording}
           isConnecting={isConnecting}
         />
       ) : (
