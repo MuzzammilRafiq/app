@@ -1,213 +1,32 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
-import threading
-import queue
-import time
-import numpy as np
 import io
+import threading
+import time
 import wave
-from faster_whisper import WhisperModel
-import webrtcvad
-import pyaudio
-from typing import Optional, Dict, Any, List
-from logger import log_info, log_error, log_warning
-import asyncio
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+import pyaudio
+from faster_whisper import WhisperModel
+from fastapi import APIRouter, Body, HTTPException
+from logger import log_error, log_info, log_warning
+from pydantic import BaseModel, Field
 
 audio_router = APIRouter()
 
 
-# Global state
-class AudioSession:
-    def __init__(self):
-        self.is_recording = False
-        self.audio_queue = queue.Queue()
-        self.transcriptions: List[Dict[str, Any]] = []
-        self.thread: Optional[threading.Thread] = None
-        self.stop_event = threading.Event()
-        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+SAMPLE_RATE = 16000
+BYTES_PER_SAMPLE = 2  # int16 mono
+BYTES_PER_SECOND = SAMPLE_RATE * BYTES_PER_SAMPLE
+READ_INTERVAL_SECONDS = 0.1
+DEFAULT_TRANSCRIPTION_LANGUAGE = "en"
 
 
-# Singleton session manager
-class SessionManager:
-    def __init__(self):
-        self.sessions: Dict[str, AudioSession] = {}
-        self.model: Optional[WhisperModel] = None
-        self.vad: Optional[webrtcvad.Vad] = None
-
-    def get_or_create_model(self) -> WhisperModel:
-        if self.model is None:
-            log_info("Loading Whisper model (small.en)...")
-            self.model = WhisperModel("small.en", compute_type="int8")
-            log_info("Whisper model loaded successfully")
-        return self.model
-
-    def get_or_create_vad(self) -> webrtcvad.Vad:
-        if self.vad is None:
-            self.vad = webrtcvad.Vad(2)  # Aggressiveness 0-3, 2 is balanced
-        return self.vad
-
-    def create_session(self) -> AudioSession:
-        session = AudioSession()
-        self.sessions[session.session_id] = session
-        return session
-
-    def get_session(self, session_id: str) -> Optional[AudioSession]:
-        return self.sessions.get(session_id)
-
-    def remove_session(self, session_id: str):
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-
-
-session_manager = SessionManager()
-
-# Audio configuration
-CHUNK_DURATION = 5  # seconds
-SAMPLE_RATE = 16000  # 16kHz required by webrtcvad
-FRAME_DURATION_MS = 30  # 30ms frames for VAD
-CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION)
-
-
-def has_speech(audio_bytes: bytes, vad: webrtcvad.Vad) -> bool:
-    """Check if audio chunk contains speech using VAD."""
-    frame_duration = FRAME_DURATION_MS
-    frame_bytes = int(SAMPLE_RATE * frame_duration / 1000) * 2  # 16-bit = 2 bytes
-
-    # Process frames
-    offset = 0
-    speech_frames = 0
-    total_frames = 0
-
-    while offset + frame_bytes <= len(audio_bytes):
-        frame = audio_bytes[offset : offset + frame_bytes]
-        try:
-            is_speech = vad.is_speech(frame, SAMPLE_RATE)
-            if is_speech:
-                speech_frames += 1
-            total_frames += 1
-        except:
-            pass
-        offset += frame_bytes
-
-    # Require at least 20% of frames to have speech
-    if total_frames == 0:
-        return False
-    return (speech_frames / total_frames) > 0.2
-
-
-def transcribe_audio(audio_bytes: bytes, model: WhisperModel) -> Optional[str]:
-    """Transcribe audio bytes using Whisper."""
-    try:
-        # Convert to WAV format in memory
-        wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)  # Mono
-            wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(SAMPLE_RATE)
-            wav_file.writeframes(audio_bytes)
-
-        wav_buffer.seek(0)
-
-        # Transcribe
-        segments, info = model.transcribe(
-            wav_buffer, language="en", condition_on_previous_text=True
-        )
-
-        text_parts = []
-        for segment in segments:
-            text_parts.append(segment.text)
-
-        result = " ".join(text_parts).strip()
-        return result if result else None
-
-    except Exception as e:
-        log_error(f"Transcription error: {e}")
-        return None
-
-
-def record_audio_thread(
-    session: AudioSession,
-    session_manager: SessionManager,
-    model: Optional[WhisperModel],
-    vad: Optional[webrtcvad.Vad],
-):
-    """Background thread for recording audio."""
-    log_info(f"Starting audio recording thread for session {session.session_id}")
-
-    # Lazy load model and VAD inside the thread
-    if model is None:
-        model = session_manager.get_or_create_model()
-    if vad is None:
-        vad = session_manager.get_or_create_vad()
-
-    p = pyaudio.PyAudio()
-    stream = None
-
-    try:
-        stream = p.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=SAMPLE_RATE,
-            input=True,
-            frames_per_buffer=int(SAMPLE_RATE * 0.1),  # 100ms buffer
-        )
-
-        log_info("Audio stream opened successfully")
-
-        buffer = bytearray()
-        chunk_target = CHUNK_SIZE * 2  # 16-bit = 2 bytes per sample
-
-        while not session.stop_event.is_set():
-            try:
-                # Read audio data (timeout to allow checking stop_event)
-                data = stream.read(int(SAMPLE_RATE * 0.1), exception_on_overflow=False)
-                buffer.extend(data)
-
-                # Process when we have enough data
-                while len(buffer) >= chunk_target:
-                    chunk = bytes(buffer[:chunk_target])
-                    buffer = buffer[chunk_target:]
-
-                    # Check for speech using VAD
-                    if has_speech(chunk, vad):
-                        log_info(
-                            f"Speech detected in session {session.session_id}, transcribing..."
-                        )
-                        text = transcribe_audio(chunk, model)
-
-                        if text:
-                            transcription = {
-                                "text": text,
-                                "timestamp": datetime.now().isoformat(),
-                                "is_final": True,
-                            }
-                            session.transcriptions.append(transcription)
-                            session.audio_queue.put(transcription)
-                            log_info(f"Transcription: {text[:50]}...")
-                    else:
-                        log_info(
-                            f"No speech detected in session {session.session_id}, skipping..."
-                        )
-
-            except Exception as e:
-                log_error(f"Error in recording loop: {e}")
-                time.sleep(0.1)
-
-    except Exception as e:
-        log_error(f"Error opening audio stream: {e}")
-    finally:
-        if stream is not None:
-            try:
-                stream.stop_stream()
-                stream.close()
-            except:
-                pass
-        p.terminate()
-        log_info(f"Audio recording thread stopped for session {session.session_id}")
-
-
-# HTTP Endpoints
+class StartListeningRequest(BaseModel):
+    vad_threshold: float = Field(default=0.013, ge=0.0, le=1.0)
+    pre_roll_seconds: float = Field(default=0.5, gt=0.0)
+    silence_timeout: float = Field(default=0.3, gt=0.0)
+    max_chunk_duration: float = Field(default=5.0, gt=0.0)
 
 
 class StartResponse(BaseModel):
@@ -222,39 +41,232 @@ class StopResponse(BaseModel):
     transcriptions: List[Dict[str, Any]]
 
 
-class StatusResponse(BaseModel):
-    status: str
-    session_id: Optional[str]
-    is_recording: bool
-    transcription_count: int
+class AudioSession:
+    def __init__(self, config: StartListeningRequest):
+        self.is_recording = False
+        self.config = config
+        self.transcriptions: List[Dict[str, Any]] = []
+        self.thread: Optional[threading.Thread] = None
+        self.stop_event = threading.Event()
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
 
-@audio_router.post("/audio/start", response_model=StartResponse)
-async def start_recording():
-    """Start audio recording session."""
-    # Stop any existing recording
+class SessionManager:
+    def __init__(self):
+        self.sessions: Dict[str, AudioSession] = {}
+        self.model: Optional[WhisperModel] = None
+
+    def get_or_create_model(self) -> WhisperModel:
+        if self.model is None:
+            log_info("Loading Whisper model (small.en)...")
+            self.model = WhisperModel("small.en", compute_type="int8")
+            log_info("Whisper model loaded successfully")
+        return self.model
+
+    def create_session(self, config: StartListeningRequest) -> AudioSession:
+        session = AudioSession(config)
+        self.sessions[session.session_id] = session
+        return session
+
+    def remove_session(self, session_id: str):
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+
+
+session_manager = SessionManager()
+
+
+class CircularBuffer:
+    """Fixed-size circular buffer for pre-roll audio."""
+
+    def __init__(self, duration_seconds: float, sample_rate: int = SAMPLE_RATE):
+        self.max_samples = int(duration_seconds * sample_rate)
+        self.bytes_per_sample = BYTES_PER_SAMPLE
+        self.buffer = bytearray()
+
+    def add(self, chunk: bytes):
+        self.buffer.extend(chunk)
+        max_bytes = self.max_samples * self.bytes_per_sample
+        if len(self.buffer) > max_bytes:
+            self.buffer = self.buffer[-max_bytes:]
+
+    def get_all(self) -> bytes:
+        return bytes(self.buffer)
+
+    def clear(self):
+        self.buffer.clear()
+
+
+def detect_voice_activity(samples: np.ndarray, threshold: float) -> bool:
+    """Detect if audio samples contain voice activity using RMS energy."""
+    if samples.size == 0:
+        return False
+    normalized = samples.astype(np.float32) / 32768.0
+    rms = float(np.sqrt(np.mean(normalized**2)))
+    return rms > threshold
+
+
+def transcribe_audio(audio_bytes: bytes, model: WhisperModel) -> Optional[str]:
+    """Transcribe audio bytes using Whisper."""
+    try:
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(BYTES_PER_SAMPLE)
+            wav_file.setframerate(SAMPLE_RATE)
+            wav_file.writeframes(audio_bytes)
+
+        wav_buffer.seek(0)
+
+        segments, _ = model.transcribe(
+            wav_buffer,
+            language=DEFAULT_TRANSCRIPTION_LANGUAGE,
+            condition_on_previous_text=True,
+        )
+
+        text_parts = []
+        for segment in segments:
+            text_parts.append(segment.text)
+
+        result = " ".join(text_parts).strip()
+        return result if result else None
+    except Exception as exc:
+        log_error(f"Transcription error: {exc}")
+        return None
+
+
+def add_transcription(session: AudioSession, text: str):
+    transcription = {
+        "text": text,
+        "timestamp": datetime.now().isoformat(),
+        "is_final": True,
+    }
+    session.transcriptions.append(transcription)
+    log_info(f"Transcription: {text[:50]}...")
+
+
+def process_speech_chunk(session: AudioSession, model: WhisperModel, chunk: bytes):
+    text = transcribe_audio(chunk, model)
+    if text:
+        add_transcription(session, text)
+
+
+def record_audio_thread(session: AudioSession, model: WhisperModel):
+    """Background thread for microphone capture and VAD-driven transcription."""
+    log_info(f"Starting audio recording thread for session {session.session_id}")
+
+    p = pyaudio.PyAudio()
+    stream = None
+
+    try:
+        stream = p.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=SAMPLE_RATE,
+            input=True,
+            frames_per_buffer=max(1, int(SAMPLE_RATE * READ_INTERVAL_SECONDS)),
+        )
+
+        config = session.config
+        pre_roll = CircularBuffer(config.pre_roll_seconds, SAMPLE_RATE)
+        current_chunk = bytearray()
+        speech_active = False
+        silence_duration = 0.0
+        chunk_duration = 0.0
+        frames_per_read = max(1, int(SAMPLE_RATE * READ_INTERVAL_SECONDS))
+
+        while not session.stop_event.is_set():
+            try:
+                audio_bytes = stream.read(frames_per_read, exception_on_overflow=False)
+                chunk_seconds = len(audio_bytes) / BYTES_PER_SECOND
+                audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+
+                pre_roll.add(audio_bytes)
+                has_voice = detect_voice_activity(audio_array, config.vad_threshold)
+
+                if has_voice:
+                    if not speech_active:
+                        speech_active = True
+                        current_chunk = bytearray(pre_roll.get_all())
+                        chunk_duration = len(current_chunk) / BYTES_PER_SECOND
+                        silence_duration = 0.0
+
+                    current_chunk.extend(audio_bytes)
+                    chunk_duration += chunk_seconds
+                    silence_duration = 0.0
+
+                    if chunk_duration >= config.max_chunk_duration:
+                        process_speech_chunk(session, model, bytes(current_chunk))
+                        current_chunk = bytearray()
+                        chunk_duration = 0.0
+                        silence_duration = 0.0
+                elif speech_active:
+                    current_chunk.extend(audio_bytes)
+                    chunk_duration += chunk_seconds
+                    silence_duration += chunk_seconds
+
+                    if (
+                        silence_duration >= config.silence_timeout
+                        or chunk_duration >= config.max_chunk_duration
+                    ):
+                        process_speech_chunk(session, model, bytes(current_chunk))
+                        current_chunk = bytearray()
+                        chunk_duration = 0.0
+                        silence_duration = 0.0
+                        speech_active = False
+                        pre_roll.clear()
+            except Exception as exc:
+                log_error(f"Error in recording loop: {exc}")
+                time.sleep(0.1)
+
+        if speech_active and current_chunk:
+            process_speech_chunk(session, model, bytes(current_chunk))
+    except Exception as exc:
+        log_error(f"Error opening audio stream: {exc}")
+    finally:
+        if stream is not None:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception:
+                pass
+        p.terminate()
+        log_info(f"Audio recording thread stopped for session {session.session_id}")
+
+
+def get_active_session() -> tuple[Optional[str], Optional[AudioSession]]:
+    for sid, sess in list(session_manager.sessions.items()):
+        if sess.is_recording:
+            return sid, sess
+    return None, None
+
+
+def create_and_start_session(config: StartListeningRequest) -> AudioSession:
     for sid, sess in list(session_manager.sessions.items()):
         if sess.is_recording:
             log_warning(f"Stopping existing session {sid}")
             sess.stop_event.set()
+            sess.is_recording = False
             if sess.thread and sess.thread.is_alive():
                 sess.thread.join(timeout=2)
             session_manager.remove_session(sid)
 
-    # Create new session
-    session = session_manager.create_session()
+    session = session_manager.create_session(config)
     session.is_recording = True
 
-    # Start recording thread (model will be loaded inside the thread)
+    model = session_manager.get_or_create_model()
     session.thread = threading.Thread(
         target=record_audio_thread,
-        args=(session, session_manager, None, None),
+        args=(session, model),
         daemon=True,
     )
     session.thread.start()
+    return session
 
+
+def start_session(config: StartListeningRequest) -> StartResponse:
+    session = create_and_start_session(config)
     log_info(f"Started recording session: {session.session_id}")
-
     return StartResponse(
         status="recording",
         session_id=session.session_id,
@@ -262,151 +274,39 @@ async def start_recording():
     )
 
 
-@audio_router.post("/audio/stop", response_model=StopResponse)
-async def stop_recording():
-    """Stop audio recording session."""
-    # Find active session
-    active_session = None
-    active_id: str = ""
-
-    for sid, sess in session_manager.sessions.items():
-        if sess.is_recording:
-            active_session = sess
-            active_id = sid
-            break
-
+def stop_active_session() -> StopResponse:
+    active_id, active_session = get_active_session()
     if not active_session or not active_id:
         log_warning("No active recording session found")
         raise HTTPException(status_code=404, detail="No active recording session")
 
-    # At this point, active_id is guaranteed to be a non-empty string
-    session_id: str = active_id
-
-    # Stop recording
+    session_id = active_id
     active_session.stop_event.set()
     active_session.is_recording = False
 
     if active_session.thread and active_session.thread.is_alive():
         active_session.thread.join(timeout=5)
 
-    log_info(f"Stopped recording session: {session_id}")
-
-    # Prepare response
     transcriptions = active_session.transcriptions.copy()
-
-    # Cleanup
     session_manager.remove_session(session_id)
 
+    log_info(f"Stopped recording session: {session_id}")
     return StopResponse(
-        status="stopped", session_id=session_id, transcriptions=transcriptions
+        status="stopped",
+        session_id=session_id,
+        transcriptions=transcriptions,
     )
 
 
-@audio_router.get("/audio/status", response_model=StatusResponse)
-async def get_status():
-    """Get current recording status."""
-    for sid, sess in session_manager.sessions.items():
-        if sess.is_recording:
-            return StatusResponse(
-                status="active",
-                session_id=sid,
-                is_recording=True,
-                transcription_count=len(sess.transcriptions),
-            )
-
-    return StatusResponse(
-        status="idle", session_id=None, is_recording=False, transcription_count=0
-    )
+@audio_router.post("/transcription/start-listening", response_model=StartResponse)
+async def start_listening(
+    config: Optional[StartListeningRequest] = Body(default=None),
+):
+    """Start microphone listening/transcription session."""
+    return start_session(config or StartListeningRequest())
 
 
-# WebSocket Endpoint
-
-
-@audio_router.websocket("/audio/stream")
-async def websocket_stream(websocket: WebSocket):
-    """WebSocket endpoint for real-time transcription streaming."""
-    await websocket.accept()
-    log_info("WebSocket connection established")
-
-    # Start recording if not already
-    session = None
-    for sid, sess in session_manager.sessions.items():
-        if sess.is_recording:
-            session = sess
-            break
-
-    if not session:
-        # Auto-start recording (model will be loaded in thread)
-        session = session_manager.create_session()
-        session.is_recording = True
-        session.thread = threading.Thread(
-            target=record_audio_thread,
-            args=(session, session_manager, None, None),
-            daemon=True,
-        )
-        session.thread.start()
-        await websocket.send_json(
-            {"type": "status", "status": "started", "session_id": session.session_id}
-        )
-
-    sent_count = 0
-    try:
-        # Stream transcriptions
-        while session.is_recording:
-            # Check for new transcriptions
-            while sent_count < len(session.transcriptions):
-                transcription = session.transcriptions[sent_count]
-                await websocket.send_json(
-                    {"type": "transcription", "data": transcription}
-                )
-                sent_count += 1
-
-            # Small delay to prevent busy-waiting
-            await asyncio.sleep(0.1)
-
-            # Check for stop command from client
-            try:
-                message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
-                if message == "stop":
-                    break
-            except asyncio.TimeoutError:
-                pass
-
-    except WebSocketDisconnect:
-        log_info("WebSocket disconnected")
-    except Exception as e:
-        log_error(f"WebSocket error: {e}")
-    finally:
-        # Cleanup
-        if session and session.is_recording:
-            session.stop_event.set()
-            session.is_recording = False
-            if session.thread and session.thread.is_alive():
-                session.thread.join(timeout=2)
-
-            # Send final transcriptions
-            try:
-                final_transcriptions = session.transcriptions[sent_count:]
-                for transcription in final_transcriptions:
-                    try:
-                        await websocket.send_json(
-                            {"type": "transcription", "data": transcription}
-                        )
-                    except:
-                        break
-            except NameError:
-                pass  # sent_count not defined yet
-
-            if session.session_id:
-                session_manager.remove_session(session.session_id)
-
-        try:
-            await websocket.close()
-        except:
-            pass
-
-        log_info("WebSocket connection closed")
-
-
-# Import HTTPException for error handling
-from fastapi import HTTPException
+@audio_router.post("/transcription/stop-listening", response_model=StopResponse)
+async def stop_listening():
+    """Stop listening and return captured transcription segments."""
+    return stop_active_session()

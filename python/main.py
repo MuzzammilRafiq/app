@@ -231,46 +231,28 @@ async def help_routes():
                     "returns": {"status": "string", "slept_ms": "int"},
                 },
             },
-            "audio": {
-                "POST /audio/start": {
-                    "description": "Start audio recording and transcription session",
-                    "expects": "No parameters",
+            "transcription": {
+                "POST /transcription/start-listening": {
+                    "description": "Start microphone listening with configurable VAD settings",
+                    "expects": {
+                        "vad_threshold": "float (optional, default: 0.013) - Voice activity threshold (0.0 to 1.0)",
+                        "pre_roll_seconds": "float (optional, default: 0.5) - Audio pre-roll to include before speech starts",
+                        "silence_timeout": "float (optional, default: 0.3) - Silence duration before finalizing a segment",
+                        "max_chunk_duration": "float (optional, default: 5.0) - Max duration per transcription segment",
+                    },
                     "returns": {
                         "status": "string - 'recording'",
                         "session_id": "string - Unique session identifier",
                         "message": "string - Status message",
                     },
                 },
-                "POST /audio/stop": {
-                    "description": "Stop audio recording and get all transcriptions",
+                "POST /transcription/stop-listening": {
+                    "description": "Stop listening and return captured transcription segments",
                     "expects": "No parameters",
                     "returns": {
                         "status": "string - 'stopped'",
                         "session_id": "string - Session identifier",
                         "transcriptions": "list - All transcribed text segments with timestamps",
-                    },
-                },
-                "GET /audio/status": {
-                    "description": "Check current recording status",
-                    "expects": "No parameters",
-                    "returns": {
-                        "status": "string - 'active' or 'idle'",
-                        "session_id": "string|null - Active session ID if recording",
-                        "is_recording": "bool - Whether currently recording",
-                        "transcription_count": "int - Number of transcriptions so far",
-                    },
-                },
-                "WebSocket /audio/stream": {
-                    "description": "Real-time streaming transcription via WebSocket",
-                    "expects": "WebSocket connection",
-                    "notes": "Auto-starts recording on connect. Send 'stop' message to end.",
-                    "returns": {
-                        "type": "transcription",
-                        "data": {
-                            "text": "string - Transcribed text",
-                            "timestamp": "string - ISO timestamp",
-                            "is_final": "bool - Whether transcription is final",
-                        },
                     },
                 },
             },
