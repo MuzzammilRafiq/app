@@ -1,0 +1,19 @@
+[package]
+name = "ww"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+axum = "0.7"
+clap = { version = "4.5", features = ["derive"] }
+env_logger = "0.11"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "sync"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["limit"] }
+transcribe-rs = { version = "0.2.2", features = ["parakeet"] }
+whisper-rs = { version = "0.13", features = ["metal", "whisper-cpp-log"] }
+
+[dev-dependencies]
