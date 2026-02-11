@@ -27,6 +27,18 @@ type StopListeningData = {
   }>;
 };
 
+type TranscriptionStatusData = {
+  status: string;
+  session_id: string | null;
+  is_recording: boolean;
+  transcription_count: number;
+  transcriptions: Array<{
+    text: string;
+    timestamp: string;
+    is_final: boolean;
+  }>;
+};
+
 async function parseError(response: Response): Promise<string> {
   try {
     const json = await response.json();
@@ -95,6 +107,34 @@ export function setupTranscriptionHandlers() {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       LOG(TAG).ERROR("stop-listening failed:", errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        data: null,
+      };
+    }
+  });
+
+  ipcMain.handle("transcription:status", async () => {
+    try {
+      const response = await fetch(`${URL}/transcription/status`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error(await parseError(response));
+      }
+
+      const data: TranscriptionStatusData = await response.json();
+      return {
+        success: true,
+        error: null,
+        data,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      LOG(TAG).ERROR("status failed:", errorMessage);
       return {
         success: false,
         error: errorMessage,

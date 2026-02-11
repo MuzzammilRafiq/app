@@ -88,14 +88,19 @@ export function useAudioTranscription() {
       } else {
         const data = response.data;
         if (data.transcriptions) {
+          let mergedResult: TranscriptionMessage[] = transcriptions;
           // Merge any missed transcriptions
           setTranscriptions((prev) => {
             const existingIds = new Set(prev.map((t) => t.timestamp));
             const newTranscriptions = data.transcriptions.filter(
               (t: TranscriptionMessage) => !existingIds.has(t.timestamp),
             );
-            return [...prev, ...newTranscriptions];
+            mergedResult = [...prev, ...newTranscriptions];
+            return mergedResult;
           });
+          setStatus("idle");
+          setSessionId(null);
+          return mergedResult;
         }
       }
     } catch (err) {
@@ -112,6 +117,54 @@ export function useAudioTranscription() {
   const statusRef = useRef(status);
   useEffect(() => {
     statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "recording") {
+      return;
+    }
+
+    let disposed = false;
+
+    const pollStatus = async () => {
+      try {
+        if (!window.electronAPI?.transcriptionStatus) {
+          return;
+        }
+        const response = await window.electronAPI.transcriptionStatus();
+        if (!response.success || !response.data || disposed) {
+          return;
+        }
+
+        const serverTranscriptions = response.data.transcriptions ?? [];
+        if (serverTranscriptions.length === 0) {
+          return;
+        }
+
+        setTranscriptions((prev) => {
+          const existingIds = new Set(prev.map((t) => t.timestamp));
+          const newTranscriptions = serverTranscriptions.filter(
+            (t: TranscriptionMessage) => !existingIds.has(t.timestamp),
+          );
+          if (newTranscriptions.length === 0) {
+            return prev;
+          }
+          return [...prev, ...newTranscriptions];
+        });
+      } catch (err) {
+        console.error("[Audio] Poll status failed:", err);
+      }
+    };
+
+    void pollStatus();
+    const timer = setInterval(() => {
+      void pollStatus();
+    }, 800);
+
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
   }, [status]);
 
   // Cleanup on unmount only - empty dependency array ensures this only runs once

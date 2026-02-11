@@ -123,7 +123,7 @@ export default function MeetingPanel({
                 </div>
               ) : (
                 session.transcription.map((line, index) => (
-                  <div key={index} className="flex gap-3">
+                  <div key={`${line.sourceTimestamp}-${index}`} className="flex gap-3">
                     <span className="text-xs text-text-muted shrink-0 w-12">
                       {line.timestamp}
                     </span>
@@ -147,7 +147,7 @@ export default function MeetingPanel({
                 disabled={isConnecting}
                 className="px-6 py-2.5 rounded-full border border-border hover:bg-surface text-text-main font-medium text-sm transition-all duration-200"
               >
-                End Session
+                {session.isRecording ? "End Session" : "New Session"}
               </button>
             </div>
 

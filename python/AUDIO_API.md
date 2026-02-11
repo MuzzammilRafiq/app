@@ -1,6 +1,6 @@
 # Audio Transcription API
 
-Microphone-only transcription API with two control endpoints.
+Microphone-only transcription API with start/stop controls and a status endpoint for live UI updates.
 
 ## Endpoints
 
@@ -43,6 +43,30 @@ Response:
 {
   "status": "stopped",
   "session_id": "20260210_123456_789012",
+  "transcriptions": [
+    {
+      "text": "Hello world this is a test",
+      "timestamp": "2026-02-10T12:34:56.789012",
+      "is_final": true
+    }
+  ]
+}
+```
+
+### Status (Live Updates)
+
+```bash
+GET /transcription/status
+```
+
+Response:
+
+```json
+{
+  "status": "recording",
+  "session_id": "20260210_123456_789012",
+  "is_recording": true,
+  "transcription_count": 3,
   "transcriptions": [
     {
       "text": "Hello world this is a test",

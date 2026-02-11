@@ -123,6 +123,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   }) => ipcRenderer.invoke("transcription:start-listening", config),
   transcriptionStopListening: () =>
     ipcRenderer.invoke("transcription:stop-listening"),
+  transcriptionStatus: () => ipcRenderer.invoke("transcription:status"),
 
   //-------------------------database service APIs-----------------------------
   dbCreateSession: (title: string, id?: string) =>

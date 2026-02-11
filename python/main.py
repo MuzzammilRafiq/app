@@ -255,6 +255,17 @@ async def help_routes():
                         "transcriptions": "list - All transcribed text segments with timestamps",
                     },
                 },
+                "GET /transcription/status": {
+                    "description": "Get active listening status and current transcription segments",
+                    "expects": "No parameters",
+                    "returns": {
+                        "status": "string - 'recording' or 'idle'",
+                        "session_id": "string|null - Active session identifier",
+                        "is_recording": "bool - Whether recording is active",
+                        "transcription_count": "int - Number of segments currently captured",
+                        "transcriptions": "list - Current transcription segments",
+                    },
+                },
             },
         },
         "notes": {

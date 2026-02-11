@@ -41,6 +41,14 @@ class StopResponse(BaseModel):
     transcriptions: List[Dict[str, Any]]
 
 
+class StatusResponse(BaseModel):
+    status: str
+    session_id: Optional[str]
+    is_recording: bool
+    transcription_count: int
+    transcriptions: List[Dict[str, Any]]
+
+
 class AudioSession:
     def __init__(self, config: StartListeningRequest):
         self.is_recording = False
@@ -310,3 +318,25 @@ async def start_listening(
 async def stop_listening():
     """Stop listening and return captured transcription segments."""
     return stop_active_session()
+
+
+@audio_router.get("/transcription/status", response_model=StatusResponse)
+async def transcription_status():
+    """Get current listening status and transcriptions for live UI updates."""
+    session_id, active_session = get_active_session()
+    if not active_session or not session_id:
+        return StatusResponse(
+            status="idle",
+            session_id=None,
+            is_recording=False,
+            transcription_count=0,
+            transcriptions=[],
+        )
+
+    return StatusResponse(
+        status="recording",
+        session_id=session_id,
+        is_recording=True,
+        transcription_count=len(active_session.transcriptions),
+        transcriptions=active_session.transcriptions.copy(),
+    )

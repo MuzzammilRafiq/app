@@ -4,6 +4,7 @@ import MeetingPanel from "./_components/meeting-panel";
 import { useAudioTranscription } from "../../hooks/useAudioTranscription";
 
 export interface TranscriptionLine {
+  sourceTimestamp: string;
   timestamp: string;
   speaker: string;
   text: string;
@@ -34,6 +35,24 @@ export default function MeetScreen() {
     startRecording,
     stopRecording,
   } = useAudioTranscription();
+
+  const toSessionLines = useCallback(
+    (
+      items: Array<{ text: string; timestamp: string; is_final: boolean }>,
+    ): TranscriptionLine[] => {
+      return items.map((t) => ({
+        sourceTimestamp: t.timestamp,
+        timestamp: new Date(t.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        speaker: "Speaker",
+        text: t.text,
+      }));
+    },
+    [],
+  );
 
   // Handle new session callback from sidebar/App
   useEffect(() => {
@@ -67,25 +86,17 @@ export default function MeetScreen() {
     if (activeSession && audioTranscriptions.length > 0) {
       // Convert audio transcriptions to session format
       const newTranscriptionLines: TranscriptionLine[] =
-        audioTranscriptions.map((t) => ({
-          timestamp: new Date(t.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          }),
-          speaker: "Speaker", // Could be enhanced with speaker detection
-          text: t.text,
-        }));
+        toSessionLines(audioTranscriptions);
 
       setActiveSession((prev) => {
         if (!prev) return null;
 
         // Merge with existing, avoiding duplicates by timestamp
         const existingTimestamps = new Set(
-          prev.transcription.map((t) => t.timestamp),
+          prev.transcription.map((t) => t.sourceTimestamp),
         );
         const uniqueNewLines = newTranscriptionLines.filter(
-          (t) => !existingTimestamps.has(t.timestamp),
+          (t) => !existingTimestamps.has(t.sourceTimestamp),
         );
 
         if (uniqueNewLines.length === 0) return prev;
@@ -96,7 +107,7 @@ export default function MeetScreen() {
         };
       });
     }
-  }, [audioTranscriptions, activeSession]);
+  }, [audioTranscriptions, activeSession, toSessionLines]);
 
   // Handle audio errors
   useEffect(() => {
@@ -152,17 +163,39 @@ export default function MeetScreen() {
   };
 
   const handleEndSession = useCallback(async () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
+    if (isRecording) {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        setTimerInterval(null);
+      }
+
+      const finalTranscriptions = await stopRecording();
+      const finalLines = toSessionLines(finalTranscriptions);
+
+      setActiveSession((prev) => {
+        if (!prev) return null;
+
+        const existingTimestamps = new Set(
+          prev.transcription.map((t) => t.sourceTimestamp),
+        );
+        const uniqueNewLines = finalLines.filter(
+          (line) => !existingTimestamps.has(line.sourceTimestamp),
+        );
+
+        return {
+          ...prev,
+          isRecording: false,
+          transcription: [...prev.transcription, ...uniqueNewLines],
+        };
+      });
+      setConnectionError(null);
+      return;
     }
 
-    // Stop audio recording
-    await stopRecording();
-
+    // If already stopped, close this session view and go back to empty state.
     setActiveSession(null);
     setConnectionError(null);
-  }, [timerInterval, stopRecording]);
+  }, [isRecording, timerInterval, stopRecording, toSessionLines]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-bg-app w-full max-w-6xl mx-auto">
@@ -197,7 +230,7 @@ export default function MeetScreen() {
                 ? "Connecting to audio service..."
                 : isRecording
                   ? "Recording in progress"
-                  : "Initializing..."}
+                  : "Stopped"}
             </span>
             {sessionId && (
               <span className="text-text-muted/50">
