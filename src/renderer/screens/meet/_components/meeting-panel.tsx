@@ -1,258 +1,198 @@
-import { useState } from "react";
-import type { MeetSession } from "../index";
+import { useEffect, useRef } from "react";
+import AudioLevelMeter from "./audio-level-meter";
+import ModelLoadingIndicator from "./model-loading-indicator";
 
 interface MeetingPanelProps {
-  session: MeetSession;
-  onEndSession: () => void;
-  isConnecting?: boolean;
+  modelStatus: "not_loaded" | "loading" | "ready" | "error";
+  modelMessage: string;
+  fixedText: string;
+  activeText: string;
+  isRecording: boolean;
+  timestampSeconds: number;
+  audioLevel: number;
+  onLoadModel: () => Promise<void>;
+  onStartRecording: () => Promise<void>;
+  onStopRecording: () => Promise<void>;
+  onReset: () => Promise<void>;
+}
+
+function formatTimestamp(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function getModelLabel(status: MeetingPanelProps["modelStatus"]): string {
+  if (status === "ready") {
+    return "Ready";
+  }
+  if (status === "loading") {
+    return "Loading";
+  }
+  if (status === "error") {
+    return "Error";
+  }
+  return "Idle";
 }
 
 export default function MeetingPanel({
-  session,
-  onEndSession,
-  isConnecting = false,
+  modelStatus,
+  modelMessage,
+  fixedText,
+  activeText,
+  isRecording,
+  timestampSeconds,
+  audioLevel,
+  onLoadModel,
+  onStartRecording,
+  onStopRecording,
+  onReset,
 }: MeetingPanelProps) {
-  const [notes, setNotes] = useState("");
-  const [showAISuggestions, setShowAISuggestions] = useState(true);
-  const [showNotes, setShowNotes] = useState(true);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const hasText = fixedText.trim().length > 0 || activeText.trim().length > 0;
+  const modelReady = modelStatus === "ready";
+  const loadingModel = modelStatus === "loading";
 
-  // Mock AI suggestions for demonstration
-  const mockSuggestions = [
-    {
-      id: "1",
-      type: "action",
-      text: "Action item: Follow up on budget discussion",
-      timestamp: Date.now() - 300000,
-    },
-    {
-      id: "2",
-      type: "summary",
-      text: "Summary: Team agreed on Q4 priorities",
-      timestamp: Date.now() - 120000,
-    },
-    {
-      id: "3",
-      type: "question",
-      text: "Question: What's the deadline for the project?",
-      timestamp: Date.now() - 60000,
-    },
-  ];
+  useEffect(() => {
+    if (!contentRef.current) {
+      return;
+    }
+    contentRef.current.scrollTop = contentRef.current.scrollHeight;
+  }, [fixedText, activeText]);
 
   return (
-    <>
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Main transcription area */}
-        <div className="flex-1 flex flex-col p-4">
-          {/* Session header */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-text-main">
-                {session.title}
+    <div className="flex min-h-0 flex-1 p-4">
+      <div className="grid min-h-0 flex-1 gap-4 rounded-2xl border border-border bg-surface p-4 shadow-premium lg:grid-cols-[minmax(0,1fr)_220px]">
+        <section className="flex min-h-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-semibold tracking-tight text-text-main">
+                Transcript
               </h2>
-              <p className="text-sm text-text-muted">
-                {isConnecting ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                    Connecting to audio service...
-                  </span>
-                ) : session.isRecording ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                    Recording • {session.duration}
-                  </span>
-                ) : (
-                  "Stopped"
-                )}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowAISuggestions(!showAISuggestions)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  showAISuggestions
-                    ? "bg-primary text-white"
-                    : "border border-border hover:bg-surface"
+              <span className="rounded-lg border border-border/70 bg-bg-app px-2.5 py-1 text-xs font-medium text-text-muted">
+                {getModelLabel(modelStatus)}
+              </span>
+              <span className="rounded-lg border border-border/70 bg-bg-app px-2.5 py-1 font-mono text-xs font-medium text-text-main">
+                {formatTimestamp(timestampSeconds)}
+              </span>
+              <span
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
+                  isRecording
+                    ? "bg-red-500/10 text-red-600"
+                    : "border border-border/70 bg-bg-app text-text-muted"
                 }`}
               >
-                AI Suggestions
-              </button>
-              <button
-                onClick={() => setShowNotes(!showNotes)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  showNotes
-                    ? "bg-primary text-white"
-                    : "border border-border hover:bg-surface"
-                }`}
-              >
-                Notes
-              </button>
-            </div>
-          </div>
-
-          {/* Transcription area */}
-          <div className="flex-1 bg-surface rounded-2xl border border-border overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="font-medium text-text-main">Live Transcription</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted">
-                  {session.transcription?.length || 0} lines
-                </span>
-              </div>
+                {isRecording ? "Recording" : "Stopped"}
+              </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {!session.transcription || session.transcription.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-text-muted">
-                  <svg
-                    className="w-12 h-12 mb-3 opacity-50"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    />
-                  </svg>
-                  <p>Start speaking to see transcription...</p>
-                  <p className="text-sm">
-                    The AI will transcribe and analyze your meeting
-                  </p>
-                </div>
-              ) : (
-                session.transcription.map((line, index) => (
-                  <div key={`${line.sourceTimestamp}-${index}`} className="flex gap-3">
-                    <span className="text-xs text-text-muted shrink-0 w-12">
-                      {line.timestamp}
-                    </span>
-                    <div className="flex-1">
-                      <span className="font-medium text-primary text-sm">
-                        {line.speaker}:
-                      </span>
-                      <p className="text-text-main mt-0.5">{line.text}</p>
-                    </div>
-                  </div>
-                ))
+            <div className="flex flex-wrap gap-2">
+              {modelStatus !== "ready" && (
+                <button
+                  onClick={() => {
+                    void onLoadModel();
+                  }}
+                  disabled={loadingModel}
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    backgroundColor: "var(--btn-accent-bg)",
+                    color: "var(--btn-accent-text)",
+                  }}
+                >
+                  {loadingModel ? "Loading..." : "Load Model"}
+                </button>
+              )}
+
+              {modelReady && !isRecording && (
+                <button
+                  onClick={() => {
+                    void onStartRecording();
+                  }}
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium"
+                  style={{
+                    backgroundColor: "var(--btn-accent-bg)",
+                    color: "var(--btn-accent-text)",
+                  }}
+                >
+                  Start Recording
+                </button>
+              )}
+
+              {isRecording && (
+                <button
+                  onClick={() => {
+                    void onStopRecording();
+                  }}
+                  className="rounded-xl border border-border bg-bg-app px-4 py-2.5 text-sm font-medium text-text-main transition-colors duration-200 hover:bg-primary-light/20"
+                >
+                  Stop Recording
+                </button>
+              )}
+
+              {hasText && (
+                <button
+                  onClick={() => {
+                    void onReset();
+                  }}
+                  className="rounded-xl border border-border bg-bg-app px-4 py-2.5 text-sm font-medium text-text-main transition-colors duration-200 hover:bg-primary-light/20"
+                >
+                  New Meeting
+                </button>
               )}
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onEndSession}
-                disabled={isConnecting}
-                className="px-6 py-2.5 rounded-full border border-border hover:bg-surface text-text-main font-medium text-sm transition-all duration-200"
-              >
-                {session.isRecording ? "End Session" : "New Session"}
-              </button>
+          {loadingModel && <ModelLoadingIndicator message={modelMessage} />}
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-[#fffdfb]">
+            <div className="flex items-center justify-between border-b border-border/80 px-4 py-3">
+              <span className="text-sm font-medium text-text-main">Live text</span>
+              <span className="text-xs text-text-muted">
+                {hasText ? "Streaming" : isRecording ? "Listening" : "Idle"}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                />
-              </svg>
-              AI Active
+            <div
+              ref={contentRef}
+              className="flex-1 overflow-y-auto px-4 py-5 text-[1.08rem] leading-8 text-text-main"
+            >
+              {!hasText && !isRecording && (
+                <p className="text-sm text-text-muted">Start recording to transcribe.</p>
+              )}
+              {!hasText && isRecording && (
+                <p className="text-sm text-text-muted">Listening...</p>
+              )}
+
+              {fixedText && (
+                <span className="font-medium text-[#7c4a19]">{fixedText}</span>
+              )}
+              {fixedText && activeText && " "}
+              {activeText && (
+                <span className="text-text-main underline decoration-primary/30 decoration-2 underline-offset-4">
+                  {activeText}
+                </span>
+              )}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Side panels */}
-        <div className="w-80 border-l border-border flex flex-col">
-          {/* AI Suggestions Panel */}
-          {showAISuggestions && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h3 className="font-medium text-text-main flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-primary"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                  AI Insights
-                </h3>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {mockSuggestions.map((suggestion) => (
-                  <div
-                    key={suggestion.id}
-                    className="p-3 rounded-lg bg-primary/5 border border-primary/20"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          suggestion.type === "action"
-                            ? "bg-orange-100 text-orange-700"
-                            : suggestion.type === "question"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {suggestion.type}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {new Date(suggestion.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-main">{suggestion.text}</p>
-                  </div>
-                ))}
-              </div>
+        <aside className="flex flex-col gap-4">
+          <div className="rounded-xl border border-border/80 bg-bg-app/80 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-text-main">Audio</span>
+              <span className="font-mono text-sm font-semibold text-text-main">
+                {Math.round(audioLevel * 100)}%
+              </span>
             </div>
-          )}
 
-          {/* Notes Panel */}
-          {showNotes && (
-            <div
-              className={`flex flex-col ${showAISuggestions ? "h-1/2 border-t border-border" : "flex-1"}`}
-            >
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h3 className="font-medium text-text-main">Notes</h3>
-                <button
-                  onClick={() => setNotes("")}
-                  className="text-xs text-text-muted hover:text-text-main"
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className="flex-1 p-4">
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Take notes here..."
-                  className="w-full h-full resize-none bg-surface border border-border rounded-lg p-3 text-text-main placeholder-text-muted focus:outline-none focus:border-primary transition-colors text-sm"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+            <AudioLevelMeter
+              level={audioLevel}
+              isActive={isRecording}
+              className="mt-4 min-h-[120px] justify-center"
+            />
+          </div>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

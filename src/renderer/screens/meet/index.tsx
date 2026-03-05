@@ -1,259 +1,66 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import EmptyPanel from "./_components/empty-panel";
 import MeetingPanel from "./_components/meeting-panel";
-import { useAudioTranscription } from "../../hooks/useAudioTranscription";
-
-export interface TranscriptionLine {
-  sourceTimestamp: string;
-  timestamp: string;
-  speaker: string;
-  text: string;
-}
-
-export interface MeetSession {
-  id: string;
-  title: string;
-  isRecording: boolean;
-  duration: string;
-  transcription: TranscriptionLine[];
-  createdAt: number;
-}
+import { useMeetTranscription } from "./_hooks/useMeetTranscription";
 
 export default function MeetScreen() {
-  const [activeSession, setActiveSession] = useState<MeetSession | null>(null);
-  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(
-    null,
-  );
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-
   const {
-    sessionId,
-    transcriptions: audioTranscriptions,
-    error: audioError,
-    isConnecting,
+    modelStatus,
+    modelMessage,
     isRecording,
+    fixedText,
+    activeText,
+    timestampSeconds,
+    audioLevel,
+    error,
+    loadModel,
     startRecording,
     stopRecording,
-  } = useAudioTranscription();
+    resetSession,
+  } = useMeetTranscription();
 
-  const toSessionLines = useCallback(
-    (
-      items: Array<{ text: string; timestamp: string; is_final: boolean }>,
-    ): TranscriptionLine[] => {
-      return items.map((t) => ({
-        sourceTimestamp: t.timestamp,
-        timestamp: new Date(t.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-        speaker: "Speaker",
-        text: t.text,
-      }));
-    },
-    [],
-  );
-
-  // Handle new session callback from sidebar/App
   useEffect(() => {
-    (window as any).__meetNewSession = () => {
-      handleEndSession();
+    (window as { __meetNewSession?: () => void }).__meetNewSession = () => {
+      void resetSession();
     };
 
     return () => {
-      (window as any).__meetNewSession = undefined;
-      if (timerInterval) {
-        clearInterval(timerInterval);
-      }
+      (window as { __meetNewSession?: () => void }).__meetNewSession = undefined;
     };
-  }, [timerInterval]);
+  }, [resetSession]);
 
-  // Update session state when audio status changes
-  useEffect(() => {
-    if (activeSession) {
-      setActiveSession((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          isRecording: isRecording,
-        };
-      });
-    }
-  }, [isRecording]);
-
-  // Sync audio transcriptions to session
-  useEffect(() => {
-    if (activeSession && audioTranscriptions.length > 0) {
-      // Convert audio transcriptions to session format
-      const newTranscriptionLines: TranscriptionLine[] =
-        toSessionLines(audioTranscriptions);
-
-      setActiveSession((prev) => {
-        if (!prev) return null;
-
-        // Merge with existing, avoiding duplicates by timestamp
-        const existingTimestamps = new Set(
-          prev.transcription.map((t) => t.sourceTimestamp),
-        );
-        const uniqueNewLines = newTranscriptionLines.filter(
-          (t) => !existingTimestamps.has(t.sourceTimestamp),
-        );
-
-        if (uniqueNewLines.length === 0) return prev;
-
-        return {
-          ...prev,
-          transcription: [...prev.transcription, ...uniqueNewLines],
-        };
-      });
-    }
-  }, [audioTranscriptions, activeSession, toSessionLines]);
-
-  // Handle audio errors
-  useEffect(() => {
-    if (audioError) {
-      setConnectionError(audioError);
-    }
-  }, [audioError]);
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const handleStartListening = async (title: string) => {
-    setConnectionError(null);
-
-    const newSession: MeetSession = {
-      id: crypto.randomUUID(),
-      title: title || "Untitled Meeting",
-      isRecording: false,
-      duration: "00:00",
-      transcription: [],
-      createdAt: Date.now(),
-    };
-
-    setActiveSession(newSession);
-
-    // Start the audio recording
-    const success = await startRecording();
-
-    if (!success) {
-      setConnectionError(
-        "Failed to start recording. Please check your microphone permissions.",
-      );
-      setActiveSession(null);
-      return;
-    }
-
-    // Start duration timer
-    let seconds = 0;
-    const interval = setInterval(() => {
-      seconds++;
-      setActiveSession((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          duration: formatDuration(seconds),
-        };
-      });
-    }, 1000);
-    setTimerInterval(interval);
-  };
-
-  const handleEndSession = useCallback(async () => {
-    if (isRecording) {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        setTimerInterval(null);
-      }
-
-      const finalTranscriptions = await stopRecording();
-      const finalLines = toSessionLines(finalTranscriptions);
-
-      setActiveSession((prev) => {
-        if (!prev) return null;
-
-        const existingTimestamps = new Set(
-          prev.transcription.map((t) => t.sourceTimestamp),
-        );
-        const uniqueNewLines = finalLines.filter(
-          (line) => !existingTimestamps.has(line.sourceTimestamp),
-        );
-
-        return {
-          ...prev,
-          isRecording: false,
-          transcription: [...prev.transcription, ...uniqueNewLines],
-        };
-      });
-      setConnectionError(null);
-      return;
-    }
-
-    // If already stopped, close this session view and go back to empty state.
-    setActiveSession(null);
-    setConnectionError(null);
-  }, [isRecording, timerInterval, stopRecording, toSessionLines]);
+  const hasTranscript =
+    fixedText.trim().length > 0 || activeText.trim().length > 0;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-bg-app w-full max-w-6xl mx-auto">
-      {/* Connection Error Banner */}
-      {connectionError && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-600 px-4 py-2 text-sm flex items-center justify-between">
-          <span>Error: {connectionError}</span>
-          <button
-            onClick={() => setConnectionError(null)}
-            className="text-red-600 hover:text-red-700"
-          >
-            ×
-          </button>
+      {error && (
+        <div className="mx-6 mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-600">
+          {error}
         </div>
       )}
 
-      {/* Status Indicator */}
-      {activeSession && (
-        <div className="px-4 py-1 bg-surface border-b border-border flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isConnecting
-                  ? "bg-yellow-500 animate-pulse"
-                  : isRecording
-                    ? "bg-red-500 animate-pulse"
-                    : "bg-gray-400"
-              }`}
-            />
-            <span className="text-text-muted">
-              {isConnecting
-                ? "Connecting to audio service..."
-                : isRecording
-                  ? "Recording in progress"
-                  : "Stopped"}
-            </span>
-            {sessionId && (
-              <span className="text-text-muted/50">
-                • Session: {sessionId.slice(-6)}
-              </span>
-            )}
-          </div>
-          <span className="text-text-muted">
-            {activeSession.transcription.length} lines transcribed
-          </span>
-        </div>
-      )}
-
-      {activeSession ? (
+      {isRecording || hasTranscript ? (
         <MeetingPanel
-          session={activeSession}
-          onEndSession={handleEndSession}
-          isConnecting={isConnecting}
+          modelStatus={modelStatus}
+          modelMessage={modelMessage}
+          fixedText={fixedText}
+          activeText={activeText}
+          isRecording={isRecording}
+          timestampSeconds={timestampSeconds}
+          audioLevel={audioLevel}
+          onLoadModel={loadModel}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onReset={resetSession}
         />
       ) : (
         <EmptyPanel
-          onStartListening={handleStartListening}
-          isConnecting={isConnecting}
+          modelStatus={modelStatus}
+          modelMessage={modelMessage}
+          audioLevel={audioLevel}
+          onLoadModel={loadModel}
+          onStartRecording={startRecording}
         />
       )}
     </div>

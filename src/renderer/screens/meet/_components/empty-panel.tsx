@@ -1,78 +1,91 @@
-import { useState } from "react";
-import { VideoCameraSVG } from "../../../components/icons";
+import AudioLevelMeter from "./audio-level-meter";
+import ModelLoadingIndicator from "./model-loading-indicator";
 
 interface EmptyPanelProps {
-  onStartListening: (meetingName: string) => void;
-  isConnecting: boolean;
+  modelStatus: "not_loaded" | "loading" | "ready" | "error";
+  modelMessage: string;
+  audioLevel: number;
+  onLoadModel: () => Promise<void>;
+  onStartRecording: () => Promise<void>;
+}
+
+function getStatusLabel(status: EmptyPanelProps["modelStatus"]): string {
+  if (status === "ready") {
+    return "Ready";
+  }
+  if (status === "loading") {
+    return "Loading";
+  }
+  if (status === "error") {
+    return "Error";
+  }
+  return "Idle";
 }
 
 export default function EmptyPanel({
-  onStartListening,
-  isConnecting,
+  modelStatus,
+  modelMessage,
+  audioLevel,
+  onLoadModel,
+  onStartRecording,
 }: EmptyPanelProps) {
-  const [meetingName, setMeetingName] = useState("");
-
-  const handleStart = () => {
-    onStartListening(meetingName.trim() || "Untitled Meeting");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleStart();
-    }
-  };
+  const canStart = modelStatus === "ready";
+  const isLoading = modelStatus === "loading";
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className="text-center space-y-6 max-w-md">
-        <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-2xl bg-primary-light/50 flex items-center justify-center">
-            <div className="text-primary">{VideoCameraSVG}</div>
+    <div className="flex flex-1 items-center justify-center p-6">
+      <div className="w-full max-w-3xl rounded-2xl border border-border bg-surface p-6 shadow-premium">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-subtle">
+              Meet
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-text-main">
+              Live transcript
+            </h2>
           </div>
+          <span className="rounded-lg border border-border/70 bg-bg-app px-3 py-1 text-xs font-medium text-text-muted">
+            {getStatusLabel(modelStatus)}
+          </span>
         </div>
 
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-text-main">
-            AI Meeting Assistant
-          </h2>
-          <p className="text-text-muted">
-            Transcribe meetings, take notes, and get AI insights
-          </p>
+        <div className="mt-6">
+          {isLoading ? (
+            <ModelLoadingIndicator message={modelMessage} />
+          ) : (
+            <AudioLevelMeter
+              level={audioLevel}
+              isActive={false}
+              className="min-h-[120px] justify-center"
+            />
+          )}
         </div>
 
-        <div className="space-y-3 pt-4">
-          <input
-            type="text"
-            value={meetingName}
-            onChange={(e) => setMeetingName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Meeting name (optional)"
-            className="w-full px-4 py-3 rounded-xl border border-border bg-surface text-text-main placeholder-text-muted focus:outline-none focus:border-primary transition-colors text-sm"
-          />
-
+        <div className="mt-6 flex flex-wrap gap-3">
           <button
-            onClick={handleStart}
-            disabled={isConnecting}
-            className="w-full py-3 px-6 rounded-xl font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => {
+              void onLoadModel();
+            }}
+            disabled={isLoading || canStart}
+            className="rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               backgroundColor: "var(--btn-accent-bg)",
               color: "var(--btn-accent-text)",
+              boxShadow: "0 18px 35px -24px rgba(62,39,35,0.9)",
             }}
-            onMouseEnter={(e) =>
-              !isConnecting &&
-              (e.currentTarget.style.backgroundColor =
-                "var(--btn-accent-bg-hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--btn-accent-bg)")
-            }
           >
-            {isConnecting ? "Starting..." : "Start Recording"}
+            {canStart ? "Model Ready" : isLoading ? "Loading..." : "Load Model"}
           </button>
-        </div>
 
-        <div className="text-xs text-text-muted pt-4">
-          <p>System audio capture will begin automatically</p>
+          <button
+            onClick={() => {
+              void onStartRecording();
+            }}
+            disabled={!canStart}
+            className="rounded-xl border border-border bg-bg-app px-4 py-3 text-sm font-medium text-text-main transition-colors duration-200 hover:bg-primary-light/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Start Recording
+          </button>
         </div>
       </div>
     </div>

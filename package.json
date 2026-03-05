@@ -51,6 +51,8 @@
     "groq-sdk": "^0.27.0",
     "heic2any": "^0.0.4",
     "lucide-react": "^0.523.0",
+    "onnxruntime-web": "^1.24.2",
+    "parakeet.js": "^1.4.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hot-toast": "^2.5.2",

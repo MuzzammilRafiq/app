@@ -12,6 +12,9 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  optimizeDeps: {
+    exclude: ["parakeet.js", "onnxruntime-web"],
+  },
   resolve: {
     // alias: {
     //   "decode-named-character-reference":
@@ -23,6 +26,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          if (id.includes("/node_modules/parakeet.js/")) {
+            return "parakeet";
+          }
+          if (id.includes("/node_modules/onnxruntime-web/")) {
+            return "onnxruntime";
+          }
           if (
             id.includes("/node_modules/shiki/") ||
             id.includes("/node_modules/@shikijs/") ||

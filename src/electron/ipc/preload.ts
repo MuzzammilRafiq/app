@@ -114,17 +114,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteTextFolder: (folder: string) =>
     ipcRenderer.invoke("text-embeddings:delete-folder", folder),
 
-  //-------------------------transcription---------------------------
-  transcriptionStartListening: (config?: {
-    vad_threshold?: number;
-    pre_roll_seconds?: number;
-    silence_timeout?: number;
-    max_chunk_duration?: number;
-  }) => ipcRenderer.invoke("transcription:start-listening", config),
-  transcriptionStopListening: () =>
-    ipcRenderer.invoke("transcription:stop-listening"),
-  transcriptionStatus: () => ipcRenderer.invoke("transcription:status"),
-
   //-------------------------database service APIs-----------------------------
   dbCreateSession: (title: string, id?: string) =>
     ipcRenderer.invoke("db:create-session", title, id),
