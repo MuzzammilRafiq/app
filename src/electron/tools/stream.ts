@@ -1,7 +1,8 @@
 import { preProcessMessage } from "./pre/index.js";
 import { orchestrate } from "./orchestrator.js";
 import { ChatMessageRecord } from "../../common/types.js";
-import { LOG, JSON_PRINT } from "../utils/logging.js";
+import { LOG } from "../utils/logging.js";
+import { type ChatStreamContext, sendChatChunk } from "../utils/chat-stream.js";
 
 const TAG = "stream";
 export const stream = async (
@@ -9,6 +10,7 @@ export const stream = async (
   messages: ChatMessageRecord[],
   config: any,
   apiKey: string,
+  requestId: string,
   signal?: AbortSignal,
 ) => {
   try {
@@ -27,9 +29,16 @@ export const stream = async (
       };
     }
 
+    const lastMessage = filteredMessages[filteredMessages.length - 1]!;
+    const scopedEvent = {
+      ...event,
+      sessionId: lastMessage.sessionId,
+      requestId,
+    };
+
     const lastUserMessage = await preProcessMessage(
       filteredMessages.pop()!, // Removes last message from array
-      event,
+      scopedEvent,
       apiKey,
       config,
       signal,
@@ -43,12 +52,13 @@ export const stream = async (
     // No need to slice again - just spread the remaining messages
     const updatedMessages = [...filteredMessages, lastUserMessage];
     const sessionId = lastUserMessage.sessionId;
+    const context: ChatStreamContext = { sessionId, requestId };
 
     // Delegate to orchestrator for plan generation and execution
-    const scopedEvent = { ...event, sessionId };
+    const orchestratorEvent = { ...event, ...context };
     const result = await orchestrate(
       updatedMessages,
-      scopedEvent,
+      orchestratorEvent,
       apiKey,
       sessionId,
       config,
@@ -56,22 +66,14 @@ export const stream = async (
     );
 
     if (result.error) {
-      event.sender.send("stream-chunk", {
-        chunk: `Error: ${result.error}`,
-        type: "log",
-        sessionId,
-      });
+      sendChatChunk(event.sender, context, `Error: ${result.error}`, "log");
       return {
         text: "",
         error: result.error,
       };
     }
 
-    event.sender.send("stream-chunk", {
-      chunk: "*Chat agent done*",
-      type: "log",
-      sessionId,
-    });
+    sendChatChunk(event.sender, context, "*Chat agent done*", "log");
     return { text: result.text };
   } catch (error) {
     if (
@@ -92,11 +94,12 @@ export const stream = async (
       messages.length > 0 ? messages[messages.length - 1].sessionId : undefined;
     // Send error to frontend so the chat can end properly
     if (sessionId) {
-      event.sender.send("stream-chunk", {
-        chunk: `Error: ${errorMessage}`,
-        type: "error",
-        sessionId,
-      });
+      sendChatChunk(
+        event.sender,
+        { sessionId, requestId },
+        `Error: ${errorMessage}`,
+        "error",
+      );
     }
     return {
       text: "",

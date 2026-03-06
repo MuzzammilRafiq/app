@@ -1,4 +1,5 @@
 import type { WebContents } from "electron";
+import { type ChatStreamContext, sendChatChunk } from "./chat-stream.js";
 
 /**
  * Buffers stream-type chunks for a specified duration before sending them
@@ -14,7 +15,7 @@ export class StreamChunkBuffer {
 
   constructor(
     private sender: WebContents,
-    private sessionId: string,
+    private context: ChatStreamContext,
     private eventName: string = "stream-chunk",
     bufferMs: number = 400,
   ) {
@@ -27,11 +28,16 @@ export class StreamChunkBuffer {
   send(chunk: string, type: string): void {
     if (type !== "stream" && type !== "general") {
       // Non-stream types bypass buffer for immediate delivery
-      this.sender.send(this.eventName, {
-        chunk,
-        type,
-        sessionId: this.sessionId,
-      });
+      if (this.eventName === "stream-chunk") {
+        sendChatChunk(this.sender, this.context, chunk, type as any);
+      } else {
+        this.sender.send(this.eventName, {
+          chunk,
+          type,
+          sessionId: this.context.sessionId,
+          requestId: this.context.requestId,
+        });
+      }
       return;
     }
 
@@ -60,11 +66,16 @@ export class StreamChunkBuffer {
       this.timer = null;
     }
     if (this.buffer) {
-      this.sender.send(this.eventName, {
-        chunk: this.buffer,
-        type: this.bufferType,
-        sessionId: this.sessionId,
-      });
+      if (this.eventName === "stream-chunk") {
+        sendChatChunk(this.sender, this.context, this.buffer, this.bufferType);
+      } else {
+        this.sender.send(this.eventName, {
+          chunk: this.buffer,
+          type: this.bufferType,
+          sessionId: this.context.sessionId,
+          requestId: this.context.requestId,
+        });
+      }
       this.buffer = "";
     }
   }

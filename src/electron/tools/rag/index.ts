@@ -3,6 +3,7 @@ import { IpcMainInvokeEvent } from "electron";
 import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG } from "../../utils/logging.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
+import { getChatStreamContextFromEvent, sendChatChunk } from "../../utils/chat-stream.js";
 const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
@@ -59,7 +60,10 @@ User query: "${userQuery}"
   if (!response) {
     throw new Error("No response content received from LLM");
   }
-  const buffer = new StreamChunkBuffer(event.sender, sessionId);
+  const buffer = new StreamChunkBuffer(
+    event.sender,
+    getChatStreamContextFromEvent(event),
+  );
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
@@ -162,11 +166,12 @@ export async function ragAnswer(
     }
   }
   LOG(TAG).SUCCESS(`Found ${uniqueResults.length} unique results`);
-  event.sender.send("stream-chunk", {
-    chunk: JSON.stringify(uniqueResults),
-    type: "source",
-    sessionId,
-  });
+  sendChatChunk(
+    event.sender,
+    getChatStreamContextFromEvent(event),
+    JSON.stringify(uniqueResults),
+    "source",
+  );
   return uniqueResults.map((ur) => ur.document).join("\n\n");
 }
 

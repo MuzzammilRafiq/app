@@ -4,32 +4,42 @@ import { ASK_IMAGE } from "../services/model.js";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { cancelAllPendingConfirmations } from "../tools/terminal/index.js";
+import { cancelPendingConfirmationsForSession } from "../tools/terminal/index.js";
 
 type ActiveStream = {
-  sessionId: string;
   controller: AbortController;
-} | null;
+  requestId: string;
+};
 
-const activeStream: { current: ActiveStream } = { current: null };
+const activeStreams = new Map<string, ActiveStream>();
 
 export function setupStreamHandlers() {
   ipcMain.handle(
     "stream-message-with-history",
-    async (event, messages, config, apiKey) => {
-      if (activeStream.current) {
+    async (event, messages, config, apiKey, requestId: string) => {
+      const lastMsg = messages[messages.length - 1];
+      const sessionId = lastMsg?.sessionId;
+
+      if (!sessionId || !requestId) {
+        return { text: "", error: "Missing stream context" };
+      }
+
+      if (activeStreams.has(sessionId)) {
         return { text: "", error: "Chat stream already in progress" };
       }
 
-      const lastMsg = messages[messages.length - 1];
-      const sessionId = lastMsg?.sessionId;
-      const streamSessionId = sessionId ?? "unknown";
-
       const controller = new AbortController();
-      activeStream.current = { sessionId: streamSessionId, controller };
+      activeStreams.set(sessionId, { controller, requestId });
 
       try {
-        return await stream(event, messages, config, apiKey, controller.signal);
+        return await stream(
+          event,
+          messages,
+          config,
+          apiKey,
+          requestId,
+          controller.signal,
+        );
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           // Stream was cancelled
@@ -37,19 +47,20 @@ export function setupStreamHandlers() {
         }
         throw error;
       } finally {
-        if (activeStream.current?.sessionId === streamSessionId) {
-          activeStream.current = null;
+        const activeStream = activeStreams.get(sessionId);
+        if (activeStream?.requestId === requestId) {
+          activeStreams.delete(sessionId);
         }
       }
     },
   );
 
-  ipcMain.handle("cancel-chat-stream", () => {
-    if (activeStream.current) {
-      activeStream.current.controller.abort();
-      // Cancel all pending terminal command confirmations
-      cancelAllPendingConfirmations();
-      activeStream.current = null;
+  ipcMain.handle("cancel-chat-stream", (_event, sessionId: string) => {
+    const activeStream = activeStreams.get(sessionId);
+    if (activeStream) {
+      activeStream.controller.abort();
+      cancelPendingConfirmationsForSession(sessionId);
+      activeStreams.delete(sessionId);
       return true;
     }
     return false;

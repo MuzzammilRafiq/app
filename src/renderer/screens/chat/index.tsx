@@ -23,6 +23,14 @@ import {
 import { loadSettings } from "../../utils/localstore";
 import EmptyPanel from "./_components/emptypanel";
 
+const EMPTY_SESSION_STREAMING_SEGMENTS: Array<{
+  id: string;
+  type: ChatMessageRecord["type"];
+  content: string;
+  sessionId: string;
+  requestId: string;
+}> = [];
+
 export default function ChatScreen() {
   const sessionId = useSessionId();
   useSessionMessages();
@@ -33,58 +41,58 @@ export default function ChatScreen() {
   const addMessage = useStore((s) => s.addMessage);
   const createNewSession = useStore((s) => s.createNewSession);
 
-  const [isLoading, setIsLoading] = useState(false);
   const [imagePaths, setImagePaths] = useState<string[] | null>(null);
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isRAGEnabled, setIsRAGEnabled] = useState(false);
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
 
-  const { isStreaming, setupStreaming, cleanupStreaming } = useStreaming();
-  const streamingSessionId = useStreamingStore((s) => s.streamingSessionId);
-  const streamingSegments = useStreamingStore((s) => s.streamingSegments);
-  const isCurrentSessionStreaming =
-    isStreaming && streamingSessionId === currentSession?.id;
-  const sessionStreamingSegments = useMemo(
-    () =>
-      streamingSegments.filter(
-        (seg) => seg.sessionId && seg.sessionId === currentSession?.id,
-      ),
-    [streamingSegments, currentSession?.id],
+  const { setupStreaming, cleanupStreaming } = useStreaming();
+  const isCurrentSessionStreaming = useStreamingStore((s) =>
+    currentSession?.id
+      ? Boolean(s.activeRequestIdsBySession[currentSession.id])
+      : false,
+  );
+  const currentSessionRequestId = useStreamingStore((s) =>
+    currentSession?.id ? s.activeRequestIdsBySession[currentSession.id] : null,
+  );
+  const sessionStreamingSegments = useStreamingStore(
+    (s) =>
+      currentSession?.id
+        ? (s.streamingSegmentsBySession[currentSession.id] ??
+          EMPTY_SESSION_STREAMING_SEGMENTS)
+        : EMPTY_SESSION_STREAMING_SEGMENTS,
   );
 
   // Listen for terminal command confirmation requests
   useEffect(() => {
-    const sessionId = currentSession?.id;
     const handleConfirmationRequest = (data: {
       command: string;
       requestId: string;
+      sessionId: string;
+      streamRequestId: string;
       cwd: string;
     }) => {
       // Add confirmation message to streaming segments
-      const activeSessionId = useStreamingStore.getState().streamingSessionId;
       useStreamingStore.getState().addStreamingChunk(
         {
           chunk: JSON.stringify({
             command: data.command,
             cwd: data.cwd,
             requestId: data.requestId,
+            sessionId: data.sessionId,
+            streamRequestId: data.streamRequestId,
             status: "pending",
           }),
           type: "terminal-confirmation",
+          sessionId: data.sessionId,
+          requestId: data.streamRequestId,
         },
-        activeSessionId ?? undefined,
       );
     };
 
-    if (sessionId) {
-      window.electronAPI.onCommandConfirmation(handleConfirmationRequest);
-    }
-
-    return () => {
-      window.electronAPI.removeCommandConfirmationListener();
-    };
-  }, [currentSession?.id]);
+    return window.electronAPI.onCommandConfirmation(handleConfirmationRequest);
+  }, []);
 
   const handleAllowCommand = useCallback(
     (requestId: string) => {
@@ -157,12 +165,8 @@ export default function ChatScreen() {
     const trimmedContent = content.trim();
     const hasAnyImage =
       !!selectedImage || (imagePaths && imagePaths.length > 0);
-    if (
-      (!trimmedContent && !hasAnyImage) ||
-      isLoading ||
-      isCurrentSessionStreaming
-    ) {
-      if (isLoading || isCurrentSessionStreaming) {
+    if ((!trimmedContent && !hasAnyImage) || isCurrentSessionStreaming) {
+      if (isCurrentSessionStreaming) {
         toast.error(
           "A chat run is already in progress. Cancel it before starting a new one.",
         );
@@ -176,7 +180,6 @@ export default function ChatScreen() {
       sessionId: currentSession?.id,
     });
 
-    setIsLoading(true);
     resetInputState();
     try {
       const session = await ensureSession(
@@ -199,8 +202,9 @@ export default function ChatScreen() {
         ? [...currentSession.messages]
         : [];
       const history = existingMessages.concat([newMessage]);
+      const requestId = crypto.randomUUID();
 
-      setupStreaming(session.id);
+      setupStreaming(session.id, requestId);
 
       try {
         const streamResponse =
@@ -213,6 +217,7 @@ export default function ChatScreen() {
               imageModelOverride: settings.imageModel || "",
             },
             settings.openrouterApiKey,
+            requestId,
           );
 
         if (streamResponse?.error === "Chat stream already in progress") {
@@ -222,11 +227,22 @@ export default function ChatScreen() {
           return;
         }
 
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 0);
+        });
+
+        if (streamResponse?.text?.trim()) {
+          useStreamingStore
+            .getState()
+            .reconcileFinalResponse(session.id, requestId, streamResponse.text);
+        }
+
         // Persist streaming segments from the streaming store
         const streamingSegments = useStreamingStore
           .getState()
           .streamingSegments.filter(
-            (seg) => seg.sessionId && seg.sessionId === session.id,
+            (seg) =>
+              seg.sessionId === session.id && seg.requestId === requestId,
           );
         const persistedRecords = await persistStreamingSegments(
           streamingSegments,
@@ -246,19 +262,16 @@ export default function ChatScreen() {
         console.error("Streaming error:", streamErr);
         toast.error("Streaming failed");
       } finally {
-        cleanupStreaming();
+        cleanupStreaming(session.id, requestId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to send message");
-    } finally {
-      setIsLoading(false);
     }
   }, [
     content,
     selectedImage,
     imagePaths,
-    isLoading,
     isCurrentSessionStreaming,
     currentSession,
     isRAGEnabled,
@@ -318,15 +331,21 @@ export default function ChatScreen() {
         }
       }
 
-      await window.electronAPI.cancelStream();
+      await window.electronAPI.cancelStream(currentSession.id);
       toast.success("Generation stopped");
     } catch (err) {
       console.error("Failed to stop generation:", err);
       toast.error("Failed to stop generation");
     } finally {
-      cleanupStreaming();
+      cleanupStreaming(currentSession.id, currentSessionRequestId ?? "");
     }
-  }, [currentSession, addMessage, cleanupStreaming, sessionStreamingSegments]);
+  }, [
+    currentSession,
+    currentSessionRequestId,
+    addMessage,
+    cleanupStreaming,
+    sessionStreamingSegments,
+  ]);
 
   // Memoize messages array to prevent unnecessary re-renders
   // Streaming segments are appended in insertion order (backend sends sequentially)
@@ -336,7 +355,7 @@ export default function ChatScreen() {
       ...sessionStreamingSegments.map(
         (seg): ChatMessageRecord => ({
           id: seg.id,
-          sessionId: seg.sessionId || currentSession?.id || "",
+          sessionId: seg.sessionId,
           content: seg.content,
           role: "assistant",
           timestamp: Date.now(),
@@ -375,7 +394,7 @@ export default function ChatScreen() {
           setImagePaths={setImagePaths}
           content={content}
           setContent={setContent}
-          isLoading={isLoading}
+          isLoading={isCurrentSessionStreaming}
           isStreaming={isCurrentSessionStreaming}
           handleSendMessage={handleSendMessage}
           handleStopGeneration={handleStopGeneration}

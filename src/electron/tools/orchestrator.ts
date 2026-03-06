@@ -9,6 +9,7 @@ import { IpcMainInvokeEvent } from "electron";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { stepCountIs, streamText } from "ai";
 import { buildChatExecutionTools } from "./chat-tools/index.js";
+import { sendChatChunk } from "../utils/chat-stream.js";
 
 const TAG = "orchestrator";
 
@@ -65,22 +66,19 @@ function toChatHistory(messages: ChatMessageRecord[]): ChatMessage[] {
 }
 
 function sendChunk(
-  event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent & { requestId: string },
   sessionId: string,
+  requestId: string,
   chunk: string,
   type: ChatMessageRecord["type"],
 ) {
-  event.sender.send("stream-chunk", {
-    chunk,
-    type,
-    sessionId,
-  });
+  sendChatChunk(event.sender, { sessionId, requestId }, chunk, type);
 }
 
 async function generatePlanText(
   messages: ChatMessageRecord[],
   apiKey: string,
-  event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent & { requestId: string },
   sessionId: string,
   config: any,
   signal?: AbortSignal,
@@ -98,7 +96,7 @@ async function generatePlanText(
   });
 
   let planText = "";
-  sendChunk(event, sessionId, "Planning approach...\n", "log");
+  sendChunk(event, sessionId, event.requestId, "Planning approach...\n", "log");
 
   for await (const part of result.fullStream) {
     if (signal?.aborted) {
@@ -107,12 +105,12 @@ async function generatePlanText(
 
     switch (part.type) {
       case "reasoning-delta": {
-        sendChunk(event, sessionId, part.text, "log");
+        sendChunk(event, sessionId, event.requestId, part.text, "log");
         break;
       }
       case "text-delta": {
         planText += part.text;
-        sendChunk(event, sessionId, planText, "plan");
+        sendChunk(event, sessionId, event.requestId, planText, "plan");
         break;
       }
       case "error": {
@@ -154,7 +152,7 @@ function buildExecutionMessages(
 async function executePlan(
   messages: ChatMessageRecord[],
   plan: PlannerResult,
-  event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent & { requestId: string },
   apiKey: string,
   sessionId: string,
   config: any,
@@ -187,7 +185,7 @@ async function executePlan(
 
   let finalText = "";
   let stepCount = 0;
-  sendChunk(event, sessionId, "Executing plan...\n", "log");
+  sendChunk(event, sessionId, event.requestId, "Executing plan...\n", "log");
 
   for await (const part of result.fullStream) {
     if (signal?.aborted) {
@@ -201,6 +199,7 @@ async function executePlan(
           sendChunk(
             event,
             sessionId,
+            event.requestId,
             `\n--- Continuing execution step ${stepCount} ---\n`,
             "log",
           );
@@ -211,7 +210,7 @@ async function executePlan(
         const reasoningContent =
           (part as any).text || (part as any).textDelta || "";
         if (reasoningContent) {
-          sendChunk(event, sessionId, reasoningContent, "log");
+          sendChunk(event, sessionId, event.requestId, reasoningContent, "log");
         }
         break;
       }
@@ -219,18 +218,19 @@ async function executePlan(
         const textContent = (part as any).text || (part as any).textDelta || "";
         if (textContent) {
           finalText += textContent;
-          sendChunk(event, sessionId, textContent, "general");
+          sendChunk(event, sessionId, event.requestId, textContent, "general");
         }
         break;
       }
       case "tool-call": {
-        sendChunk(event, sessionId, "\n", "log");
+        sendChunk(event, sessionId, event.requestId, "\n", "log");
         break;
       }
       case "error": {
         sendChunk(
           event,
           sessionId,
+          event.requestId,
           `\nError: ${(part as any).error}\n`,
           "log",
         );
@@ -244,7 +244,7 @@ async function executePlan(
 
   const output = finalText.trim();
   if (!output) {
-    sendChunk(event, sessionId, "Task completed.", "general");
+    sendChunk(event, sessionId, event.requestId, "Task completed.", "general");
     return { output: "Task completed." };
   }
 
@@ -253,7 +253,7 @@ async function executePlan(
 
 export async function orchestrate(
   messages: ChatMessageRecord[],
-  event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent & { requestId: string },
   apiKey: string,
   sessionId: string,
   config: any,

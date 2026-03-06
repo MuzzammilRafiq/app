@@ -532,7 +532,9 @@ function MessageGroups({
         style={{ height: "100%" }} // Must be set to fill container
         data={groupedMessages}
         computeItemKey={(_index, group) => group.id}
-        followOutput={"auto"}
+        followOutput={(isAtBottom) =>
+          isStreaming && isAtBottom ? "auto" : false
+        }
         atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
         initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
         itemContent={(_index, group) => (

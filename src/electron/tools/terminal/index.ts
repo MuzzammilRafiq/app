@@ -2,10 +2,15 @@ import { LOG } from "../../utils/logging.js";
 import * as z from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { IpcMainInvokeEvent, ipcMain } from "electron";
+import { ipcMain } from "electron";
 import { ChatType } from "../../../common/types.js";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { streamText, tool, stepCountIs } from "ai";
+import {
+  type ChatStreamEvent,
+  getChatStreamContextFromEvent,
+  sendChatChunk,
+} from "../../utils/chat-stream.js";
 
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
@@ -20,7 +25,11 @@ export interface TerminalAgentConfig {
 // Pending confirmation requests mapped by requestId
 const pendingConfirmations = new Map<
   string,
-  { resolve: (allowed: boolean) => void; reject: (reason: Error) => void }
+  {
+    sessionId: string;
+    resolve: (allowed: boolean) => void;
+    reject: (reason: Error) => void;
+  }
 >();
 
 ipcMain.handle(
@@ -34,15 +43,25 @@ ipcMain.handle(
   },
 );
 
-export function cancelAllPendingConfirmations() {
+export function cancelPendingConfirmationsForSession(sessionId: string) {
   for (const [requestId, pending] of pendingConfirmations) {
-    pending.reject(new DOMException("Aborted", "AbortError"));
-    pendingConfirmations.delete(requestId);
+    if (pending.sessionId === sessionId) {
+      pending.reject(new DOMException("Aborted", "AbortError"));
+      pendingConfirmations.delete(requestId);
+    }
   }
 }
 
+function emitTerminalChunk(
+  event: ChatStreamEvent,
+  chunk: string,
+  type: ChatType,
+) {
+  sendChatChunk(event.sender, getChatStreamContextFromEvent(event), chunk, type);
+}
+
 async function waitForUserConfirmation(
-  event: IpcMainInvokeEvent,
+  event: ChatStreamEvent,
   command: string,
   cwd: string,
   signal?: AbortSignal,
@@ -53,6 +72,7 @@ async function waitForUserConfirmation(
   }
 
   const requestId = crypto.randomUUID();
+  const streamContext = getChatStreamContextFromEvent(event);
 
   return new Promise((resolve, reject) => {
     // Handle abort signal
@@ -68,6 +88,7 @@ async function waitForUserConfirmation(
     }
 
     pendingConfirmations.set(requestId, {
+      sessionId: streamContext.sessionId,
       resolve: (allowed: boolean) => {
         signal?.removeEventListener("abort", abortHandler);
         resolve(allowed);
@@ -81,6 +102,8 @@ async function waitForUserConfirmation(
     event.sender.send("terminal:request-confirmation", {
       command,
       requestId,
+      sessionId: streamContext.sessionId,
+      streamRequestId: streamContext.requestId,
       cwd,
     });
 
@@ -129,7 +152,6 @@ async function executeCommand(
   command: string,
   config: TerminalAgentConfig,
   cwd: string = currentCwd,
-  signal?: AbortSignal,
 ): Promise<{ output: string; success: boolean }> {
   try {
     const { stdout, stderr } = await execAsync(command, {
@@ -161,17 +183,13 @@ async function executeCommand(
 }
 
 async function confirmCommand(
-  event: any,
+  event: ChatStreamEvent,
   command: string,
   reason?: string,
   signal?: AbortSignal,
 ): Promise<boolean> {
   if (reason) {
-    event?.sender?.send("stream-chunk", {
-      chunk: `REQUIRES CONFIRMATION: ${reason}\n`,
-      type: "log",
-      sessionId: event?.sessionId,
-    });
+    emitTerminalChunk(event, `REQUIRES CONFIRMATION: ${reason}\n`, "log");
   }
   try {
     return await waitForUserConfirmation(event, command, currentCwd, signal);
@@ -185,7 +203,7 @@ async function confirmCommand(
 
 export const createExecuteCommandTool = (
   config: TerminalAgentConfig,
-  event: any,
+  event: ChatStreamEvent,
   signal?: AbortSignal,
 ) => {
   return tool({
@@ -204,11 +222,7 @@ export const createExecuteCommandTool = (
       }
 
       if (reason) {
-        event?.sender?.send("stream-chunk", {
-          chunk: `REASON: ${reason}\n`,
-          type: "log",
-          sessionId: event?.sessionId,
-        });
+        emitTerminalChunk(event, `REASON: ${reason}\n`, "log");
         LOG(TAG).INFO("Reason for command:", reason);
       }
 
@@ -219,11 +233,7 @@ export const createExecuteCommandTool = (
         signal,
       );
       if (!confirmed) {
-        event?.sender?.send("stream-chunk", {
-          chunk: `Command rejected by user\n`,
-          type: "log",
-          sessionId: event?.sessionId,
-        });
+        emitTerminalChunk(event, `Command rejected by user\n`, "log");
         LOG(TAG).INFO("Command rejected by user");
         return {
           executed: false,
@@ -233,18 +243,10 @@ export const createExecuteCommandTool = (
         };
       }
 
-      event?.sender?.send("stream-chunk", {
-        chunk: `Executing command: ${command}\n`,
-        type: "log",
-        sessionId: event?.sessionId,
-      });
+      emitTerminalChunk(event, `Executing command: ${command}\n`, "log");
       LOG(TAG).INFO("Executing command:", command);
       const result = await executeCommand(command, config);
-      event?.sender?.send("stream-chunk", {
-        chunk: `${result.output}\n`,
-        type: "log",
-        sessionId: event?.sessionId,
-      });
+      emitTerminalChunk(event, `${result.output}\n`, "log");
       LOG(TAG).INFO("Command output:", result.output);
       return {
         executed: true,
@@ -257,7 +259,7 @@ export const createExecuteCommandTool = (
 
 export const terminalAgent = async (
   initialContext: string,
-  event: any,
+  event: ChatStreamEvent,
   apiKey: string,
   maxIterations: number = 20,
   modelOverride: string,
@@ -283,15 +285,11 @@ export const terminalAgent = async (
       executeCommand: createExecuteCommandTool(config, event, signal),
     },
     stopWhen: stepCountIs(config.maxSteps),
-    onStepFinish: ({ text, toolCalls, finishReason }) => {
+    onStepFinish: ({ text, toolCalls }) => {
       // Log step completion info
       generalText = text;
       if (toolCalls && toolCalls.length > 0) {
-        event.sender.send("stream-chunk", {
-          chunk: `Tool executed\n`,
-          type: "log",
-          sessionId: event.sessionId,
-        });
+        emitTerminalChunk(event, `Tool executed\n`, "log");
         LOG(TAG).INFO(`Tool executed`);
       }
     },
@@ -303,11 +301,7 @@ export const terminalAgent = async (
       case "start-step": {
         stepCount++;
         if (stepCount > 1) {
-          event.sender.send("stream-chunk", {
-            chunk: `\n--- Starting step ${stepCount} ---\n`,
-            type: "log",
-            sessionId: event.sessionId,
-          });
+          emitTerminalChunk(event, `\n--- Starting step ${stepCount} ---\n`, "log");
         }
         currentStepHasText = false;
         hasReasoning = false;
@@ -317,21 +311,13 @@ export const terminalAgent = async (
       case "reasoning-delta": {
         const reasoningContent =
           (part as any).text || (part as any).textDelta || "";
-        event.sender.send("stream-chunk", {
-          chunk: reasoningContent,
-          type: "log",
-          sessionId: event.sessionId,
-        });
+        emitTerminalChunk(event, reasoningContent, "log");
         break;
       }
 
       case "text-delta": {
         const textContent = (part as any).text || (part as any).textDelta || "";
-        event.sender.send("stream-chunk", {
-          chunk: textContent,
-          type: "log" satisfies ChatType,
-          sessionId: event.sessionId,
-        });
+        emitTerminalChunk(event, textContent, "log" satisfies ChatType);
         currentStepHasText = true;
         generalText += textContent;
         break;
@@ -339,11 +325,7 @@ export const terminalAgent = async (
 
       case "tool-call": {
         if (hasReasoning || currentStepHasText) {
-          event.sender.send("stream-chunk", {
-            chunk: `\n`,
-            type: "log",
-            sessionId: event.sessionId,
-          });
+          emitTerminalChunk(event, `\n`, "log");
         }
         LOG(TAG).INFO("Tool call:", part.input);
         break;
@@ -362,11 +344,7 @@ export const terminalAgent = async (
       }
 
       case "error": {
-        event.sender.send("stream-chunk", {
-          chunk: `\nError: ${(part as any).error}\n`,
-          type: "log",
-          sessionId: event.sessionId,
-        });
+        emitTerminalChunk(event, `\nError: ${(part as any).error}\n`, "log");
         LOG(TAG).ERROR("Stream error:", (part as any).error);
         break;
       }
@@ -374,18 +352,10 @@ export const terminalAgent = async (
   }
   await result;
   if (stepCount > 0) {
-    event.sender.send("stream-chunk", {
-      chunk: `\nCompleted in ${stepCount} step(s)\n`,
-      type: "log",
-      sessionId: event.sessionId,
-    });
+    emitTerminalChunk(event, `\nCompleted in ${stepCount} step(s)\n`, "log");
     LOG(TAG).SUCCESS(`Completed in ${stepCount} step(s)`);
   } else {
-    event.sender.send("stream-chunk", {
-      chunk: `\nNo steps were executed.\n`,
-      type: "log",
-      sessionId: event.sessionId,
-    });
+    emitTerminalChunk(event, `\nNo steps were executed.\n`, "log");
     LOG(TAG).WARN(`No steps were executed.`);
   }
 

@@ -49,6 +49,7 @@ interface Window {
       messages: any[],
       config: any,
       apiKey: string,
+      requestId: string,
     ) => Promise<{ text: string; error?: string }>;
 
     /**
@@ -70,9 +71,10 @@ interface Window {
           | "error"
           | "cancelled";
         role?: "user" | "assistant" | "execution";
-        sessionId?: string;
+        sessionId: string;
+        requestId: string;
       }) => void,
-    ) => void;
+    ) => () => void;
 
     /**
      * Removes all stream chunk listeners
@@ -82,7 +84,7 @@ interface Window {
     /**
      * Cancels the active stream
      */
-    cancelStream: () => Promise<boolean>;
+    cancelStream: (sessionId: string) => Promise<boolean>;
 
     /**
      * Vision click: analyze image with grid to find target cell
@@ -485,9 +487,11 @@ interface Window {
       callback: (data: {
         command: string;
         requestId: string;
+        sessionId: string;
+        streamRequestId: string;
         cwd: string;
       }) => void,
-    ) => void;
+    ) => () => void;
     respondToCommandConfirmation: (
       requestId: string,
       allowed: boolean,

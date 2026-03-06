@@ -1,5 +1,4 @@
 import { useRef, useEffect } from "react";
-import type { StreamChunk } from "../../../../common/types";
 import {
   PlanRenderer,
   LogRenderer,
@@ -28,22 +27,23 @@ export function useStreaming() {
     segmentsRef.current = streamingSegments;
   }, [streamingSegments]);
 
-  const setupStreaming = (streamingSessionId: string) => {
-    useStreamingStore.getState().clearStreaming();
-    useStreamingStore.getState().setStreaming(true);
-    useStreamingStore.getState().setStreamingSessionId(streamingSessionId);
+  useEffect(() => {
+    return window.electronAPI.onStreamChunk((data) => {
+      useStreamingStore.getState().addStreamingChunk(data);
+    });
+  }, []);
 
-    const handleStreamChunk = (data: StreamChunk) => {
-      useStreamingStore.getState().addStreamingChunk(data, streamingSessionId);
-    };
-
-    window.electronAPI.onStreamChunk(handleStreamChunk);
-    return handleStreamChunk;
+  const setupStreaming = (sessionId: string, requestId: string) => {
+    useStreamingStore.getState().startStreaming(sessionId, requestId);
   };
 
-  const cleanupStreaming = () => {
-    window.electronAPI.removeStreamChunkListener();
-    useStreamingStore.getState().clearStreaming();
+  const finishStreaming = (sessionId: string, requestId: string) => {
+    useStreamingStore.getState().finishStreaming(sessionId, requestId);
+  };
+
+  const cleanupStreaming = (sessionId: string, requestId: string) => {
+    useStreamingStore.getState().finishStreaming(sessionId, requestId);
+    useStreamingStore.getState().clearSessionStreaming(sessionId);
   };
 
   return {
@@ -51,6 +51,7 @@ export function useStreaming() {
     segments: streamingSegments,
     segmentsRef,
     setupStreaming,
+    finishStreaming,
     cleanupStreaming,
   };
 }

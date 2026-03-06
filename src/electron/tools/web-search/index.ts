@@ -6,6 +6,7 @@ import {
 } from "../../services/model.js";
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
+import { getChatStreamContextFromEvent, sendChatChunk } from "../../utils/chat-stream.js";
 
 const TAG = "web-search";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
@@ -72,7 +73,10 @@ User query: "${userQuery}"
     throw new Error("No response content received from LLM");
   }
 
-  const buffer = new StreamChunkBuffer(event.sender, sessionId);
+  const buffer = new StreamChunkBuffer(
+    event.sender,
+    getChatStreamContextFromEvent(event),
+  );
   let c = "";
   for await (const { content, reasoning } of response) {
     if (content) {
@@ -170,16 +174,18 @@ export async function webSearchAnswer(
   signal?: AbortSignal,
 ): Promise<string> {
   LOG(TAG).INFO("Web search enabled, generating queries...", { userQuery });
+  const context = getChatStreamContextFromEvent(event);
 
   // Send search status event - generating queries
-  event.sender.send("stream-chunk", {
-    chunk: JSON.stringify({
+  sendChatChunk(
+    event.sender,
+    context,
+    JSON.stringify({
       phase: "generating",
       message: "Generating search queries",
     }),
-    type: "search-status",
-    sessionId,
-  });
+    "search-status",
+  );
 
   // Generate optimized search queries
   const queries = await generateWebSearchQueries(
@@ -197,21 +203,23 @@ export async function webSearchAnswer(
   }
 
   // Log the generated queries to UI (keep as log for details)
-  event.sender.send("stream-chunk", {
-    chunk: `*Generated queries:*\n${queries.map((q, i) => `  ${i + 1}. "${q}"`).join("\n")}`,
-    type: "log",
-    sessionId,
-  });
+  sendChatChunk(
+    event.sender,
+    context,
+    `*Generated queries:*\n${queries.map((q, i) => `  ${i + 1}. "${q}"`).join("\n")}`,
+    "log",
+  );
 
   // Send search status event - searching
-  event.sender.send("stream-chunk", {
-    chunk: JSON.stringify({
+  sendChatChunk(
+    event.sender,
+    context,
+    JSON.stringify({
       phase: "searching",
       message: `Searching ${queries.length} queries`,
     }),
-    type: "search-status",
-    sessionId,
-  });
+    "search-status",
+  );
 
   try {
     // Call the web search API - if signal aborts, Promise.race rejects immediately
@@ -231,37 +239,35 @@ export async function webSearchAnswer(
     const successfulResults = searchResponse.results.filter((r) => r.success);
 
     if (successfulResults.length === 0) {
-      event.sender.send("stream-chunk", {
-        chunk: JSON.stringify({
+      sendChatChunk(
+        event.sender,
+        context,
+        JSON.stringify({
           phase: "complete",
           message: "No results found",
         }),
-        type: "search-status",
-        sessionId,
-      });
+        "search-status",
+      );
       return "No relevant web search results found.";
     }
 
     // Send search status event - processing
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({
+    sendChatChunk(
+      event.sender,
+      context,
+      JSON.stringify({
         phase: "processing",
         message: `Found ${successfulResults.length} pages`,
       }),
-      type: "search-status",
-      sessionId,
-    });
+      "search-status",
+    );
 
     // Send sources to UI
     const sources = successfulResults.map((r) => ({
       url: r.url,
       title: r.title,
     }));
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify(sources),
-      type: "source",
-      sessionId,
-    });
+    sendChatChunk(event.sender, context, JSON.stringify(sources), "source");
 
     // Combine all markdown into one pile
     const combinedMarkdown = successfulResults
@@ -272,14 +278,15 @@ export async function webSearchAnswer(
       .join("\n\n---\n\n");
 
     // Send search status event - extracting
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({
+    sendChatChunk(
+      event.sender,
+      context,
+      JSON.stringify({
         phase: "extracting",
         message: "Extracting relevant info",
       }),
-      type: "search-status",
-      sessionId,
-    });
+      "search-status",
+    );
 
     // Use cheap model to extract only relevant info
     const extractedInfo = await EXTRACT_WEB_SEARCH(
@@ -289,11 +296,12 @@ export async function webSearchAnswer(
     );
 
     // Send search status event - complete
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({ phase: "complete", message: "Search complete" }),
-      type: "search-status",
-      sessionId,
-    });
+    sendChatChunk(
+      event.sender,
+      context,
+      JSON.stringify({ phase: "complete", message: "Search complete" }),
+      "search-status",
+    );
 
     LOG(TAG).SUCCESS(
       `Web search completed with ${successfulResults.length} results, extracted relevant info`,
@@ -313,14 +321,15 @@ export async function webSearchAnswer(
     }
 
     LOG(TAG).ERROR("Web search API error:", error);
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify({
+    sendChatChunk(
+      event.sender,
+      context,
+      JSON.stringify({
         phase: "error",
         message: error instanceof Error ? error.message : "Search failed",
       }),
-      type: "search-status",
-      sessionId,
-    });
+      "search-status",
+    );
     return `Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`;
   }
 }

@@ -12,15 +12,34 @@ export interface StreamChunk {
     | "error"
     | "cancelled";
   role?: "user" | "assistant" | "execution";
-  sessionId?: string;
+  sessionId: string;
+  requestId: string;
 }
 contextBridge.exposeInMainWorld("electronAPI", {
-  streamMessageWithHistory: (messages: any[], config: any, apiKey: string) =>
-    ipcRenderer.invoke("stream-message-with-history", messages, config, apiKey),
-  cancelStream: () => ipcRenderer.invoke("cancel-chat-stream"),
+  streamMessageWithHistory: (
+    messages: any[],
+    config: any,
+    apiKey: string,
+    requestId: string,
+  ) =>
+    ipcRenderer.invoke(
+      "stream-message-with-history",
+      messages,
+      config,
+      apiKey,
+      requestId,
+    ),
+  cancelStream: (sessionId: string) =>
+    ipcRenderer.invoke("cancel-chat-stream", sessionId),
 
   onStreamChunk: (callback: (data: StreamChunk) => void) => {
-    ipcRenderer.on("stream-chunk", (event, data) => callback(data));
+    const listener = (_event: Electron.IpcRendererEvent, data: StreamChunk) =>
+      callback(data);
+    ipcRenderer.on("stream-chunk", listener);
+
+    return () => {
+      ipcRenderer.removeListener("stream-chunk", listener);
+    };
   },
 
   removeStreamChunkListener: () => {
@@ -200,12 +219,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
     callback: (data: {
       command: string;
       requestId: string;
+      sessionId: string;
+      streamRequestId: string;
       cwd: string;
     }) => void,
   ) => {
-    ipcRenderer.on("terminal:request-confirmation", (event, data) =>
-      callback(data),
-    );
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        command: string;
+        requestId: string;
+        sessionId: string;
+        streamRequestId: string;
+        cwd: string;
+      },
+    ) => callback(data);
+    ipcRenderer.on("terminal:request-confirmation", listener);
+
+    return () => {
+      ipcRenderer.removeListener("terminal:request-confirmation", listener);
+    };
   },
   respondToCommandConfirmation: (requestId: string, allowed: boolean) =>
     ipcRenderer.invoke("terminal:confirmation-response", requestId, allowed),

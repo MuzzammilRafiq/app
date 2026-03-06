@@ -52,7 +52,16 @@ interface AdaptiveExecutorResult {
 interface StreamChunk {
   chunk: string;
   type: ChatType;
-  sessionId?: string;
+  sessionId: string;
+  requestId: string;
+}
+
+interface CommandConfirmationRequest {
+  command: string;
+  requestId: string;
+  sessionId: string;
+  streamRequestId: string;
+  cwd: string;
 }
 interface VideoDetails {
   title: string;
@@ -181,6 +190,7 @@ export type {
   MakePlanResponse,
   PlannerResult,
   StreamChunk,
+  CommandConfirmationRequest,
   VideoDetails,
   VideoParams,
   VideoInfoResult,

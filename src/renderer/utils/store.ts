@@ -299,39 +299,89 @@ interface StreamingSegment {
   type: ChatType;
   content: string;
   sessionId: string;
+  requestId: string;
 }
 
 interface StreamingStore {
   isStreaming: boolean;
-  streamingSessionId: string | null;
+  activeRequestIdsBySession: Record<string, string>;
   streamingSegments: StreamingSegment[];
-  setStreaming: (isStreaming: boolean) => void;
-  setStreamingSessionId: (sessionId: string | null) => void;
-  addStreamingChunk: (chunk: StreamChunk, sessionId?: string) => void;
+  streamingSegmentsBySession: Record<string, StreamingSegment[]>;
+  startStreaming: (sessionId: string, requestId: string) => void;
+  finishStreaming: (sessionId: string, requestId: string) => void;
+  addStreamingChunk: (chunk: StreamChunk) => void;
+  reconcileFinalResponse: (
+    sessionId: string,
+    requestId: string,
+    content: string,
+  ) => void;
   updateStreamingSegment: (id: string, content: string) => void;
-  clearStreaming: () => void;
+  clearSessionStreaming: (sessionId: string) => void;
+}
+
+const EMPTY_STREAMING_SEGMENTS: StreamingSegment[] = [];
+
+function flattenStreamingSegments(
+  streamingSegmentsBySession: Record<string, StreamingSegment[]>,
+): StreamingSegment[] {
+  return Object.values(streamingSegmentsBySession).flat();
 }
 
 export const useStreamingStore = create<StreamingStore>((set) => ({
   isStreaming: false,
-  streamingSessionId: null,
+  activeRequestIdsBySession: {},
   streamingSegments: [],
-  setStreaming: (isStreaming) => set({ isStreaming }),
-  setStreamingSessionId: (sessionId) => set({ streamingSessionId: sessionId }),
-  addStreamingChunk: (chunk, sessionId) =>
+  streamingSegmentsBySession: {},
+  startStreaming: (sessionId, requestId) =>
     set((state) => {
-      const activeSessionId = sessionId ?? state.streamingSessionId;
-      if (!activeSessionId) {
+      const activeRequestIdsBySession = {
+        ...state.activeRequestIdsBySession,
+        [sessionId]: requestId,
+      };
+      const streamingSegmentsBySession = {
+        ...state.streamingSegmentsBySession,
+        [sessionId]: EMPTY_STREAMING_SEGMENTS,
+      };
+
+      return {
+        isStreaming: Object.keys(activeRequestIdsBySession).length > 0,
+        activeRequestIdsBySession,
+        streamingSegmentsBySession,
+        streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+      };
+    }),
+  finishStreaming: (sessionId, requestId) =>
+    set((state) => {
+      if (state.activeRequestIdsBySession[sessionId] !== requestId) {
         return state;
       }
-      const updated = [...state.streamingSegments];
+
+      const activeRequestIdsBySession = { ...state.activeRequestIdsBySession };
+      delete activeRequestIdsBySession[sessionId];
+
+      return {
+        isStreaming: Object.keys(activeRequestIdsBySession).length > 0,
+        activeRequestIdsBySession,
+      };
+    }),
+  addStreamingChunk: (chunk) =>
+    set((state) => {
+      if (state.activeRequestIdsBySession[chunk.sessionId] !== chunk.requestId) {
+        return state;
+      }
+
+      const updated = [
+        ...(state.streamingSegmentsBySession[chunk.sessionId] ??
+          EMPTY_STREAMING_SEGMENTS),
+      ];
 
       if (chunk.type === "general") {
         const lastIndex = updated.length - 1;
         const last = updated[lastIndex];
         if (
           last &&
-          last.sessionId === activeSessionId &&
+          last.sessionId === chunk.sessionId &&
+          last.requestId === chunk.requestId &&
           last.type === "general"
         ) {
           updated[lastIndex] = {
@@ -340,7 +390,8 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
           };
         } else if (
           last &&
-          last.sessionId === activeSessionId &&
+          last.sessionId === chunk.sessionId &&
+          last.requestId === chunk.requestId &&
           last.type === "stream"
         ) {
           updated[lastIndex] = {
@@ -353,13 +404,17 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
             id: crypto.randomUUID(),
             type: "general",
             content: chunk.chunk,
-            sessionId: activeSessionId,
+            sessionId: chunk.sessionId,
+            requestId: chunk.requestId,
           });
         }
       } else if (chunk.type === "plan") {
         // Overwrite existing plan
         const existingIndex = updated.findIndex(
-          (s) => s.type === "plan" && s.sessionId === activeSessionId,
+          (s) =>
+            s.type === "plan" &&
+            s.sessionId === chunk.sessionId &&
+            s.requestId === chunk.requestId,
         );
         if (existingIndex >= 0) {
           const existing = updated[existingIndex];
@@ -369,6 +424,7 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
               type: existing.type,
               content: chunk.chunk,
               sessionId: existing.sessionId,
+              requestId: existing.requestId,
             };
           }
         } else {
@@ -376,7 +432,8 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
             id: crypto.randomUUID(),
             type: "plan",
             content: chunk.chunk,
-            sessionId: activeSessionId,
+            sessionId: chunk.sessionId,
+            requestId: chunk.requestId,
           });
         }
       } else {
@@ -385,7 +442,8 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
         if (
           last &&
           last.type === chunk.type &&
-          last.sessionId === activeSessionId
+          last.sessionId === chunk.sessionId &&
+          last.requestId === chunk.requestId
         ) {
           updated[updated.length - 1] = {
             ...last,
@@ -396,24 +454,121 @@ export const useStreamingStore = create<StreamingStore>((set) => ({
             id: crypto.randomUUID(),
             type: chunk.type,
             content: chunk.chunk,
-            sessionId: activeSessionId,
+            sessionId: chunk.sessionId,
+            requestId: chunk.requestId,
           });
         }
       }
-      return { streamingSegments: updated };
+      const streamingSegmentsBySession = {
+        ...state.streamingSegmentsBySession,
+        [chunk.sessionId]: updated,
+      };
+
+      return {
+        streamingSegmentsBySession,
+        streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+      };
+    }),
+  reconcileFinalResponse: (sessionId, requestId, content) =>
+    set((state) => {
+      const trimmedContent = content.trim();
+      if (!trimmedContent) {
+        return state;
+      }
+
+      const updated = [
+        ...(state.streamingSegmentsBySession[sessionId] ??
+          EMPTY_STREAMING_SEGMENTS),
+      ];
+      let generalIndex = -1;
+
+      for (let i = updated.length - 1; i >= 0; i--) {
+        const segment = updated[i];
+        if (
+          segment &&
+          segment.sessionId === sessionId &&
+          segment.requestId === requestId &&
+          segment.type === "general"
+        ) {
+          generalIndex = i;
+          break;
+        }
+      }
+
+      if (generalIndex >= 0) {
+        const existing = updated[generalIndex];
+        if (existing && existing.content !== trimmedContent) {
+          updated[generalIndex] = {
+            ...existing,
+            content: trimmedContent,
+          };
+          const streamingSegmentsBySession = {
+            ...state.streamingSegmentsBySession,
+            [sessionId]: updated,
+          };
+          return {
+            streamingSegmentsBySession,
+            streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+          };
+        }
+        return state;
+      }
+
+      updated.push({
+        id: crypto.randomUUID(),
+        type: "general",
+        content: trimmedContent,
+        sessionId,
+        requestId,
+      });
+
+      const streamingSegmentsBySession = {
+        ...state.streamingSegmentsBySession,
+        [sessionId]: updated,
+      };
+
+      return {
+        streamingSegmentsBySession,
+        streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+      };
     }),
   updateStreamingSegment: (id: string, content: string) =>
     set((state) => {
-      const updated = state.streamingSegments.map((segment) =>
-        segment.id === id ? { ...segment, content } : segment,
-      );
-      return { streamingSegments: updated };
+      const streamingSegmentsBySession = { ...state.streamingSegmentsBySession };
+      let changed = false;
+
+      for (const [sessionId, sessionSegments] of Object.entries(
+        streamingSegmentsBySession,
+      )) {
+        const nextSegments = sessionSegments.map((segment) =>
+          segment.id === id ? { ...segment, content } : segment,
+        );
+
+        if (nextSegments.some((segment, index) => segment !== sessionSegments[index])) {
+          streamingSegmentsBySession[sessionId] = nextSegments;
+          changed = true;
+          break;
+        }
+      }
+
+      if (!changed) {
+        return state;
+      }
+
+      return {
+        streamingSegmentsBySession,
+        streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+      };
     }),
-  clearStreaming: () =>
-    set({
-      streamingSegments: [],
-      isStreaming: false,
-      streamingSessionId: null,
+  clearSessionStreaming: (sessionId) =>
+    set((state) => {
+      const streamingSegmentsBySession = { ...state.streamingSegmentsBySession };
+      delete streamingSegmentsBySession[sessionId];
+
+      return {
+        streamingSegmentsBySession,
+        streamingSegments: flattenStreamingSegments(streamingSegmentsBySession),
+      };
     }),
 }));
 

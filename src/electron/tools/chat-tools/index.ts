@@ -5,6 +5,7 @@ import {
   createTerminalAgentConfig,
 } from "../terminal/index.js";
 import { webSearchAnswer } from "../web-search/index.js";
+import { getChatStreamContextFromEvent, sendChatChunk } from "../../utils/chat-stream.js";
 
 export interface ChatToolRegistryContext {
   event: any;
@@ -50,11 +51,12 @@ export function buildChatExecutionTools(context: ChatToolRegistryContext): {
         }
 
         if (reason) {
-          context.event?.sender?.send("stream-chunk", {
-            chunk: `WEB SEARCH REASON: ${reason}\n`,
-            type: "log",
-            sessionId: context.sessionId,
-          });
+          sendChatChunk(
+            context.event.sender,
+            getChatStreamContextFromEvent(context.event),
+            `WEB SEARCH REASON: ${reason}\n`,
+            "log",
+          );
         }
 
         const result = await webSearchAnswer(

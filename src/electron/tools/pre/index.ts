@@ -4,6 +4,10 @@ import { IpcMainInvokeEvent } from "electron";
 import { ChatMessageRecord } from "../../../common/types.js";
 import { LOG } from "../../utils/logging.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
+import {
+  getChatStreamContextFromEvent,
+  sendChatChunk,
+} from "../../utils/chat-stream.js";
 const TAG = "pre";
 
 export const preProcessMessage = async (
@@ -13,12 +17,14 @@ export const preProcessMessage = async (
   config: any,
   signal?: AbortSignal,
 ) => {
+  const context = getChatStreamContextFromEvent(event as IpcMainInvokeEvent & {
+    sessionId?: string;
+    requestId?: string;
+  });
+
   // If there are images, generate text description using OpenRouter multimodal model
   if (lastUserMessage?.imagePaths && lastUserMessage.imagePaths.length > 0) {
-    const buffer = new StreamChunkBuffer(
-      event.sender,
-      lastUserMessage.sessionId,
-    );
+    const buffer = new StreamChunkBuffer(event.sender, context);
     try {
       LOG(TAG).INFO("generating image description using OpenRouter");
       buffer.send(`*Analyzing image(s) with vision model...*`, "log");
@@ -105,11 +111,12 @@ export const preProcessMessage = async (
         throw err;
       }
       LOG(TAG).ERROR(`RAG processing failed: ${err}`);
-      event.sender.send("stream-chunk", {
-        chunk: `*RAG processing failed: ${err instanceof Error ? err.message : "Unknown error"}*`,
-        type: "log",
-        sessionId: lastUserMessage.sessionId,
-      });
+      sendChatChunk(
+        event.sender,
+        context,
+        `*RAG processing failed: ${err instanceof Error ? err.message : "Unknown error"}*`,
+        "log",
+      );
       // Continue without RAG results rather than failing the whole request
     }
   }
