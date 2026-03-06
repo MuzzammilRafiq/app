@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { TranscriptionRunRecord } from "../../../../common/types";
 import {
   AudioBufferStore,
   AudioRecorder,
@@ -9,6 +10,7 @@ import {
   type ModelTranscriptionResult,
   type TranscriptionModel,
 } from "../_lib/progressive-streaming";
+import { useMeetHistoryStore } from "../../../utils/store";
 import WorkerUrl from "../../../workers/parakeet.worker.ts?worker&url";
 
 type ModelStatus = "not_loaded" | "loading" | "ready" | "error";
@@ -24,10 +26,18 @@ const MODEL_VERSION = "parakeet-tdt-0.6b-v2";
 const PROGRESSIVE_INTERVAL_MS = 250;
 const MIN_TRANSCRIBE_SAMPLES = SAMPLE_RATE;
 const VAD_THRESHOLD = 0.01;
+const TRANSCRIPTION_IN_PROGRESS_ERROR = "Transcription request already in progress";
 
 interface PendingPromise<T> {
   resolve: (value: T) => void;
   reject: (error: Error) => void;
+}
+
+function joinTranscriptParts(...parts: string[]): string {
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 export interface MeetTranscriptionState {
@@ -54,6 +64,16 @@ export function useMeetTranscription(): MeetTranscriptionState {
   const [timestampSeconds, setTimestampSeconds] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const currentTranscriptionRun = useMeetHistoryStore(
+    (s) => s.currentTranscriptionRun,
+  );
+  const setTranscriptionRuns = useMeetHistoryStore((s) => s.setTranscriptionRuns);
+  const setCurrentTranscriptionRun = useMeetHistoryStore(
+    (s) => s.setCurrentTranscriptionRun,
+  );
+  const clearCurrentTranscriptionRun = useMeetHistoryStore(
+    (s) => s.clearCurrentTranscriptionRun,
+  );
 
   const workerRef = useRef<Worker | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -61,6 +81,11 @@ export function useMeetTranscription(): MeetTranscriptionState {
   const streamingRef = useRef<SmartProgressiveStreamingHandler | null>(null);
   const intervalRef = useRef<number | null>(null);
   const inFlightRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const activeTranscriptionTaskRef =
+    useRef<Promise<ModelTranscriptionResult> | null>(null);
+  const baseTranscriptRef = useRef("");
+  const baseDurationRef = useRef(0);
   const pendingLoadRef = useRef<PendingPromise<void> | null>(null);
   const pendingTranscribeRef =
     useRef<PendingPromise<ModelTranscriptionResult> | null>(null);
@@ -127,21 +152,52 @@ export function useMeetTranscription(): MeetTranscriptionState {
     (audio: Float32Array): Promise<ModelTranscriptionResult> => {
       const worker = ensureWorker();
       if (pendingTranscribeRef.current) {
-        return Promise.reject(
-          new Error("Transcription request already in progress"),
-        );
+        return Promise.reject(new Error(TRANSCRIPTION_IN_PROGRESS_ERROR));
       }
 
-      return new Promise<ModelTranscriptionResult>((resolve, reject) => {
+      const task = new Promise<ModelTranscriptionResult>((resolve, reject) => {
         pendingTranscribeRef.current = { resolve, reject };
         worker.postMessage({
           type: "transcribe",
           data: { audio },
         });
       });
+
+      const trackedTask = task.finally(() => {
+        if (activeTranscriptionTaskRef.current === trackedTask) {
+          activeTranscriptionTaskRef.current = null;
+        }
+      });
+
+      activeTranscriptionTaskRef.current = trackedTask;
+
+      return task;
     },
     [ensureWorker],
   );
+
+  const syncRunInStore = useCallback(
+    (run: TranscriptionRunRecord) => {
+      const existingRuns = useMeetHistoryStore.getState().transcriptionRuns;
+      const nextRuns = [run, ...existingRuns.filter((item) => item.id !== run.id)];
+      setTranscriptionRuns(nextRuns);
+      setCurrentTranscriptionRun(run);
+    },
+    [setCurrentTranscriptionRun, setTranscriptionRuns],
+  );
+
+  const waitForPendingTranscription = useCallback(async () => {
+    const pendingTask = activeTranscriptionTaskRef.current;
+    if (!pendingTask) {
+      return;
+    }
+
+    try {
+      await pendingTask;
+    } catch {
+      // Surface the actual error from the request path instead of compounding it.
+    }
+  }, []);
 
   const loadForDevice = useCallback(
     (device: "webgpu" | "wasm"): Promise<void> => {
@@ -182,13 +238,62 @@ export function useMeetTranscription(): MeetTranscriptionState {
     }
   }, [loadForDevice, modelStatus]);
 
+  const ensureActiveRun = useCallback(async (): Promise<TranscriptionRunRecord> => {
+    if (currentTranscriptionRun) {
+      return currentTranscriptionRun;
+    }
+
+    const createdRun = await window.electronAPI.dbCreateTranscriptionRun("", 0);
+    syncRunInStore(createdRun);
+    return createdRun;
+  }, [currentTranscriptionRun, syncRunInStore]);
+
+  const persistRunContent = useCallback(
+    async (
+      runId: string,
+      transcriptText: string,
+      durationSeconds: number,
+    ): Promise<TranscriptionRunRecord | null> => {
+      const updatedRun = await window.electronAPI.dbUpdateTranscriptionRun(
+        runId,
+        transcriptText,
+        durationSeconds,
+      );
+      syncRunInStore(updatedRun);
+      return updatedRun;
+    },
+    [syncRunInStore],
+  );
+
+  const finalizeTranscription = useCallback(
+    async (audio: Float32Array): Promise<string> => {
+      if (!streamingRef.current) {
+        return "";
+      }
+
+      try {
+        return await streamingRef.current.finalize(audio);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === TRANSCRIPTION_IN_PROGRESS_ERROR
+        ) {
+          await waitForPendingTranscription();
+          return (await streamingRef.current.finalize(audio)).trim();
+        }
+        throw error;
+      }
+    },
+    [waitForPendingTranscription],
+  );
+
   const stopRecording = useCallback(async () => {
     if (!isRecording && !recorderRef.current) {
       return;
     }
 
     clearPollingTimer();
-    setIsRecording(false);
+    isStoppingRef.current = true;
 
     const recorder = recorderRef.current;
     recorderRef.current = null;
@@ -196,12 +301,25 @@ export function useMeetTranscription(): MeetTranscriptionState {
       await recorder.stop();
     }
 
+    await waitForPendingTranscription();
+
     inFlightRef.current = false;
     const audio = audioBufferRef.current?.getBuffer() ?? new Float32Array(0);
+    let nextTranscript = baseTranscriptRef.current;
+    let nextDuration = baseDurationRef.current;
     if (audio.length > 0 && streamingRef.current) {
       try {
-        const finalText = await streamingRef.current.finalize(audio);
-        setFixedText(finalText);
+        const finalText = await finalizeTranscription(audio);
+        const normalizedText = finalText.trim();
+        nextTranscript = joinTranscriptParts(
+          baseTranscriptRef.current,
+          normalizedText,
+        );
+        nextDuration = baseDurationRef.current + audio.length / SAMPLE_RATE;
+        setFixedText(nextTranscript);
+
+        const activeRun = currentTranscriptionRun ?? (await ensureActiveRun());
+        await persistRunContent(activeRun.id, nextTranscript, nextDuration);
       } catch (stopError) {
         const message =
           stopError instanceof Error
@@ -212,21 +330,37 @@ export function useMeetTranscription(): MeetTranscriptionState {
     }
     setActiveText("");
     setAudioLevel(0);
-  }, [clearPollingTimer, isRecording]);
+    setTimestampSeconds(nextDuration);
+    setIsRecording(false);
+    isStoppingRef.current = false;
+  }, [
+    clearPollingTimer,
+    currentTranscriptionRun,
+    ensureActiveRun,
+    finalizeTranscription,
+    isRecording,
+    persistRunContent,
+    waitForPendingTranscription,
+  ]);
 
   const startRecording = useCallback(async () => {
     if (modelStatus !== "ready") {
       setError("Load model before starting recording.");
       return;
     }
-    if (isRecording) {
+    if (isRecording || isStoppingRef.current) {
       return;
     }
 
     setError(null);
-    setFixedText("");
+    const activeRun = await ensureActiveRun();
+    const initialTranscript = activeRun.transcriptText.trim();
+    baseTranscriptRef.current = initialTranscript;
+    baseDurationRef.current = activeRun.durationSeconds;
+
+    setFixedText(initialTranscript);
     setActiveText("");
-    setTimestampSeconds(0);
+    setTimestampSeconds(activeRun.durationSeconds);
     setAudioLevel(0);
 
     audioBufferRef.current = new AudioBufferStore();
@@ -268,7 +402,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
         return;
       }
 
-      const duration = audioBuffer.length / SAMPLE_RATE;
+      const duration = baseDurationRef.current + audioBuffer.length / SAMPLE_RATE;
       setTimestampSeconds(duration);
 
       if (audioBuffer.length < MIN_TRANSCRIBE_SAMPLES) {
@@ -295,9 +429,15 @@ export function useMeetTranscription(): MeetTranscriptionState {
       inFlightRef.current = true;
       try {
         const result = await streamingRef.current.transcribeIncremental(audioBuffer);
-        setFixedText(result.fixedText);
+        setFixedText(joinTranscriptParts(baseTranscriptRef.current, result.fixedText));
         setActiveText(result.activeText);
       } catch (transcribeError) {
+        if (
+          transcribeError instanceof Error &&
+          transcribeError.message === TRANSCRIPTION_IN_PROGRESS_ERROR
+        ) {
+          return;
+        }
         const message =
           transcribeError instanceof Error
             ? transcribeError.message
@@ -311,7 +451,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
     intervalRef.current = window.setInterval(() => {
       void tick();
     }, PROGRESSIVE_INTERVAL_MS);
-  }, [isRecording, modelStatus, transcribeWithWorker]);
+  }, [ensureActiveRun, isRecording, modelStatus, transcribeWithWorker]);
 
   const resetSession = useCallback(async () => {
     if (isRecording || recorderRef.current) {
@@ -319,12 +459,29 @@ export function useMeetTranscription(): MeetTranscriptionState {
     }
     audioBufferRef.current?.reset();
     streamingRef.current?.reset();
+    clearCurrentTranscriptionRun();
+    baseTranscriptRef.current = "";
+    baseDurationRef.current = 0;
     setFixedText("");
     setActiveText("");
     setTimestampSeconds(0);
     setAudioLevel(0);
     setError(null);
-  }, [isRecording, stopRecording]);
+  }, [clearCurrentTranscriptionRun, isRecording, stopRecording]);
+
+  useEffect(() => {
+    if (!currentTranscriptionRun || isRecording) {
+      return;
+    }
+
+    setFixedText(currentTranscriptionRun.transcriptText);
+    setActiveText("");
+    setTimestampSeconds(currentTranscriptionRun.durationSeconds);
+    setAudioLevel(0);
+    setError(null);
+    baseTranscriptRef.current = currentTranscriptionRun.transcriptText.trim();
+    baseDurationRef.current = currentTranscriptionRun.durationSeconds;
+  }, [currentTranscriptionRun, isRecording]);
 
   useEffect(() => {
     return () => {

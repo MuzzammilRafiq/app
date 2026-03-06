@@ -90,6 +90,29 @@ export function setupDatabaseHandlers() {
     return dbService.deleteRagFolder(folderPath);
   });
 
+  // Meet transcription runs
+  ipcMain.handle(
+    "db:create-transcription-run",
+    async (_event, transcriptText: string, durationSeconds: number, id?: string) => {
+      return dbService.createTranscriptionRun(transcriptText, durationSeconds, id);
+    },
+  );
+
+  ipcMain.handle("db:get-transcription-runs", async (_event, limit: number) => {
+    return dbService.getTranscriptionRuns(limit);
+  });
+
+  ipcMain.handle(
+    "db:update-transcription-run",
+    async (_event, id: string, transcriptText: string, durationSeconds: number) => {
+      return dbService.updateTranscriptionRun(id, transcriptText, durationSeconds);
+    },
+  );
+
+  ipcMain.handle("db:delete-transcription-run", async (_event, id: string) => {
+    return dbService.deleteTranscriptionRun(id);
+  });
+
   // Vision sessions
   ipcMain.handle(
     "db:create-vision-session",

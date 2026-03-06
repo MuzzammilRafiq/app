@@ -12,7 +12,6 @@ interface MeetingPanelProps {
   onLoadModel: () => Promise<void>;
   onStartRecording: () => Promise<void>;
   onStopRecording: () => Promise<void>;
-  onReset: () => Promise<void>;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -45,7 +44,6 @@ export default function MeetingPanel({
   onLoadModel,
   onStartRecording,
   onStopRecording,
-  onReset,
 }: MeetingPanelProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const hasText = fixedText.trim().length > 0 || activeText.trim().length > 0;
@@ -117,15 +115,6 @@ export default function MeetingPanel({
               className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-text-main shadow-sm transition-all hover:bg-border/30"
             >
               Stop
-            </button>
-          )}
-
-          {hasText && !isRecording && (
-            <button
-              onClick={() => void onReset()}
-              className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-text-main shadow-sm transition-all hover:bg-border/30"
-            >
-              Clear
             </button>
           )}
         </div>

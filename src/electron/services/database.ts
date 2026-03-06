@@ -6,6 +6,7 @@ import {
   ChatSessionRecord,
   ChatType,
   ChatSessionWithMessages,
+  TranscriptionRunRecord,
   VisionSessionRecord,
   VisionLogRecord,
   VisionLogType,
@@ -195,6 +196,27 @@ export class DatabaseService {
     } catch (error) {
       this.db.exec("ROLLBACK");
       LOG(TAG).ERROR(`Failed to ensure vision_sessions schema: ${error}`);
+      throw error;
+    }
+
+    // Meet transcription runs table
+    try {
+      this.db.exec("BEGIN TRANSACTION");
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS transcription_runs (
+          id TEXT PRIMARY KEY,
+          transcript_text TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          duration_seconds REAL NOT NULL
+        );
+      `);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_transcription_runs_created_at ON transcription_runs(created_at DESC);`,
+      );
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      LOG(TAG).ERROR(`Failed to ensure transcription_runs schema: ${error}`);
       throw error;
     }
 
@@ -757,6 +779,141 @@ export class DatabaseService {
     } catch (error) {
       LOG(TAG).ERROR(`Failed to delete RAG folder: ${error}`);
       throw error;
+    }
+  }
+
+  // ---------------- Meet Transcription Run APIs ----------------
+
+  createTranscriptionRun(
+    transcriptText: string,
+    durationSeconds: number,
+    id: string = randomUUID(),
+  ): TranscriptionRunRecord {
+    this.validateInput(transcriptText, "transcriptText", true);
+    this.validateInput(id, "id");
+
+    if (typeof durationSeconds !== "number" || durationSeconds < 0) {
+      throw new Error("durationSeconds must be a non-negative number");
+    }
+
+    const createdAt = Date.now();
+    const stmt = this.db.prepare(
+      `INSERT INTO transcription_runs (id, transcript_text, created_at, duration_seconds)
+       VALUES (?, ?, ?, ?)`,
+    );
+
+    const record: TranscriptionRunRecord = {
+      id,
+      transcriptText,
+      createdAt,
+      durationSeconds,
+    };
+
+    try {
+      stmt.run(
+        record.id,
+        record.transcriptText,
+        record.createdAt,
+        record.durationSeconds,
+      );
+      return record;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to create transcription run: ${error}`);
+      throw new Error(`Failed to create transcription run: ${error}`);
+    }
+  }
+
+  updateTranscriptionRun(
+    id: string,
+    transcriptText: string,
+    durationSeconds: number,
+  ): TranscriptionRunRecord {
+    this.validateInput(id, "id");
+    this.validateInput(transcriptText, "transcriptText", true);
+
+    if (typeof durationSeconds !== "number" || durationSeconds < 0) {
+      throw new Error("durationSeconds must be a non-negative number");
+    }
+
+    try {
+      const stmt = this.db.prepare(
+        `UPDATE transcription_runs
+         SET transcript_text = ?, duration_seconds = ?
+         WHERE id = ?`,
+      );
+      const result = stmt.run(transcriptText, durationSeconds, id);
+      if (result.changes === 0) {
+        throw new Error(`Transcription run with id ${id} not found`);
+      }
+
+      return {
+        id,
+        transcriptText,
+        durationSeconds,
+        createdAt: this.getTranscriptionRunCreatedAt(id),
+      };
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to update transcription run: ${error}`);
+      throw new Error(`Failed to update transcription run: ${error}`);
+    }
+  }
+
+  private getTranscriptionRunCreatedAt(id: string): number {
+    const stmt = this.db.prepare(
+      `SELECT created_at as createdAt FROM transcription_runs WHERE id = ?`,
+    );
+    const row = stmt.get(id) as { createdAt: number } | undefined;
+    if (!row) {
+      throw new Error(`Transcription run with id ${id} not found`);
+    }
+    return row.createdAt;
+  }
+
+  getTranscriptionRuns(limit: number = -1): TranscriptionRunRecord[] {
+    if (limit !== -1 && (typeof limit !== "number" || limit <= 0)) {
+      throw new Error("limit must be -1 or a positive number");
+    }
+
+    try {
+      const query =
+        limit === -1
+          ? `SELECT id, transcript_text as transcriptText, created_at as createdAt, duration_seconds as durationSeconds
+             FROM transcription_runs
+             ORDER BY created_at DESC`
+          : `SELECT id, transcript_text as transcriptText, created_at as createdAt, duration_seconds as durationSeconds
+             FROM transcription_runs
+             ORDER BY created_at DESC
+             LIMIT ?`;
+      const stmt = this.db.prepare(query);
+      const rows = (limit === -1 ? stmt.all() : stmt.all(limit)) as Array<{
+        id: string;
+        transcriptText: string;
+        createdAt: number;
+        durationSeconds: number;
+      }>;
+
+      return rows.map((row) => ({
+        id: row.id,
+        transcriptText: row.transcriptText,
+        createdAt: row.createdAt,
+        durationSeconds: Number(row.durationSeconds),
+      }));
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to get transcription runs: ${error}`);
+      throw new Error(`Failed to get transcription runs: ${error}`);
+    }
+  }
+
+  deleteTranscriptionRun(id: string): boolean {
+    this.validateInput(id, "id");
+
+    try {
+      const stmt = this.db.prepare(`DELETE FROM transcription_runs WHERE id = ?`);
+      const result = stmt.run(id);
+      return result.changes > 0;
+    } catch (error) {
+      LOG(TAG).ERROR(`Failed to delete transcription run: ${error}`);
+      throw new Error(`Failed to delete transcription run: ${error}`);
     }
   }
 

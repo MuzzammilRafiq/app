@@ -52,7 +52,6 @@ export default function MeetScreen() {
           onLoadModel={loadModel}
           onStartRecording={startRecording}
           onStopRecording={stopRecording}
-          onReset={resetSession}
         />
       ) : (
         <EmptyPanel

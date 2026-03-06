@@ -5,6 +5,7 @@ import type {
   ChatMessageRecord,
   ChatType,
   StreamChunk,
+  TranscriptionRunRecord,
   VisionLogType,
   VisionLogRecord,
 } from "../../common/types";
@@ -67,6 +68,22 @@ interface CurrentViewStore {
 export const useCurrentViewStore = create<CurrentViewStore>((set) => ({
   currentView: "chat",
   setCurrentView: (view) => set({ currentView: view }),
+}));
+
+interface MeetHistoryStore {
+  transcriptionRuns: TranscriptionRunRecord[];
+  currentTranscriptionRun: TranscriptionRunRecord | null;
+  setTranscriptionRuns: (runs: TranscriptionRunRecord[]) => void;
+  setCurrentTranscriptionRun: (run: TranscriptionRunRecord | null) => void;
+  clearCurrentTranscriptionRun: () => void;
+}
+
+export const useMeetHistoryStore = create<MeetHistoryStore>((set) => ({
+  transcriptionRuns: [],
+  currentTranscriptionRun: null,
+  setTranscriptionRuns: (runs) => set({ transcriptionRuns: runs }),
+  setCurrentTranscriptionRun: (run) => set({ currentTranscriptionRun: run }),
+  clearCurrentTranscriptionRun: () => set({ currentTranscriptionRun: null }),
 }));
 
 interface Store {

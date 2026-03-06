@@ -121,6 +121,13 @@ interface VisionSessionWithLogs extends VisionSessionRecord {
   logs: VisionLogRecord[];
 }
 
+interface TranscriptionRunRecord {
+  id: string;
+  transcriptText: string;
+  createdAt: number;
+  durationSeconds: number;
+}
+
 interface ChatMessageRecord {
   id: string;
   sessionId: string;
@@ -204,4 +211,5 @@ export type {
   VisionSessionRecord,
   VisionLogRecord,
   VisionSessionWithLogs,
+  TranscriptionRunRecord,
 };

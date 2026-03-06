@@ -414,6 +414,24 @@ interface Window {
     ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
 
     /**
+     * Meet transcription run persistence APIs
+     */
+    dbCreateTranscriptionRun: (
+      transcriptText: string,
+      durationSeconds: number,
+      id?: string,
+    ) => Promise<import("../common/types").TranscriptionRunRecord>;
+    dbGetTranscriptionRuns: (
+      limit: number,
+    ) => Promise<import("../common/types").TranscriptionRunRecord[]>;
+    dbUpdateTranscriptionRun: (
+      id: string,
+      transcriptText: string,
+      durationSeconds: number,
+    ) => Promise<import("../common/types").TranscriptionRunRecord>;
+    dbDeleteTranscriptionRun: (id: string) => Promise<boolean>;
+
+    /**
      * RAG folders persistence APIs
      */
     dbGetRagFolders: (

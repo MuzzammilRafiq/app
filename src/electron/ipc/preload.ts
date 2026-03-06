@@ -164,6 +164,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dbGetAllSessionsWithMessages: (limit: number) =>
     ipcRenderer.invoke("db:get-all-sessions-with-messages", limit),
 
+  // Meet transcription run APIs
+  dbCreateTranscriptionRun: (
+    transcriptText: string,
+    durationSeconds: number,
+    id?: string,
+  ) =>
+    ipcRenderer.invoke(
+      "db:create-transcription-run",
+      transcriptText,
+      durationSeconds,
+      id,
+    ),
+  dbGetTranscriptionRuns: (limit: number) =>
+    ipcRenderer.invoke("db:get-transcription-runs", limit),
+  dbUpdateTranscriptionRun: (
+    id: string,
+    transcriptText: string,
+    durationSeconds: number,
+  ) =>
+    ipcRenderer.invoke(
+      "db:update-transcription-run",
+      id,
+      transcriptText,
+      durationSeconds,
+    ),
+  dbDeleteTranscriptionRun: (id: string) =>
+    ipcRenderer.invoke("db:delete-transcription-run", id),
+
   // RAG folders APIs
   dbGetRagFolders: (type: "image" | "text") =>
     ipcRenderer.invoke("db:get-rag-folders", type),
