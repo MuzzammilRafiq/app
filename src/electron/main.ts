@@ -13,6 +13,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
 
+// Align Electron's renderer environment with the standalone WebGPU demo.
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
+app.commandLine.appendSwitch("enable-unsafe-webgpu");
+
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
@@ -37,7 +41,8 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false, // Disable Node.js in renderer for security
       contextIsolation: true, // Enable context isolation for security
       preload: preloadPath, // Preload script to expose safe APIs to renderer
-      webSecurity: false, // Allow loading local files for image display
+      // The WebGPU transcription path needs normal browser isolation in dev.
+      webSecurity: process.env.NODE_ENV === "development",
     },
   });
 

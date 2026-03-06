@@ -9,6 +9,7 @@ import {
   type ModelTranscriptionResult,
   type TranscriptionModel,
 } from "../_lib/progressive-streaming";
+import WorkerUrl from "../../../workers/parakeet.worker.ts?worker&url";
 
 type ModelStatus = "not_loaded" | "loading" | "ready" | "error";
 
@@ -76,10 +77,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
       return workerRef.current;
     }
 
-    const worker = new Worker(
-      new URL("../../../workers/parakeet.worker.ts", import.meta.url),
-      { type: "module" },
-    );
+    const worker = new Worker(WorkerUrl, { type: "module" });
     worker.onmessage = (event: MessageEvent<WorkerIncomingMessage>) => {
       const message = event.data;
       if (message.status === "loading") {
@@ -173,9 +171,14 @@ export function useMeetTranscription(): MeetTranscriptionState {
 
     try {
       await loadForDevice("webgpu");
-    } catch {
-      setModelMessage("WebGPU unavailable, retrying with CPU backend...");
-      await loadForDevice("wasm");
+    } catch (loadError) {
+      const message =
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to initialize WebGPU transcription";
+      setModelStatus("error");
+      setModelMessage(message);
+      setError(message);
     }
   }, [loadForDevice, modelStatus]);
 

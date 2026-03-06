@@ -8,9 +8,16 @@ export default defineConfig({
   build: {
     outDir: "dist-renderer",
     emptyOutDir: true,
+    target: "esnext",
   },
   server: {
     port: 5173,
+    headers: {
+      // Match the standalone parakeet demo so ONNX Runtime can use the
+      // browser isolation features it expects in the WebGPU path.
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+    },
   },
   optimizeDeps: {
     exclude: ["parakeet.js", "onnxruntime-web"],
