@@ -29,63 +29,67 @@ export default function EmptyPanel({
   onLoadModel,
   onStartRecording,
 }: EmptyPanelProps) {
-  const canStart = modelStatus === "ready";
   const isLoading = modelStatus === "loading";
 
   return (
     <div className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-3xl rounded-2xl border border-border bg-surface p-6 shadow-premium">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="w-full max-w-2xl rounded-3xl border border-border/50 bg-surface/50 p-8 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col items-center justify-center space-y-8 text-center mt-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-subtle">
-              Meet
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-text-main">
-              Live transcript
+            <div className="mb-4 inline-flex items-center justify-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              {getStatusLabel(modelStatus)}
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-text-main">
+              Live transcription
             </h2>
+            <p className="mt-2 text-text-muted max-w-sm mx-auto">
+              Start recording to see live transcription text generated locally
+              on your device.
+            </p>
           </div>
-          <span className="rounded-lg border border-border/70 bg-bg-app px-3 py-1 text-xs font-medium text-text-muted">
-            {getStatusLabel(modelStatus)}
-          </span>
-        </div>
 
-        <div className="mt-6">
-          {isLoading ? (
-            <ModelLoadingIndicator message={modelMessage} />
-          ) : (
-            <AudioLevelMeter
-              level={audioLevel}
-              isActive={false}
-              className="min-h-[120px] justify-center"
-            />
-          )}
-        </div>
+          <div className="w-full max-w-md">
+            {isLoading ? (
+              <ModelLoadingIndicator message={modelMessage} />
+            ) : (
+              <div className="flex justify-center p-4">
+                <AudioLevelMeter
+                  level={audioLevel}
+                  isActive={false}
+                  className="min-h-[80px] justify-center"
+                />
+              </div>
+            )}
+          </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            onClick={() => {
-              void onLoadModel();
-            }}
-            disabled={isLoading || canStart}
-            className="rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--btn-accent-bg)",
-              color: "var(--btn-accent-text)",
-              boxShadow: "0 18px 35px -24px rgba(62,39,35,0.9)",
-            }}
-          >
-            {canStart ? "Model Ready" : isLoading ? "Loading..." : "Load Model"}
-          </button>
-
-          <button
-            onClick={() => {
-              void onStartRecording();
-            }}
-            disabled={!canStart}
-            className="rounded-xl border border-border bg-bg-app px-4 py-3 text-sm font-medium text-text-main transition-colors duration-200 hover:bg-primary-light/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Start Recording
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
+            {modelStatus !== "ready" ? (
+              <button
+                onClick={() => void onLoadModel()}
+                disabled={isLoading}
+                className="w-full rounded-full px-6 py-3 text-sm font-medium transition-all duration-200 disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--btn-accent-bg)",
+                  color: "var(--btn-accent-text)",
+                  boxShadow: "0 8px 20px -10px rgba(62,39,35,0.8)",
+                }}
+              >
+                {isLoading ? "Loading..." : "Load Model"}
+              </button>
+            ) : (
+              <button
+                onClick={() => void onStartRecording()}
+                className="w-full rounded-full px-6 py-3 text-sm font-medium transition-all shadow-sm hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--btn-accent-bg)",
+                  color: "var(--btn-accent-text)",
+                  boxShadow: "0 8px 20px -10px rgba(62,39,35,0.8)",
+                }}
+              >
+                Start Recording
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
