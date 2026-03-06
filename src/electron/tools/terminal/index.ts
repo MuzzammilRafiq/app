@@ -325,7 +325,7 @@ export const terminalAgent = async (
             sessionId: event.sessionId,
           });
         }
-        LOG(TAG).ERROR("Tool call:", part.input);
+        LOG(TAG).INFO("Tool call:", part.input);
         break;
       }
 
