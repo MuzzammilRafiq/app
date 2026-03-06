@@ -10,6 +10,7 @@ from typing import Literal, Optional
 import pyautogui
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
+from logger import log_debug, log_error
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel, Field
 
@@ -78,14 +79,17 @@ class SleepRequest(BaseModel):
 def mouse_move(request: MouseMoveRequest):
     """Move the mouse to the specified coordinates."""
     try:
-        print(f"[DEBUG] Moving mouse to ({request.x}, {request.y})")
+        log_debug(
+            "moving mouse",
+            context={"x": request.x, "y": request.y, "duration_ms": request.duration_ms},
+        )
         if request.delay_ms and request.delay_ms > 0:
             time.sleep(request.delay_ms / 1000.0)
         duration = request.duration_ms / 1000.0 if request.duration_ms else 0
         pyautogui.moveTo(request.x, request.y, duration=duration)
         return {"status": "ok", "x": request.x, "y": request.y}
     except Exception as e:
-        print(f"[ERROR] Mouse move failed: {e}")
+        log_error("mouse move failed", context={"x": request.x, "y": request.y}, exc_info=e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -93,13 +97,20 @@ def mouse_move(request: MouseMoveRequest):
 def mouse_click(request: MouseClickRequest):
     """Perform a mouse click at the current position."""
     try:
-        print(f"[DEBUG] Clicking mouse: {request.button}, clicks={request.clicks}")
+        log_debug(
+            "clicking mouse",
+            context={"button": request.button, "clicks": request.clicks},
+        )
         if request.delay_ms and request.delay_ms > 0:
             time.sleep(request.delay_ms / 1000.0)
         pyautogui.click(button=request.button, clicks=request.clicks or 1)
         return {"status": "ok", "button": request.button, "clicks": request.clicks or 1}
     except Exception as e:
-        print(f"[ERROR] Mouse click failed: {e}")
+        log_error(
+            "mouse click failed",
+            context={"button": request.button, "clicks": request.clicks},
+            exc_info=e,
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -119,7 +130,10 @@ def mouse_scroll(request: MouseScrollRequest):
     We invert the delta_y to match the expected behavior (positive = down).
     """
     try:
-        print(f"[DEBUG] Scrolling: delta_y={request.delta_y}")
+        log_debug(
+            "scrolling mouse",
+            context={"delta_y": request.delta_y, "duration_ms": request.duration_ms},
+        )
         if request.delay_ms and request.delay_ms > 0:
             time.sleep(request.delay_ms / 1000.0)
         
@@ -143,7 +157,11 @@ def mouse_scroll(request: MouseScrollRequest):
             "scroll_clicks": scroll_clicks
         }
     except Exception as e:
-        print(f"[ERROR] Mouse scroll failed: {e}")
+        log_error(
+            "mouse scroll failed",
+            context={"delta_y": request.delta_y},
+            exc_info=e,
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -582,8 +600,18 @@ def screenshot_numbered_grid(
             "grid_size": grid_size,
             "total_cells": grid_size * grid_size,
         }
-        
-        print(f"[DEBUG] Screenshot taken: Image({width}x{height}), Screen({pyautogui.size().width}x{pyautogui.size().height}), Scale({width / pyautogui.size().width})")
+
+        log_debug(
+            "screenshot grid captured",
+            context={
+                "image_width": width,
+                "image_height": height,
+                "screen_width": pyautogui.size().width,
+                "screen_height": pyautogui.size().height,
+                "scale_factor": width / pyautogui.size().width,
+                "grid_size": grid_size,
+            },
+        )
 
         # Generate Base64 for original
         original_buffer = io.BytesIO()

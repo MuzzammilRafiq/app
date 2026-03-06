@@ -11,7 +11,7 @@ import {
   askLLMForVerification,
 } from "./llm-helpers.js";
 import { executeVisionAction } from "./vision-handlers.js";
-import { LOG } from "../utils/logging.js";
+import { LOG, truncate, truncateLines } from "../utils/logging.js";
 import {
   executePress,
   executeScroll,
@@ -21,6 +21,11 @@ import {
 import { CHECK_ABORT } from "../utils/helper-functions.js";
 
 const TAG = "automation:execute";
+
+const AUTOMATION_LOG_MAX_LEN = 4000;
+
+const formatAutomationLog = (content: string) =>
+  truncateLines(content, AUTOMATION_LOG_MAX_LEN, 80);
 
 type ActiveVisionRun = {
   runId: string;
@@ -73,8 +78,8 @@ export const execute = async (
   ) => {
     event.sender.send("automation:log", {
       type,
-      title,
-      content,
+      title: truncate(title, 120),
+      content: formatAutomationLog(content),
       runId: activeRunId,
     });
   };
@@ -88,14 +93,22 @@ export const execute = async (
   };
 
   try {
-    LOG(TAG).INFO(`Starting vision workflow: "${userPrompt}"`);
+    LOG(TAG).INFO("Starting vision workflow", {
+      runId: activeRunId,
+      debug,
+      userPrompt: truncate(userPrompt, 400),
+    });
     sendProgress("starting", `Analyzing request: "${userPrompt}"`);
 
     // Phase 1: Take initial screenshot and create contextual plan
     const initialScreenshot = await takeScreenshot();
     CHECK_ABORT(controller);
 
-    LOG(TAG).INFO(`Initial screenshot captured`);
+    LOG(TAG).INFO("Initial screenshot captured", {
+      runId: activeRunId,
+      originalImageBytes: initialScreenshot.original_image_base64.length,
+      gridImageBytes: initialScreenshot.grid_image_base64.length,
+    });
 
     sendImagePreview("Initial Screenshot", initialScreenshot.grid_image_base64);
 
@@ -111,7 +124,10 @@ export const execute = async (
     );
 
     if (!planResult.valid || !planResult.plan) {
-      LOG(TAG).ERROR(`Context invalid: ${planResult.reason}`);
+      LOG(TAG).ERROR("Context invalid", {
+        runId: activeRunId,
+        reason: planResult.reason,
+      });
       return {
         success: false,
         error: planResult.reason || "Cannot achieve goal from current screen",
@@ -133,8 +149,11 @@ export const execute = async (
       maxConsecutiveFailures: config.maxConsecutiveFailures,
     };
 
-    LOG(TAG).INFO(`Plan created: ${context.plan}`);
-    LOG(TAG).INFO(`Estimated steps: ${planResult.estimatedSteps}`);
+    LOG(TAG).INFO("Plan created", {
+      runId: activeRunId,
+      estimatedSteps: planResult.estimatedSteps,
+      planPreview: truncateLines(context.plan, 1200, 20),
+    });
 
     // Phase 3: Dynamic execution loop
     while (
@@ -144,7 +163,11 @@ export const execute = async (
       CHECK_ABORT(controller);
 
       context.currentStep++;
-      LOG(TAG).INFO(`=== Step ${context.currentStep} ===`);
+      LOG(TAG).INFO("Starting automation step", {
+        runId: activeRunId,
+        step: context.currentStep,
+        completedActions: context.actionHistory.length,
+      });
       sendProgress(
         `step-${context.currentStep}`,
         `Executing step ${context.currentStep}...`,
@@ -172,7 +195,11 @@ export const execute = async (
       );
 
       if (decision.action === "error") {
-        LOG(TAG).ERROR("Error in decision:: " + decision.reason);
+        LOG(TAG).ERROR("LLM decision failed", {
+          runId: activeRunId,
+          step: context.currentStep,
+          reason: truncate(decision.reason, 400),
+        });
         return {
           success: false,
           error: decision.reason,
@@ -183,7 +210,10 @@ export const execute = async (
 
       // Check if goal is complete
       if (decision.goalComplete || decision.action === "done") {
-        LOG(TAG).INFO("Goal complete!");
+        LOG(TAG).SUCCESS("Goal complete", {
+          runId: activeRunId,
+          step: context.currentStep,
+        });
         sendProgress("done", `Goal achieved in ${context.currentStep} steps`);
         return {
           success: true,
@@ -192,6 +222,15 @@ export const execute = async (
           results: context.actionHistory,
         };
       }
+
+      LOG(TAG).INFO("Decision ready", {
+        runId: activeRunId,
+        step: context.currentStep,
+        action: decision.action,
+        target: decision.target ? truncate(decision.target, 200) : undefined,
+        data: decision.data ? truncate(decision.data, 200) : undefined,
+        reason: truncateLines(decision.reason, 600, 8),
+      });
 
       // Execute the action
       let actionSuccess = false;
@@ -245,6 +284,11 @@ export const execute = async (
       } catch (error) {
         actionSuccess = false;
         observation = error instanceof Error ? error.message : "Unknown error";
+        LOG(TAG).ERROR("Action execution threw", {
+          runId: activeRunId,
+          step: context.currentStep,
+          action: decision.action,
+        }, error);
       }
 
       // Wait a moment for UI to update
@@ -278,7 +322,11 @@ export const execute = async (
         observation = verification.observation;
 
         if (!actionSuccess && verification.suggestion) {
-          LOG(TAG).WARN(`Verification failed: ${verification.suggestion}`);
+          LOG(TAG).WARN("Verification failed", {
+            runId: activeRunId,
+            step: context.currentStep,
+            suggestion: truncateLines(verification.suggestion, 500, 8),
+          });
         }
       }
 
@@ -296,16 +344,28 @@ export const execute = async (
       // Update consecutive failures counter
       if (actionSuccess) {
         context.consecutiveFailures = 0;
-        LOG(TAG).INFO(`Step ${context.currentStep} succeeded: ${observation}`);
+        LOG(TAG).SUCCESS("Automation step succeeded", {
+          runId: activeRunId,
+          step: context.currentStep,
+          observation: truncateLines(observation, 600, 10),
+        });
       } else {
         context.consecutiveFailures++;
-        LOG(TAG).WARN(
-          `Step ${context.currentStep} failed (${context.consecutiveFailures}/${context.maxConsecutiveFailures}): ${observation}`,
-        );
+        LOG(TAG).WARN("Automation step failed", {
+          runId: activeRunId,
+          step: context.currentStep,
+          consecutiveFailures: context.consecutiveFailures,
+          maxConsecutiveFailures: context.maxConsecutiveFailures,
+          observation: truncateLines(observation, 600, 10),
+        });
 
         // Check if we should abort
         if (context.consecutiveFailures >= context.maxConsecutiveFailures) {
-          LOG(TAG).ERROR("Aborting: too many consecutive failures");
+          LOG(TAG).ERROR("Aborting automation run after repeated failures", {
+            runId: activeRunId,
+            step: context.currentStep,
+            consecutiveFailures: context.consecutiveFailures,
+          });
           sendLog(
             "error",
             "Workflow Aborted",
@@ -327,7 +387,11 @@ export const execute = async (
 
     // If we've exhausted max steps without completing
     if (context.currentStep >= context.maxSteps) {
-      LOG(TAG).WARN("Max steps reached without completing goal");
+      LOG(TAG).WARN("Max steps reached without completing goal", {
+        runId: activeRunId,
+        currentStep: context.currentStep,
+        maxSteps: context.maxSteps,
+      });
       sendLog(
         "error",
         "Max Steps Reached",
@@ -350,7 +414,9 @@ export const execute = async (
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      LOG(TAG).INFO("Orchestration cancelled by user");
+      LOG(TAG).WARN("Orchestration cancelled by user", {
+        runId: activeRunId,
+      });
       return {
         success: false,
         error: "Cancelled by user",
@@ -359,7 +425,7 @@ export const execute = async (
 
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    LOG(TAG).ERROR(`Orchestration failed: ${errorMessage}`);
+    LOG(TAG).ERROR("Orchestration failed", { runId: activeRunId }, error);
     sendLog("error", "Orchestration Failed", errorMessage);
     return {
       success: false,

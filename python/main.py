@@ -1,7 +1,12 @@
+import time
+import uuid
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pillow_heif import register_heif_opener
+from logger import clear_log_context, log_error, log_info, set_log_context
 from routes import (
     image_router,
     text_router,
@@ -24,6 +29,58 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+    started_at = time.perf_counter()
+
+    set_log_context(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+    )
+    log_info("request-start")
+
+    try:
+        response = await call_next(request)
+    finally:
+        if "response" not in locals():
+            clear_log_context()
+
+    duration_ms = int((time.perf_counter() - started_at) * 1000)
+    response.headers["X-Request-ID"] = request_id
+    log_info(
+        "request-complete",
+        context={
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+    clear_log_context()
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    log_error(
+        "unhandled-exception",
+        context={
+            "path": request.url.path,
+            "method": request.method,
+            "request_id": getattr(request.state, "request_id", None),
+        },
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
 
 
 @app.get("/")

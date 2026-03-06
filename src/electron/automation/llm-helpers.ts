@@ -12,7 +12,9 @@ import {
   createNextActionPrompt,
   createVerificationPrompt,
 } from "../prompts/automation.js";
-import { LOG } from "../utils/logging.js";
+import { LOG, truncate, truncateLines } from "../utils/logging.js";
+
+const TAG = "automation:llm-helpers";
 
 export async function askLLMForCellWithLogging(
   apiKey: string,
@@ -55,9 +57,9 @@ export async function askLLMForCellWithLogging(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse LLM response: ${responseContent}`,
+        `Could not parse LLM response: ${truncateLines(responseContent, 1600, 24)}`,
       );
-      throw new Error(`Could not parse LLM response: ${responseContent}`);
+      throw new Error(`Could not parse LLM response: ${truncate(responseContent, 600)}`);
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
@@ -105,7 +107,10 @@ export async function askLLMForCellWithLogging(
       suggested_retry: parsed.suggested_retry,
     };
   } catch (error) {
-    LOG("LlmHelper").ERROR("Ask LLM For Cell With Logging:: " + error);
+    LOG(TAG).ERROR("Failed to identify cell from LLM response", {
+      targetDescription: truncate(targetDescription, 200),
+      model: imageModelOverride,
+    }, error);
     return {
       cell: 0,
       confidence: "none",
@@ -162,7 +167,7 @@ export async function askLLMForContextualPlan(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse plan: ${responseContent}`,
+        `Could not parse plan: ${truncateLines(responseContent, 1600, 24)}`,
       );
       throw new Error("Failed to parse contextual plan");
     }
@@ -181,7 +186,10 @@ export async function askLLMForContextualPlan(
 
     return parsed;
   } catch (error) {
-    LOG("LlmHelper").ERROR("Context Invalid:: " + error);
+    LOG(TAG).ERROR("Failed to build contextual plan", {
+      userGoal: truncate(userGoal, 300),
+      model: imageModelOverride,
+    }, error);
     return {
       valid: false,
       reason: "Something went wrong while creating plan",
@@ -231,7 +239,7 @@ export async function askLLMForNextAction(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse action decision: ${responseContent}`,
+        `Could not parse action decision: ${truncateLines(responseContent, 1600, 24)}`,
       );
       throw new Error("Failed to parse next action decision");
     }
@@ -250,7 +258,12 @@ export async function askLLMForNextAction(
 
     return parsed;
   } catch (error) {
-    LOG("LlmHelper").ERROR("Next Action Error:: " + error);
+    LOG(TAG).ERROR("Failed to decide next action", {
+      goal: truncate(goal, 300),
+      planPreview: truncateLines(plan, 800, 12),
+      actionHistoryLength: actionHistory.length,
+      model: imageModelOverride,
+    }, error);
     return {
       action: "error",
       goalComplete: false,
@@ -304,7 +317,7 @@ export async function askLLMForVerification(
       sendLog(
         "error",
         "Parse Error",
-        `Could not parse verification: ${responseContent}`,
+        `Could not parse verification: ${truncateLines(responseContent, 1600, 24)}`,
       );
       return {
         success: true,
@@ -323,7 +336,13 @@ export async function askLLMForVerification(
 
     return parsed;
   } catch (error) {
-    LOG("LlmHelper").ERROR("Verification Error:: " + error);
+    LOG(TAG).ERROR("Verification call failed", {
+      action,
+      target: target ? truncate(target, 200) : undefined,
+      data: data ? truncate(data, 200) : undefined,
+      expectedResult: truncateLines(expectedResult, 500, 8),
+      model: imageModelOverride,
+    }, error);
     return {
       success: true,
       observation: "Verification failed due to error, assuming success",

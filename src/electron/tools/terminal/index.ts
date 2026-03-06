@@ -1,4 +1,4 @@
-import { LOG } from "../../utils/logging.js";
+import { LOG, truncate, truncateLines } from "../../utils/logging.js";
 import * as z from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -15,6 +15,15 @@ import { buildTerminalAgentSystemPrompt } from "../../prompts/terminal.js";
 
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
+
+const getTerminalLogContext = (event: ChatStreamEvent) => {
+  const context = getChatStreamContextFromEvent(event);
+  return {
+    sessionId: context.sessionId,
+    requestId: context.requestId,
+    cwd: currentCwd,
+  };
+};
 
 export interface TerminalAgentConfig {
   model: string;
@@ -204,10 +213,20 @@ export const createExecuteCommandTool = (
         throw new DOMException("Aborted", "AbortError");
       }
 
+      const logContext = getTerminalLogContext(event);
+
       if (reason) {
         emitTerminalChunk(event, `REASON: ${reason}\n`, "log");
-        LOG(TAG).INFO("Reason for command:", reason);
+        LOG(TAG).INFO("Command reason received", {
+          ...logContext,
+          reason: truncate(reason, 300),
+        });
       }
+
+      LOG(TAG).INFO("Awaiting command confirmation", {
+        ...logContext,
+        command: truncate(command, 500),
+      });
 
       const confirmed = await confirmCommand(
         event,
@@ -217,7 +236,10 @@ export const createExecuteCommandTool = (
       );
       if (!confirmed) {
         emitTerminalChunk(event, `Command rejected by user\n`, "log");
-        LOG(TAG).INFO("Command rejected by user");
+        LOG(TAG).WARN("Command rejected by user", {
+          ...logContext,
+          command: truncate(command, 500),
+        });
         return {
           executed: false,
           output:
@@ -227,10 +249,27 @@ export const createExecuteCommandTool = (
       }
 
       emitTerminalChunk(event, `Executing command: ${command}\n`, "log");
-      LOG(TAG).INFO("Executing command:", command);
+      LOG(TAG).INFO("Executing command", {
+        ...logContext,
+        command: truncate(command, 500),
+        timeoutMs: config.commandTimeout,
+        maxBufferBytes: config.maxOutputBuffer,
+      });
       const result = await executeCommand(command, config);
       emitTerminalChunk(event, `${result.output}\n`, "log");
-      LOG(TAG).INFO("Command output:", result.output);
+
+      const completionPayload = {
+        ...logContext,
+        command: truncate(command, 500),
+        success: result.success,
+        outputPreview: truncateLines(result.output, 2200, 40),
+      };
+      if (result.success) {
+        LOG(TAG).SUCCESS("Command completed", completionPayload);
+      } else {
+        LOG(TAG).WARN("Command failed", completionPayload);
+      }
+
       return {
         executed: true,
         output: result.output,
@@ -248,12 +287,18 @@ export const terminalAgent = async (
   modelOverride: string,
   signal: AbortSignal,
 ): Promise<{ output: string }> => {
-  LOG(TAG).INFO("terminal agent started with context::", initialContext);
-
   const config = createTerminalAgentConfig({
     model: modelOverride || "moonshotai/kimi-k2-0905",
     maxSteps: maxIterations,
   });
+  const logContext = getTerminalLogContext(event);
+  LOG(TAG).INFO("Terminal agent started", {
+    ...logContext,
+    model: config.model,
+    maxIterations: config.maxSteps,
+    initialContextPreview: truncateLines(initialContext, 1200, 20),
+  });
+
   const openrouter = createOpenRouter({ apiKey: apiKey });
   let stepCount = 0;
   let currentStepHasText = false;
@@ -283,6 +328,10 @@ export const terminalAgent = async (
     switch (part.type) {
       case "start-step": {
         stepCount++;
+        LOG(TAG).INFO("Starting terminal agent step", {
+          ...logContext,
+          step: stepCount,
+        });
         if (stepCount > 1) {
           emitTerminalChunk(event, `\n--- Starting step ${stepCount} ---\n`, "log");
         }
@@ -310,7 +359,11 @@ export const terminalAgent = async (
         if (hasReasoning || currentStepHasText) {
           emitTerminalChunk(event, `\n`, "log");
         }
-        LOG(TAG).INFO("Tool call:", part.input);
+        LOG(TAG).INFO("Tool call emitted", {
+          ...logContext,
+          step: stepCount,
+          input: part.input,
+        });
         break;
       }
 
@@ -328,7 +381,10 @@ export const terminalAgent = async (
 
       case "error": {
         emitTerminalChunk(event, `\nError: ${(part as any).error}\n`, "log");
-        LOG(TAG).ERROR("Stream error:", (part as any).error);
+        LOG(TAG).ERROR("Terminal agent stream error", {
+          ...logContext,
+          step: stepCount,
+        }, (part as any).error);
         break;
       }
     }
@@ -336,10 +392,14 @@ export const terminalAgent = async (
   await result;
   if (stepCount > 0) {
     emitTerminalChunk(event, `\nCompleted in ${stepCount} step(s)\n`, "log");
-    LOG(TAG).SUCCESS(`Completed in ${stepCount} step(s)`);
+    LOG(TAG).SUCCESS("Terminal agent completed", {
+      ...logContext,
+      stepCount,
+      outputPreview: truncateLines(generalText.trim(), 1200, 20),
+    });
   } else {
     emitTerminalChunk(event, `\nNo steps were executed.\n`, "log");
-    LOG(TAG).WARN(`No steps were executed.`);
+    LOG(TAG).WARN("No terminal agent steps were executed", logContext);
   }
 
   return {

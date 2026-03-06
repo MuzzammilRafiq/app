@@ -4,6 +4,9 @@ import {
   validateImageFile,
   type ImageData,
 } from "../utils/image";
+import { createRendererLogger } from "../utils/logger";
+
+const LOG = createRendererLogger("chat-handlers");
 
 interface ImageUploadHandlerProps {
   event: React.ChangeEvent<HTMLInputElement>;
@@ -52,7 +55,7 @@ export const handleImageUpload = async ({
         : "Image added successfully"
     );
   } catch (error) {
-    console.error("Error processing image:", error);
+    LOG.ERROR("Failed to process uploaded image", error);
     toast.error("Failed to process image");
   } finally {
     setIsProcessingImage(false);
@@ -120,7 +123,7 @@ export const handlePaste = async ({
         : "Image pasted successfully"
     );
   } catch (error) {
-    console.error("Error processing pasted image:", error);
+    LOG.ERROR("Failed to process pasted image", error);
     toast.error("Failed to process pasted image");
   } finally {
     setIsProcessingImage(false);
@@ -148,7 +151,7 @@ export const handleImageSelect = async ({
     setSelectedImage(null); // clear any base64 selected image to avoid duplicate save
     toast.success("Image selected from search");
   } catch (error) {
-    console.error("Error loading selected image:", error);
+    LOG.ERROR("Failed to load selected image", { imagePath }, error);
     toast.error("Failed to load selected image");
   } finally {
     setIsProcessingImage(false);

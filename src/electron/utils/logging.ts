@@ -9,9 +9,32 @@ export const LOG_LEVEL = {
   ERROR: 4,
 } as const;
 
-// Current log level - in production, suppress DEBUG
+type LogLevelName = keyof typeof LOG_LEVEL;
+
+const DEFAULT_STRING_MAX_LEN = 400;
+const DEFAULT_MULTILINE_MAX_LEN = 2500;
+const DEFAULT_MAX_LINES = 40;
+
+const parseLogLevel = (value: string | undefined): number | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toUpperCase() as LogLevelName;
+  if (normalized in LOG_LEVEL) {
+    return LOG_LEVEL[normalized];
+  }
+
+  return undefined;
+};
+
+// Current log level - in production, suppress DEBUG unless explicitly overridden
 const currentLevel =
-  process.env.NODE_ENV === "production" ? LOG_LEVEL.INFO : LOG_LEVEL.DEBUG;
+  parseLogLevel(process.env.OPEN_DESKTOP_LOG_LEVEL) ??
+  parseLogLevel(process.env.LOG_LEVEL) ??
+  (process.env.NODE_ENV === "production"
+    ? LOG_LEVEL.INFO
+    : LOG_LEVEL.DEBUG);
 
 /**
  * Truncate a string to prevent terminal pollution
@@ -20,7 +43,105 @@ export const truncate = (str: string, maxLen = 200): string => {
   if (typeof str !== "string") {
     str = String(str);
   }
-  return str.length > maxLen ? str.slice(0, maxLen) + "...[truncated]" : str;
+  return str.length > maxLen
+    ? str.slice(0, maxLen) + `...[truncated ${str.length - maxLen} chars]`
+    : str;
+};
+
+export const truncateLines = (
+  value: string,
+  maxLen = DEFAULT_MULTILINE_MAX_LEN,
+  maxLines = DEFAULT_MAX_LINES,
+): string => {
+  const text = typeof value === "string" ? value : String(value);
+  const allLines = text.split(/\r?\n/);
+  const visibleLines = allLines.slice(0, maxLines);
+  let preview = visibleLines.join("\n");
+
+  if (preview.length > maxLen) {
+    preview = preview.slice(0, maxLen);
+  }
+
+  const hiddenChars = Math.max(0, text.length - preview.length);
+  const hiddenLines = Math.max(0, allLines.length - visibleLines.length);
+
+  if (hiddenChars === 0 && hiddenLines === 0) {
+    return preview;
+  }
+
+  const markers: string[] = [];
+  if (hiddenLines > 0) {
+    markers.push(`${hiddenLines} lines`);
+  }
+  if (hiddenChars > 0) {
+    markers.push(`${hiddenChars} chars`);
+  }
+
+  return `${preview}\n...[truncated ${markers.join(", ")}]`;
+};
+
+const serializeError = (error: Error) => ({
+  name: error.name,
+  message: error.message,
+  stack: truncateLines(error.stack ?? error.message, 4000, 60),
+});
+
+const safeStringify = (value: unknown, maxLen = DEFAULT_MULTILINE_MAX_LEN) => {
+  const seen = new WeakSet<object>();
+
+  try {
+    const serialized = JSON.stringify(
+      value,
+      (_key, currentValue: unknown) => {
+        if (typeof currentValue === "string") {
+          return truncateLines(currentValue, DEFAULT_STRING_MAX_LEN, 12);
+        }
+
+        if (currentValue instanceof Error) {
+          return serializeError(currentValue);
+        }
+
+        if (
+          currentValue &&
+          typeof currentValue === "object" &&
+          !Array.isArray(currentValue)
+        ) {
+          if (seen.has(currentValue)) {
+            return "[Circular]";
+          }
+          seen.add(currentValue);
+        }
+
+        return currentValue;
+      },
+      2,
+    );
+
+    return truncateLines(serialized, maxLen, 60);
+  } catch {
+    return "[JSON serialization failed]";
+  }
+};
+
+const formatArg = (arg: unknown): string => {
+  if (arg instanceof Error) {
+    return safeStringify(serializeError(arg), 4000);
+  }
+
+  if (typeof arg === "string") {
+    return truncateLines(arg, DEFAULT_MULTILINE_MAX_LEN, DEFAULT_MAX_LINES);
+  }
+
+  if (
+    typeof arg === "number" ||
+    typeof arg === "boolean" ||
+    arg === null ||
+    arg === undefined
+  ) {
+    return String(arg);
+  }
+
+  return safeStringify(arg);
 };
 
 /**
@@ -28,17 +149,7 @@ export const truncate = (str: string, maxLen = 200): string => {
  */
 export const JSON_PRINT = (obj: unknown, maxLen = 500): string => {
   try {
-    const str = JSON.stringify(obj, null, 2);
-    if (str.length > maxLen) {
-      return (
-        "\n" +
-        str.slice(0, maxLen) +
-        "\n...[truncated " +
-        (str.length - maxLen) +
-        " chars]\n"
-      );
-    }
-    return "\n" + str + "\n";
+    return "\n" + safeStringify(obj, maxLen) + "\n";
   } catch {
     return "[JSON serialization failed]";
   }
@@ -64,6 +175,8 @@ const timestamp = (): string => new Date().toISOString();
  * Create a tagged logger with log level support
  */
 export const LOG = (TAG: string) => {
+  const formatArgs = (args: unknown[]) => args.map((arg) => formatArg(arg));
+
   return {
     DEBUG: (...args: unknown[]) => {
       if (currentLevel <= LOG_LEVEL.DEBUG) {
@@ -72,9 +185,7 @@ export const LOG = (TAG: string) => {
           chalk.bgGray("DEBUG"),
           "   ",
           chalk.gray(TAG),
-          ...args.map((arg) =>
-            chalk.dim(typeof arg === "string" ? arg : JSON.stringify(arg))
-          )
+          ...formatArgs(args).map((arg) => chalk.dim(arg)),
         );
       }
     },
@@ -85,9 +196,7 @@ export const LOG = (TAG: string) => {
           chalk.bgBlue("INFO"),
           "    ",
           chalk.bgGray(TAG),
-          ...args.map((arg) =>
-            chalk.blue(typeof arg === "string" ? arg : JSON.stringify(arg))
-          )
+          ...formatArgs(args).map((arg) => chalk.blue(arg)),
         );
       }
     },
@@ -98,9 +207,7 @@ export const LOG = (TAG: string) => {
           chalk.bgGreen("SUCCESS"),
           " ",
           chalk.bgGray(TAG),
-          ...args.map((arg) =>
-            chalk.green(typeof arg === "string" ? arg : JSON.stringify(arg))
-          )
+          ...formatArgs(args).map((arg) => chalk.green(arg)),
         );
       }
     },
@@ -111,9 +218,7 @@ export const LOG = (TAG: string) => {
           chalk.bgYellow("WARN"),
           "    ",
           chalk.bgGray(TAG),
-          ...args.map((arg) =>
-            chalk.yellow(typeof arg === "string" ? arg : JSON.stringify(arg))
-          )
+          ...formatArgs(args).map((arg) => chalk.yellow(arg)),
         );
       }
     },
@@ -124,9 +229,7 @@ export const LOG = (TAG: string) => {
           chalk.bgRed("ERROR"),
           "   ",
           chalk.bgGray(TAG),
-          ...args.map((arg) =>
-            chalk.red(typeof arg === "string" ? arg : JSON.stringify(arg))
-          )
+          ...formatArgs(args).map((arg) => chalk.red(arg)),
         );
       }
     },

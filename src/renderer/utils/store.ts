@@ -8,6 +8,9 @@ import type {
   VisionLogType,
   VisionLogRecord,
 } from "../../common/types";
+import { createRendererLogger } from "./logger";
+
+const LOG = createRendererLogger("vision-log-store");
 
 // --------------chatSessions-------------------
 interface ChatSessionRecordsStore {
@@ -618,7 +621,10 @@ async function persistLog(
           name: `vision-${entry.id}.png`,
         });
       } catch (err) {
-        console.error("Failed to save vision image:", err);
+        LOG.ERROR("Failed to save vision image", {
+          entryId: entry.id,
+          entryType: entry.type,
+        }, err);
       }
     }
 
@@ -634,7 +640,12 @@ async function persistLog(
 
     await window.electronAPI.dbAddVisionLog(logRecord);
   } catch (err) {
-    console.error("Failed to persist vision log:", err);
+    LOG.ERROR("Failed to persist vision log", {
+      sessionId,
+      entryId: entry.id,
+      entryType: entry.type,
+      title: entry.title,
+    }, err);
   }
 }
 

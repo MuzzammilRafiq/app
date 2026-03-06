@@ -1,5 +1,8 @@
 import type { WorkerMessage, WorkerResponse } from "./markdown.worker";
 import MarkdownWorker from "./markdown.worker?worker";
+import { createRendererLogger } from "../utils/logger";
+
+const LOG = createRendererLogger("markdown-worker");
 
 class MarkdownWorkerManager {
   private worker: Worker;
@@ -13,14 +16,15 @@ class MarkdownWorkerManager {
   > = new Map();
 
   constructor() {
-    console.log("[MarkdownWorker] Initializing worker...");
+    LOG.INFO("Initializing worker");
     try {
       this.worker = new MarkdownWorker();
-      console.log("[MarkdownWorker] Worker created successfully");
+      LOG.INFO("Worker created successfully");
 
       this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
         const { id, html, error } = e.data;
-        console.log(`[MarkdownWorker] Received response for ${id}`, {
+        LOG.DEBUG("Received worker response", {
+          id,
           htmlLength: html?.length,
           error,
         });
@@ -29,7 +33,7 @@ class MarkdownWorkerManager {
         const promise = this.pending.get(id);
         if (promise) {
           if (error) {
-            console.error(`Markdown Worker Error [${id}]:`, error);
+            LOG.ERROR("Markdown worker returned an error", { id, error });
             promise.reject(error);
           } else {
             promise.resolve(html);
@@ -45,10 +49,10 @@ class MarkdownWorkerManager {
       };
 
       this.worker.onerror = (e: ErrorEvent) => {
-        console.error("[MarkdownWorker] Worker error:", e.message, e);
+        LOG.ERROR("Markdown worker crashed", { message: e.message }, e.error);
       };
     } catch (e) {
-      console.error("[MarkdownWorker] Failed to create worker:", e);
+      LOG.ERROR("Failed to create markdown worker", e);
       throw e;
     }
   }
