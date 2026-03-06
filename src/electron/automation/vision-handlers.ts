@@ -1,6 +1,6 @@
 import { askLLMForCellWithLogging } from "./llm-helpers.js";
 import type { SendLogFn } from "./utils.js";
-import { createCellIdentificationPrompt } from "./prompts.js";
+import { createCellIdentificationPrompt } from "../prompts/automation.js";
 import { CHECK_ABORT } from "../utils/helper-functions.js";
 import {
   cropCell,

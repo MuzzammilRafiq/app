@@ -11,6 +11,7 @@ import {
   getChatStreamContextFromEvent,
   sendChatChunk,
 } from "../../utils/chat-stream.js";
+import { buildTerminalAgentSystemPrompt } from "../../prompts/terminal.js";
 
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
@@ -117,24 +118,6 @@ async function waitForUserConfirmation(
     }, 300000);
   });
 }
-
-const SYSTEM_PROMPT = `You are a helpful terminal assistant running on macOS.
-
-When you ask you to perform tasks, use executeCommand tool to run terminal commands.
-
-IMPORTANT GUIDELINES:
-- ALWAYS explain what you're about to do BEFORE calling a tool
-- Use non-interactive, macOS-compatible commands
-- For file operations, verify paths exist first
-- Execute commands one at a time for safety
-- After a command runs, analyze the output and continue with next steps if needed
-- Keep going until the user's task is FULLY COMPLETE
-- When done, provide a clear summary of what was accomplished
-
-Each command requires user confirmation before execution.So dont worry about safety checks.
-current working directory is ${currentCwd}
-In the end, make sure to only provide the final output that the user sees without any markdown formatting.
-`;
 
 export function createTerminalAgentConfig(
   overrides: Partial<TerminalAgentConfig> = {},
@@ -279,7 +262,7 @@ export const terminalAgent = async (
 
   const result = streamText({
     model: openrouter(config.model),
-    system: SYSTEM_PROMPT,
+    system: buildTerminalAgentSystemPrompt(currentCwd),
     prompt: `${initialContext}`,
     tools: {
       executeCommand: createExecuteCommandTool(config, event, signal),

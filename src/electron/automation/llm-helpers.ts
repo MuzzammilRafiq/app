@@ -11,7 +11,7 @@ import {
   createContextualPlanPrompt,
   createNextActionPrompt,
   createVerificationPrompt,
-} from "./prompts.js";
+} from "../prompts/automation.js";
 import { LOG } from "../utils/logging.js";
 
 export async function askLLMForCellWithLogging(

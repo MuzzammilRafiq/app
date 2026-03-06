@@ -4,6 +4,7 @@ import { ASK_TEXT, type ChatMessage } from "../../services/model.js";
 import { LOG } from "../../utils/logging.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 import { getChatStreamContextFromEvent, sendChatChunk } from "../../utils/chat-stream.js";
+import { createRagSearchQueriesPrompt } from "../../prompts/rag.js";
 const TAG = "rag";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
 async function generateSearchQueries(
@@ -17,14 +18,7 @@ async function generateSearchQueries(
     throw new DOMException("Aborted", "AbortError");
   }
 
-  const prompt = `
-You are a search assistant for a similarity search system. 
-Given a user query, generate 3 alternative search queries that capture 
-different ways of asking the same thing. These queries will be used for 
-similarity search to find relevant documents.
-
-User query: "${userQuery}"
-`;
+  const prompt = createRagSearchQueriesPrompt(userQuery);
   const messages: ChatMessage[] = [
     {
       role: "user",

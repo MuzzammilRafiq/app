@@ -5,6 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as readline from "readline";
 import chalk from "chalk";
+import { TERMINAL_CLI_SYSTEM_PROMPT } from "../../prompts/terminal.js";
 
 const execAsync = promisify(exec);
 
@@ -121,21 +122,6 @@ const executeCommandTool = tool({
   },
 });
 
-const SYSTEM_PROMPT = `You are a helpful terminal assistant running on macOS.
-
-When the user asks you to perform tasks, use the executeCommand tool to run terminal commands.
-
-IMPORTANT GUIDELINES:
-- ALWAYS explain what you're about to do BEFORE calling a tool
-- Use non-interactive, macOS-compatible commands
-- For file operations, verify paths exist first
-- Execute commands one at a time for safety
-- After a command runs, analyze the output and continue with next steps if needed
-- Keep going until the user's task is FULLY COMPLETE
-- When done, provide a clear summary of what was accomplished
-
-Each command requires user confirmation before execution.`;
-
 async function runAgent(apiKey: string, userMessage: string): Promise<void> {
   const openrouter = createOpenRouter(
     { apiKey, }
@@ -149,7 +135,7 @@ async function runAgent(apiKey: string, userMessage: string): Promise<void> {
 
   const result = streamText({
     model: openrouter(CONFIG.model),
-    system: SYSTEM_PROMPT,
+    system: TERMINAL_CLI_SYSTEM_PROMPT,
     prompt: `Current directory: ${currentCwd}\n\nUser request: ${userMessage}`,
     tools: {
       executeCommand: executeCommandTool,

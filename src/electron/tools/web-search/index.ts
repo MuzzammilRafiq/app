@@ -7,6 +7,7 @@ import {
 import { LOG, JSON_PRINT } from "../../utils/logging.js";
 import { StreamChunkBuffer } from "../../utils/stream-buffer.js";
 import { getChatStreamContextFromEvent, sendChatChunk } from "../../utils/chat-stream.js";
+import { createWebSearchQueriesPrompt } from "../../prompts/web-search.js";
 
 const TAG = "web-search";
 const URL = process.env.EMBEDDING_SERVICE_URL || "http://localhost:8000";
@@ -22,18 +23,7 @@ async function generateWebSearchQueries(
   sessionId: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  const prompt = `
-You are a search query optimizer for web search.
-Given a user's question or request, generate 3-4 different search queries that would help find relevant information on the internet.
-
-Guidelines:
-- Make queries specific and searchable
-- Use different phrasings to capture different aspects
-- Include relevant keywords that might appear in web pages
-- Keep queries concise but informative
-
-User query: "${userQuery}"
-`;
+  const prompt = createWebSearchQueriesPrompt(userQuery);
 
   const messages: ChatMessage[] = [
     {

@@ -1,8 +1,8 @@
 import {
-  ActionHistoryEntry,
-  GRID_SIZE,
+  type ActionHistoryEntry,
   DEFAULT_ORCHESTRATOR_CONFIG,
-} from "./utils.js";
+  GRID_SIZE,
+} from "../automation/utils.js";
 
 export const createCellIdentificationPrompt = (
   targetDescription: string,
@@ -41,9 +41,7 @@ Examples:
 {"cell": 0, "confidence": "none", "status": "not_found", "reason": "Page is still loading, showing spinner"}
 {"cell": 0, "confidence": "low", "status": "ambiguous", "reason": "Multiple settings icons visible", "suggested_retry": "Try specifying 'gear icon in top right'"}`;
 
-export const createScreenDescriptionPrompt = (
-  userPrompt: string,
-) => `You are a screen context analyzer.
+export const createScreenDescriptionPrompt = (userPrompt: string) => `You are a screen context analyzer.
 The user wants to: "${userPrompt}"
 
 Analyze the screenshot and provide a concise description of the visible state.
@@ -88,12 +86,7 @@ Rules:
 
 Respond with ONLY the JSON object, no other text.`;
 
-/**
- * Creates a prompt for generating a contextual (natural language) plan
- */
-export const createContextualPlanPrompt = (
-  userGoal: string,
-) => `You are a screen automation assistant for MacOS. Analyze this screenshot and create a plan to achieve the user's goal.
+export const createContextualPlanPrompt = (userGoal: string) => `You are a screen automation assistant for MacOS. Analyze this screenshot and create a plan to achieve the user's goal.
 
 User Goal: "${userGoal}"
 
@@ -112,9 +105,6 @@ Respond with a JSON object:
 
 Keep the plan concise but complete. Focus on what needs to be done, not technical details.`;
 
-/**
- * Creates a prompt for deciding the next action
- */
 export const createNextActionPrompt = (
   goal: string,
   plan: string,
@@ -124,8 +114,8 @@ export const createNextActionPrompt = (
     actionHistory.length > 0
       ? actionHistory
           .map(
-            (h, i) =>
-              `Step ${i + 1}: ${h.action}${h.target ? ` on "${h.target}"` : ""}${h.data ? ` with "${h.data}"` : ""} -> ${h.success ? "Success" : "Failed"}: ${h.observation}`,
+            (historyEntry, index) =>
+              `Step ${index + 1}: ${historyEntry.action}${historyEntry.target ? ` on "${historyEntry.target}"` : ""}${historyEntry.data ? ` with "${historyEntry.data}"` : ""} -> ${historyEntry.success ? "Success" : "Failed"}: ${historyEntry.observation}`,
           )
           .join("\n")
       : "No actions taken yet.";
@@ -166,9 +156,6 @@ Rules:
 Respond with ONLY the JSON object.`;
 };
 
-/**
- * Creates a prompt for verifying if an action succeeded
- */
 export const createVerificationPrompt = (
   action: string,
   target: string | undefined,
