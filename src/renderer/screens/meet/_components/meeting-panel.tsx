@@ -46,7 +46,9 @@ export default function MeetingPanel({
   onStopRecording,
 }: MeetingPanelProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const hasText = fixedText.trim().length > 0 || activeText.trim().length > 0;
+  const hasFixedText = fixedText.trim().length > 0;
+  const hasActiveText = activeText.trim().length > 0;
+  const hasText = hasFixedText || hasActiveText;
   const modelReady = modelStatus === "ready";
   const loadingModel = modelStatus === "loading";
 
@@ -55,7 +57,7 @@ export default function MeetingPanel({
       return;
     }
     contentRef.current.scrollTop = contentRef.current.scrollHeight;
-  }, [fixedText, activeText]);
+  }, [fixedText]);
 
   return (
     <div className="flex h-full flex-col p-6 max-w-4xl mx-auto w-full">
@@ -136,25 +138,42 @@ export default function MeetingPanel({
               Ready to start transcription
             </div>
           )}
-          {!hasText && isRecording && (
+          {!hasFixedText && isRecording && (
             <div className="flex h-full items-center justify-center text-text-muted animate-pulse">
               Listening...
             </div>
           )}
 
           <div className="max-w-prose mx-auto w-full">
-            {fixedText && (
+            {hasFixedText && (
               <span className="text-text-main/90">{fixedText}</span>
-            )}
-            {fixedText && activeText && " "}
-            {activeText && (
-              <span className="text-text-main font-medium relative inline-block">
-                {activeText}
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-primary/20 rounded-full animate-pulse" />
-              </span>
             )}
           </div>
         </div>
+
+        {(isRecording || hasActiveText) && (
+          <div className="border-t border-border/60 bg-bg-app/70 px-6 py-4 backdrop-blur-sm md:px-8">
+            <div className="mx-auto flex w-full max-w-prose flex-col gap-2">
+              <div className="text-sm font-medium text-text-muted">
+                Live transcription
+              </div>
+              <div className="min-h-24 rounded-2xl border border-border bg-surface px-4 py-3 text-[1rem] leading-relaxed text-text-main shadow-sm">
+                {hasActiveText ? (
+                  <span className="relative inline-block font-medium text-text-main">
+                    {activeText}
+                    <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-primary/20 animate-pulse" />
+                  </span>
+                ) : (
+                  <span className="text-text-muted">
+                    {isRecording
+                      ? "Current speech will appear here until it is finalized."
+                      : "Waiting for the next live segment."}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {isRecording && (
           <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/10">
