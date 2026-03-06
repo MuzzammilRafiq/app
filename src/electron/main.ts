@@ -9,15 +9,71 @@ import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
 import { setupWindowHandlers } from "./ipc/window.js";
 import { setupAutomationHandlers } from "./ipc/automation.js";
+import { LOG, truncateLines } from "./utils/logging.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
+
+const TAG = "electron:main";
+const RENDERER_TAG = "renderer-console";
 
 // Align Electron's renderer environment with the standalone WebGPU demo.
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("enable-unsafe-webgpu");
 
 let mainWindow: BrowserWindow | null = null;
+
+function attachRendererConsoleBridge(window: BrowserWindow) {
+  window.webContents.on("console-message", (details) => {
+    const { level, message } = details;
+
+    if (
+      message.includes("Autofill.enable") ||
+      message.includes("Autofill.setAddresses")
+    ) {
+      return;
+    }
+
+    const formattedMessage = `[${RENDERER_TAG}] ${truncateLines(message, 1800, 24)}`;
+
+    switch (level) {
+      case "warning":
+        console.warn(formattedMessage);
+        break;
+      case "error":
+        console.error(formattedMessage);
+        break;
+      case "debug":
+        console.debug(formattedMessage);
+        break;
+      default:
+        console.info(formattedMessage);
+        break;
+    }
+  });
+}
+
+function registerDevelopmentDebugShortcuts() {
+  const toggleDevTools = () => {
+    if (!mainWindow) {
+      return;
+    }
+
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+      return;
+    }
+
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+  };
+
+  globalShortcut.register("CommandOrControl+Alt+I", toggleDevTools);
+  globalShortcut.register("F12", toggleDevTools);
+
+  LOG(TAG).INFO(
+    "Development logging enabled. Renderer console is mirrored to the terminal. Toggle DevTools with Cmd/Ctrl+Alt+I or F12.",
+  );
+}
 
 function createWindow(): BrowserWindow {
   if (mainWindow) {
@@ -48,26 +104,12 @@ function createWindow(): BrowserWindow {
 
   if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://localhost:5173");
+    attachRendererConsoleBridge(mainWindow);
   } else {
     mainWindow.loadFile(
       path.join(app.getAppPath(), "dist-renderer/index.html"),
     );
   }
-
-  // if (process.env.NODE_ENV === "development") {
-  //   mainWindow.webContents.openDevTools();
-  //   mainWindow.webContents.on(
-  //     "console-message",
-  //     (event, level, message, line, sourceId) => {
-  //       if (
-  //         message.includes("Autofill.enable") ||
-  //         message.includes("Autofill.setAddresses")
-  //       ) {
-  //         return;
-  //       }
-  //     }
-  //   );
-  // }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -92,6 +134,9 @@ app.whenReady().then(() => {
   setupDatabaseHandlers();
   setupWindowHandlers();
   setupAutomationHandlers();
+  if (process.env.NODE_ENV === "development") {
+    registerDevelopmentDebugShortcuts();
+  }
   createWindow();
 });
 
