@@ -63,7 +63,8 @@ function groupMessages(messages: ChatMessageRecord[]): MessageGroup[] {
       // Orphan assistant messages (system prompt outputs etc) - append to previous group if possible or new
       // For simplicity, just push as new group
       currentGroup.id =
-        currentGroup.assistantMessages[0]?.id || `group-end-${Date.now()}`;
+        currentGroup.assistantMessages[0]?.id ||
+        `group-end-${groupedMessages.length}`;
     } else if (currentGroup.userMessage) {
       currentGroup.id = currentGroup.userMessage.id;
     }
@@ -226,6 +227,40 @@ const djb2Hash = (str: string): string => {
   return (hash >>> 0).toString(16);
 };
 
+const createSyntheticPlanMessage = (
+  latest: ChatMessageRecord,
+  steps: unknown[],
+): ChatMessageRecord => ({
+  id: latest.id || `synthetic-plan-${latest.sessionId}`,
+  sessionId: latest.sessionId,
+  content: JSON.stringify({ steps }, null, 2),
+  role: latest.role,
+  timestamp: latest.timestamp,
+  isError: "",
+  imagePaths: null,
+  type: "plan",
+});
+
+const areMessageListsEqual = (
+  left: ChatMessageRecord[] | null,
+  right: ChatMessageRecord[],
+): boolean => {
+  if (!left || left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index++) {
+    const leftMessage = left[index];
+    const rightMessage = right[index];
+    if (
+      leftMessage?.id !== rightMessage?.id ||
+      leftMessage?.content !== rightMessage?.content ||
+      leftMessage?.timestamp !== rightMessage?.timestamp ||
+      leftMessage?.type !== rightMessage?.type
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const buildSyntheticPlan = (
   plans: ChatMessageRecord[],
   logs: ChatMessageRecord[],
@@ -274,17 +309,7 @@ const buildSyntheticPlan = (
         : normalized || "todo";
     return { ...s, status };
   });
-  const synthetic: ChatMessageRecord = {
-    id: latest.id ?? `synthetic-plan-${Date.now()}`,
-    sessionId: latest.sessionId,
-    content: JSON.stringify({ steps: updated }, null, 2),
-    role: latest.role,
-    timestamp: Date.now(),
-    isError: "",
-    imagePaths: null,
-    type: "plan",
-  };
-  return [synthetic];
+  return [createSyntheticPlanMessage(latest, updated)];
 };
 
 const buildSyntheticPlanFromDB = async (
@@ -325,17 +350,7 @@ const buildSyntheticPlanFromDB = async (
           ? { ...s, status: matched.status }
           : { ...s, status: s.status ?? "todo" };
       });
-      const synthetic: ChatMessageRecord = {
-        id: latest.id ?? `synthetic-plan-${Date.now()}`,
-        sessionId: latest.sessionId,
-        content: JSON.stringify({ steps: merged }, null, 2),
-        role: latest.role,
-        timestamp: Date.now(),
-        isError: "",
-        imagePaths: null,
-        type: "plan",
-      };
-      return [synthetic];
+      return [createSyntheticPlanMessage(latest, merged)];
     }
   } catch {}
   return plans;
@@ -449,26 +464,54 @@ function AssistantMessageSection({
       ? parseSearchStatus(latestSearchStatusContent)
       : null;
 
-  const [planDisplayMessages, setPlanDisplayMessages] = useState<
-    ChatMessageRecord[]
-  >([]);
+  const immediatePlanDisplayMessages = useMemo(() => {
+    if (planMessages.length === 0) return [] as ChatMessageRecord[];
+    return buildSyntheticPlan(planMessages, logMessages);
+  }, [planMessages, logMessages]);
+  const latestPlanSignature = useMemo(() => {
+    const latestPlan = planMessages[planMessages.length - 1];
+    if (!latestPlan) return null;
+    return `${latestPlan.sessionId}:${latestPlan.id}:${latestPlan.content}`;
+  }, [planMessages]);
+  const [dbPlanDisplayState, setDbPlanDisplayState] = useState<{
+    signature: string;
+    messages: ChatMessageRecord[];
+  } | null>(null);
+
   useEffect(() => {
-    if (planMessages.length === 0) {
-      setPlanDisplayMessages([]);
+    if (!latestPlanSignature) {
+      setDbPlanDisplayState((current) => (current === null ? current : null));
       return;
     }
-    const immediate = buildSyntheticPlan(planMessages, logMessages);
-    setPlanDisplayMessages(immediate);
+
     let isActive = true;
     void (async () => {
       const fromDb = await buildSyntheticPlanFromDB(planMessages);
       if (!isActive) return;
-      if (fromDb.length > 0) setPlanDisplayMessages(fromDb);
+      if (fromDb.length === 0) return;
+      setDbPlanDisplayState((current) => {
+        if (
+          current?.signature === latestPlanSignature &&
+          areMessageListsEqual(current.messages, fromDb)
+        ) {
+          return current;
+        }
+        return {
+          signature: latestPlanSignature,
+          messages: fromDb,
+        };
+      });
     })();
+
     return () => {
       isActive = false;
     };
-  }, [planMessages, logMessages]);
+  }, [latestPlanSignature, planMessages]);
+
+  const planDisplayMessages =
+    dbPlanDisplayState?.signature === latestPlanSignature
+      ? dbPlanDisplayState.messages
+      : immediatePlanDisplayMessages;
 
   const planDisplayMap = useMemo(() => {
     const map = new Map<string, ChatMessageRecord>();
@@ -665,7 +708,7 @@ function MessageGroups({
   onAllowCommand,
   onRejectCommand,
 }: MessageGroupsProps) {
-  const groupedMessages = groupMessages(messages);
+  const groupedMessages = useMemo(() => groupMessages(messages), [messages]);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isAllOpen = false;
 
@@ -682,6 +725,7 @@ function MessageGroups({
         ref={virtuosoRef}
         style={{ height: "100%" }} // Must be set to fill container
         data={groupedMessages}
+        computeItemKey={(_index, group) => group.id}
         followOutput={"auto"}
         atBottomThreshold={60} // Pixel threshold to consider "at bottom" for auto-scroll
         initialTopMostItemIndex={groupedMessages.length - 1} // Start at bottom? optional.
