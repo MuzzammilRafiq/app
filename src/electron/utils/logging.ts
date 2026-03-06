@@ -144,6 +144,14 @@ const formatArg = (arg: unknown): string => {
   return safeStringify(arg);
 };
 
+const formatRendererArg = (arg: unknown): string => {
+  if (typeof arg === "string") {
+    return truncateLines(arg, DEFAULT_MULTILINE_MAX_LEN, DEFAULT_MAX_LINES);
+  }
+
+  return formatArg(arg);
+};
+
 /**
  * Smart JSON print - truncates large objects
  */
@@ -235,3 +243,70 @@ export const LOG = (TAG: string) => {
     },
   };
 };
+
+export const RENDERER_LOG = (TAG: string) => {
+  const formatArgs = (args: unknown[]) =>
+    args.map((arg) => formatRendererArg(arg));
+
+  return {
+    DEBUG: (...args: unknown[]) => {
+      if (currentLevel <= LOG_LEVEL.DEBUG) {
+        console.debug(
+          chalk.dim(timestamp() + "\t"),
+          chalk.bgGray("DEBUG"),
+          "   ",
+          chalk.bgGray(TAG),
+          ...formatArgs(args),
+        );
+      }
+    },
+    INFO: (...args: unknown[]) => {
+      if (currentLevel <= LOG_LEVEL.INFO) {
+        console.info(
+          chalk.magenta(timestamp() + "\t"),
+          chalk.bgBlue("INFO"),
+          "    ",
+          chalk.bgGray(TAG),
+          ...formatArgs(args),
+        );
+      }
+    },
+    SUCCESS: (...args: unknown[]) => {
+      if (currentLevel <= LOG_LEVEL.SUCCESS) {
+        console.info(
+          chalk.magenta(timestamp() + "\t"),
+          chalk.bgGreen("SUCCESS"),
+          " ",
+          chalk.bgGray(TAG),
+          ...formatArgs(args),
+        );
+      }
+    },
+    WARN: (...args: unknown[]) => {
+      if (currentLevel <= LOG_LEVEL.WARN) {
+        console.warn(
+          chalk.magenta(timestamp() + "\t"),
+          chalk.bgYellow("WARN"),
+          "    ",
+          chalk.bgGray(TAG),
+          ...formatArgs(args),
+        );
+      }
+    },
+    ERROR: (...args: unknown[]) => {
+      if (currentLevel <= LOG_LEVEL.ERROR) {
+        console.error(
+          chalk.magenta(timestamp() + "\t"),
+          chalk.bgRed("ERROR"),
+          "   ",
+          chalk.bgGray(TAG),
+          ...formatArgs(args),
+        );
+      }
+    },
+  };
+};
+
+
+
+

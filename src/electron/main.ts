@@ -9,13 +9,13 @@ import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
 import { setupWindowHandlers } from "./ipc/window.js";
 import { setupAutomationHandlers } from "./ipc/automation.js";
-import { LOG, truncateLines } from "./utils/logging.js";
+import { LOG, RENDERER_LOG, truncateLines } from "./utils/logging.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
 
-const TAG = "electron:main";
-const RENDERER_TAG = "renderer-console";
+const TAG = "frontend";
+const FRONTEND_LOG = RENDERER_LOG(TAG);
 
 // Align Electron's renderer environment with the standalone WebGPU demo.
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
@@ -34,20 +34,20 @@ function attachRendererConsoleBridge(window: BrowserWindow) {
       return;
     }
 
-    const formattedMessage = `[${RENDERER_TAG}] ${truncateLines(message, 1800, 24)}`;
+    const formattedMessage = truncateLines(message, 1800, 24);
 
     switch (level) {
       case "warning":
-        console.warn(formattedMessage);
+        FRONTEND_LOG.WARN(formattedMessage);
         break;
       case "error":
-        console.error(formattedMessage);
+        FRONTEND_LOG.ERROR(formattedMessage);
         break;
       case "debug":
-        console.debug(formattedMessage);
+        FRONTEND_LOG.DEBUG(formattedMessage);
         break;
       default:
-        console.info(formattedMessage);
+        FRONTEND_LOG.INFO(formattedMessage);
         break;
     }
   });

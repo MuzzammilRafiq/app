@@ -205,6 +205,7 @@ export default function ChatScreen() {
       const requestId = crypto.randomUUID();
 
       setupStreaming(session.id, requestId);
+      let shouldCleanupStreaming = true;
 
       try {
         const streamResponse =
@@ -249,6 +250,9 @@ export default function ChatScreen() {
           session,
         );
 
+        cleanupStreaming(session.id, requestId);
+        shouldCleanupStreaming = false;
+
         // Add persisted messages to the store
         for (const record of persistedRecords) {
           const updatedSession = await window.electronAPI.dbGetSession(
@@ -262,7 +266,9 @@ export default function ChatScreen() {
         console.error("Streaming error:", streamErr);
         toast.error("Streaming failed");
       } finally {
-        cleanupStreaming(session.id, requestId);
+        if (shouldCleanupStreaming) {
+          cleanupStreaming(session.id, requestId);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -349,24 +355,28 @@ export default function ChatScreen() {
 
   // Memoize messages array to prevent unnecessary re-renders
   // Streaming segments are appended in insertion order (backend sends sequentially)
-  const allMessages = useMemo(
-    () => [
-      ...(currentSession?.messages || []),
-      ...sessionStreamingSegments.map(
-        (seg): ChatMessageRecord => ({
-          id: seg.id,
-          sessionId: seg.sessionId,
-          content: seg.content,
-          role: "assistant",
-          timestamp: Date.now(),
-          isError: "",
-          imagePaths: null,
-          type: seg.type,
-        }),
-      ),
-    ],
-    [currentSession?.messages, sessionStreamingSegments, currentSession?.id],
-  );
+  const allMessages = useMemo(() => {
+    const persistedMessages = currentSession?.messages || [];
+    const persistedIds = new Set(persistedMessages.map((message) => message.id));
+
+    return [
+      ...persistedMessages,
+      ...sessionStreamingSegments
+        .filter((seg) => !persistedIds.has(seg.id))
+        .map(
+          (seg): ChatMessageRecord => ({
+            id: seg.id,
+            sessionId: seg.sessionId,
+            content: seg.content,
+            role: "assistant",
+            timestamp: Date.now(),
+            isError: "",
+            imagePaths: null,
+            type: seg.type,
+          }),
+        ),
+    ];
+  }, [currentSession?.messages, sessionStreamingSegments]);
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">

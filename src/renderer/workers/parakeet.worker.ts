@@ -160,6 +160,8 @@ async function loadModel(
     ) => Promise<unknown>;
     model = (await loadFromHub(modelVersion, {
       backend,
+      verbose: false,
+      enableProfiling: false,
       ...quantization,
       progress: (progressData: { loaded: number; total: number; file: string }) => {
         const { loaded, total, file } = progressData;
@@ -212,6 +214,7 @@ async function transcribe(audio: Float32Array): Promise<void> {
     returnTimestamps: true,
     returnConfidences: true,
     temperature: 1.0,
+    enableProfiling: false,
   });
   const end = performance.now();
 
