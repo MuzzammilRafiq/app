@@ -3,12 +3,19 @@ import * as z from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { IpcMainInvokeEvent, ipcMain } from "electron";
-import { ChatRole, ChatType } from "../../../common/types.js";
+import { ChatType } from "../../../common/types.js";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { streamText, tool, stepCountIs } from "ai";
 
 let currentCwd = process.cwd();
 const TAG = "terminal-agent";
+
+export interface TerminalAgentConfig {
+  model: string;
+  maxSteps: number;
+  commandTimeout: number;
+  maxOutputBuffer: number;
+}
 
 // Pending confirmation requests mapped by requestId
 const pendingConfirmations = new Map<
@@ -106,17 +113,28 @@ current working directory is ${currentCwd}
 In the end, make sure to only provide the final output that the user sees without any markdown formatting.
 `;
 
+export function createTerminalAgentConfig(
+  overrides: Partial<TerminalAgentConfig> = {},
+): TerminalAgentConfig {
+  return {
+    model: overrides.model || "moonshotai/kimi-k2-0905",
+    maxSteps: overrides.maxSteps ?? 20,
+    commandTimeout: overrides.commandTimeout ?? 30000,
+    maxOutputBuffer: overrides.maxOutputBuffer ?? 5 * 1024,
+  };
+}
+
 const execAsync = promisify(exec);
 async function executeCommand(
   command: string,
-  CONFIG: any,
+  config: TerminalAgentConfig,
   cwd: string = currentCwd,
   signal?: AbortSignal,
 ): Promise<{ output: string; success: boolean }> {
   try {
     const { stdout, stderr } = await execAsync(command, {
-      timeout: CONFIG.commandTimeout,
-      maxBuffer: CONFIG.maxOutputBuffer,
+      timeout: config.commandTimeout,
+      maxBuffer: config.maxOutputBuffer,
       cwd,
     });
 
@@ -165,7 +183,11 @@ async function confirmCommand(
   }
 }
 
-const executeCommandTool = (CONFIG: any, event: any, signal?: AbortSignal) => {
+export const createExecuteCommandTool = (
+  config: TerminalAgentConfig,
+  event: any,
+  signal?: AbortSignal,
+) => {
   return tool({
     description:
       "Execute a terminal command. The command will be shown to user for confirmation before execution. ",
@@ -217,7 +239,7 @@ const executeCommandTool = (CONFIG: any, event: any, signal?: AbortSignal) => {
         sessionId: event?.sessionId,
       });
       LOG(TAG).INFO("Executing command:", command);
-      const result = await executeCommand(command, CONFIG);
+      const result = await executeCommand(command, config);
       event?.sender?.send("stream-chunk", {
         chunk: `${result.output}\n`,
         type: "log",
@@ -243,12 +265,10 @@ export const terminalAgent = async (
 ): Promise<{ output: string }> => {
   LOG(TAG).INFO("terminal agent started with context::", initialContext);
 
-  const CONFIG = {
+  const config = createTerminalAgentConfig({
     model: modelOverride || "moonshotai/kimi-k2-0905",
     maxSteps: maxIterations,
-    commandTimeout: 30000,
-    maxOutputBuffer: 5 * 1024,
-  };
+  });
   const openrouter = createOpenRouter({ apiKey: apiKey });
   let stepCount = 0;
   let currentStepHasText = false;
@@ -256,13 +276,13 @@ export const terminalAgent = async (
   let generalText = "";
 
   const result = streamText({
-    model: openrouter(CONFIG.model),
+    model: openrouter(config.model),
     system: SYSTEM_PROMPT,
     prompt: `${initialContext}`,
     tools: {
-      executeCommand: executeCommandTool(CONFIG, event, signal),
+      executeCommand: createExecuteCommandTool(config, event, signal),
     },
-    stopWhen: stepCountIs(CONFIG.maxSteps),
+    stopWhen: stepCountIs(config.maxSteps),
     onStepFinish: ({ text, toolCalls, finishReason }) => {
       // Log step completion info
       generalText = text;

@@ -11,6 +11,8 @@ type ChatType =
   | "terminal-confirmation"
   | "error";
 
+type ExecutionToolName = "executeCommand" | "webSearch" | (string & {});
+
 interface MakePlanResponse {
   step_number: number;
   tool_name: string;
@@ -18,24 +20,13 @@ interface MakePlanResponse {
   status: "todo" | "done";
 }
 
-// Orchestrator types for the new agent architecture
-type AgentType = "terminal" | "general"; // Extensible for future agents
-
-interface OrchestratorStep {
-  step_number: number;
-  agent: AgentType;
-  action: string; // Command for terminal, task description for general
-  status: "pending" | "running" | "done" | "failed";
-  result?: string;
+interface PlannerResult {
+  markdown: string;
 }
 
-interface OrchestratorContext {
-  goal: string;
-  cwd: string;
-  currentStep: number;
-  steps: OrchestratorStep[];
-  history: Array<{ step: number; command: string; output: string }>;
-  done: boolean;
+interface ChatExecutionContext {
+  planText: string;
+  availableTools: ExecutionToolName[];
 }
 
 // Adaptive terminal executor types for loop-based command execution
@@ -165,6 +156,9 @@ interface UniqueResult {
 }
 interface StreamMessageConfig {
   rag?: boolean;
+  webSearch?: boolean;
+  textModelOverride?: string;
+  imageModelOverride?: string;
 }
 interface OpenRouterModel {
   id: string;
@@ -178,14 +172,14 @@ export type {
   AdaptiveExecutorCommand,
   AdaptiveExecutorConfig,
   AdaptiveExecutorResult,
-  AgentType,
+  ChatExecutionContext,
   ChatMessageRecord,
   ChatRole,
   ChatSessionRecord,
   ChatType,
+  ExecutionToolName,
   MakePlanResponse,
-  OrchestratorContext,
-  OrchestratorStep,
+  PlannerResult,
   StreamChunk,
   VideoDetails,
   VideoParams,

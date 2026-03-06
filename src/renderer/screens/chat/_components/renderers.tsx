@@ -57,6 +57,7 @@ export function PlanRenderer({
   }, [open]);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const extracted = extractPlan(content);
+  const trimmedContent = content.trim();
 
   const toggleStep = (index: number) => {
     setExpandedSteps((prev) => {
@@ -69,13 +70,46 @@ export function PlanRenderer({
       return next;
     });
   };
-  if (!extracted) {
+  if (!extracted && !trimmedContent) {
     return null;
   }
   const collapsedClass = isExpanded ? "bg-[var(--log-bg)] rounded" : "";
   const buttonClass = isExpanded
     ? "w-full flex items-center  gap-2 text-left px-3 py-1 "
     : "w-full flex items-center  gap-2 text-left px-3 py-1 ";
+
+  if (!extracted) {
+    return (
+      <div className={collapsedClass}>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={buttonClass}
+        >
+          <div className="text-xs font-semibold text-text-main flex items-center">
+            <ClipboardIcon className="w-3 h-3 mr-1" />
+            Plan
+          </div>
+          <ChevronDownIcon
+            className={clsx(
+              "w-3 h-3 text-text-main transition-transform duration-200",
+              isExpanded ? "rotate-180" : "rotate-0",
+            )}
+          />
+        </button>
+        <div
+          className={clsx(
+            "overflow-hidden transition-all duration-300 ease-in-out",
+            isExpanded ? "max-h-200 opacity-100 mt-2" : "max-h-0 opacity-0",
+          )}
+        >
+          <div className="px-3 pb-3 prose prose-sm max-w-none text-text-main">
+            <MarkdownRenderer content={trimmedContent} isUser={false} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={collapsedClass}>
       <button

@@ -59,7 +59,16 @@ interface Window {
     onStreamChunk: (
       callback: (data: {
         chunk: string;
-        type: "stream" | "general" | "log" | "plan" | "source";
+        type:
+          | "stream"
+          | "general"
+          | "log"
+          | "plan"
+          | "source"
+          | "search-status"
+          | "terminal-confirmation"
+          | "error"
+          | "cancelled";
         role?: "user" | "assistant" | "execution";
         sessionId?: string;
       }) => void,
@@ -401,24 +410,6 @@ interface Window {
     dbGetAllSessionsWithMessages: (
       limit: number,
     ) => Promise<import("../common/types").ChatSessionWithMessages[]>;
-
-    /**
-     * Plan steps persistence APIs
-     */
-    dbUpsertPlanSteps: (
-      sessionId: string,
-      planHash: string,
-      steps: import("../common/types").MakePlanResponse[],
-    ) => Promise<void>;
-    dbMarkPlanStepDone: (
-      sessionId: string,
-      planHash: string,
-      stepNumber: number,
-    ) => Promise<boolean>;
-    dbGetPlanSteps: (
-      sessionId: string,
-      planHash: string,
-    ) => Promise<import("../common/types").MakePlanResponse[]>;
 
     /**
      * RAG folders persistence APIs

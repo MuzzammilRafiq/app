@@ -185,22 +185,9 @@ export const useStore = create<Store>((set) => ({
           }
           if (idx >= 0) {
             const existing = msgs[idx]!;
-            const isSnapshot = (() => {
-              try {
-                const parsed = JSON.parse(chunk);
-                return (
-                  Array.isArray(parsed) ||
-                  (parsed &&
-                    typeof parsed === "object" &&
-                    Array.isArray((parsed as any).steps))
-                );
-              } catch {
-                return false;
-              }
-            })();
             const updated: ChatMessageRecord = {
               ...existing,
-              content: isSnapshot ? chunk : existing.content + chunk,
+              content: chunk,
               timestamp: Date.now(),
             };
             msgs.splice(idx, 1);

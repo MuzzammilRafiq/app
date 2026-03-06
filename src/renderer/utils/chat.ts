@@ -124,24 +124,6 @@ export async function persistStreamingSegments(
   for (const seg of persistableSegments) {
     let contentToSave = seg.content;
 
-    if (seg.type === "plan") {
-      try {
-        const parsed = JSON.parse(contentToSave);
-        if (Array.isArray(parsed)) {
-          contentToSave = JSON.stringify(parsed);
-        } else if (
-          parsed &&
-          typeof parsed === "object" &&
-          Array.isArray((parsed as any).steps)
-        ) {
-          // leave as-is
-        }
-      } catch {
-        const match = contentToSave.match(/\[[\s\S]*?\]/);
-        if (match) contentToSave = match[0];
-      }
-    }
-
     const appendedContent = appendContent ? `${contentToSave.trim()} ${appendContent}`.trim(): contentToSave.trim();
 
     const record: ChatMessageRecord = {

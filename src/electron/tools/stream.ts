@@ -13,7 +13,10 @@ export const stream = async (
 ) => {
   try {
     const filteredMessages = messages.filter(
-      (msg) => msg.type === "user" || msg.type === "general",
+      (msg) =>
+        msg.type === "user" ||
+        msg.type === "general" ||
+        msg.type === "plan",
     );
 
     // Safety check for empty messages
@@ -65,7 +68,7 @@ export const stream = async (
     }
 
     event.sender.send("stream-chunk", {
-      chunk: "*General tool done*",
+      chunk: "*Chat agent done*",
       type: "log",
       sessionId,
     });

@@ -1,6 +1,5 @@
 import { ASK_IMAGE } from "../../services/model.js";
 import { ragAnswer } from "../rag/index.js";
-import { webSearchAnswer } from "../web-search/index.js";
 import { IpcMainInvokeEvent } from "electron";
 import { ChatMessageRecord } from "../../../common/types.js";
 import { LOG } from "../../utils/logging.js";
@@ -113,27 +112,6 @@ export const preProcessMessage = async (
       });
       // Continue without RAG results rather than failing the whole request
     }
-  }
-
-  if (config?.webSearch) {
-    // Check if aborted before starting web search
-    if (signal?.aborted) {
-      throw new DOMException("Aborted", "AbortError");
-    }
-    const webSearchResults = await webSearchAnswer(
-      event,
-      apiKey,
-      lastUserMessage.content,
-      lastUserMessage.sessionId,
-      1, // limitPerQuery
-      signal,
-    );
-    lastUserMessage.content =
-      lastUserMessage.content +
-      "\n" +
-      "<WEB_SEARCH_RESULT>\n" +
-      webSearchResults +
-      "\n</WEB_SEARCH_RESULT>";
   }
 
   return lastUserMessage;

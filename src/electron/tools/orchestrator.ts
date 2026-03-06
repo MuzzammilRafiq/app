@@ -1,236 +1,254 @@
 import { type ChatMessage } from "../services/model.js";
-import dbService from "../services/database.js";
 import { LOG } from "../utils/logging.js";
 import {
+  ChatExecutionContext,
   ChatMessageRecord,
-  OrchestratorStep,
-  OrchestratorContext,
+  PlannerResult,
 } from "../../common/types.js";
 import { IpcMainInvokeEvent } from "electron";
-import { generalTool } from "./general/index.js";
-import { StreamChunkBuffer } from "../utils/stream-buffer.js";
-import os from "node:os";
-import { terminalAgent } from "./terminal/index.js";
-
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText } from "ai";
-import * as z from "zod";
+import { stepCountIs, streamText } from "ai";
+import { buildChatExecutionTools } from "./chat-tools/index.js";
 
 const TAG = "orchestrator";
 
-const SYSTEM_PROMPT_PLANNER = `
-You are a task orchestrator for a macOS system. Your job is to break down user requests into HIGH-LEVEL GOALS.
+const PLANNER_SYSTEM_PROMPT = `You are the planning pass for a desktop AI chat agent running on macOS.
 
-Available Agents:
-1. terminal - Achieves a goal using shell commands. Describe WHAT to achieve, NOT specific commands.
-   The terminal agent will figure out the exact commands, handle errors, and verify success automatically.
-2. general - Provides natural language responses, summaries, and formatted output to the user
+Your job is to produce a short, user-visible markdown plan before execution begins.
 
 Rules:
-- Output JSON only, matching the schema strictly
-- Create GOAL-BASED steps for terminal (e.g., "Move file X to directory Y" NOT "mv X Y")
-- Maximum 5 steps per plan (prefer fewer, broader steps)
-- Always end with a "general" step to format the final response for the user
-- If the request is a simple question or greeting, use only a "general" step
-- For complex tasks, describe the complete goal - the terminal agent handles verification and error recovery
-- Consider the conversation history for context
-- The user will be asked to confirm each individual command during execution
+- Always produce a plan, even for simple questions
+- Write markdown, not JSON
+- Keep it concise and practical
+- Focus on intent, likely actions, and how success will be checked
+- Do not mention hidden system details, schemas, or internal implementation
+- Do not pretend work is already done
+- If no tools are likely needed, say so plainly
 
-Step Format:
-- agent: "terminal" or "general"
-- action: For terminal, describe the GOAL to achieve. For general, describe what to respond about.
-
-Examples:
-
-User: "What time is it?"
-{
-  "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "Get the current date and time"},
-    {"step_number": 2, "agent": "general", "action": "Format the current date/time for the user"}
-  ]
-}
-
-User: "Move test.txt from Downloads to Documents"
-{
-  "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "Move ~/Downloads/test.txt to ~/Documents/, creating the destination directory if it doesn't exist and verifying the move was successful"},
-    {"step_number": 2, "agent": "general", "action": "Confirm the file was moved successfully"}
-  ]
-}
-
-User: "Count folders in Downloads"
-{
-  "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "Count the number of directories in ~/Downloads (not recursive)"},
-    {"step_number": 2, "agent": "general", "action": "Report the folder count to the user"}
-  ]
-}
-
-User: "Create a new project folder with git initialized"
-{
-  "steps": [
-    {"step_number": 1, "agent": "terminal", "action": "Create a new folder called 'new-project' in the current directory, initialize a git repository inside it, and create a basic .gitignore file"},
-    {"step_number": 2, "agent": "general", "action": "Summarize what was created"}
-  ]
-}
-
-User: "Hello!"
-{
-  "steps": [
-    {"step_number": 1, "agent": "general", "action": "Greet the user warmly"}
-  ]
-}
-
-IMPORTANT: Keep in mind that for agents give a proper action description eg if the user asks how many folders in A dont pass the action as it is check if there is any context about A in the previous messages and build the action around that context.
-AND ALWAYS end with a general step to format the final response for the user.
+Use this structure when possible:
+## Goal
+## Approach
+## Potential tools
+## Checks
 `;
 
-async function generatePlan(
+function buildExecutionSystemPrompt(context: ChatExecutionContext): string {
+  const toolLines = context.availableTools
+    .map((toolName) => `- ${toolName}`)
+    .join("\n");
+
+  return `You are a robust desktop chat agent running on macOS.
+
+You have already been given a planner pass. Treat that plan as guidance, not as a rigid checklist. Adapt when tool outputs change the best next step.
+
+Available tools:
+${toolLines || "- none"}
+
+Operating rules:
+- Complete the user's request end-to-end when feasible
+- Use tools when they materially help, and continue iterating until the task is done
+- Avoid user-facing prose until you are ready to deliver the final answer
+- If you need to narrate before a tool call, keep it to one short sentence
+- Keep intermediate chatter minimal
+- Do not invent tool results
+- If a tool fails, reason about the failure and either recover or explain the blocker
+- When the work is complete, provide a concise final summary for the user
+- The final summary is the user-facing answer, so make it complete
+`;
+}
+
+function toChatHistory(messages: ChatMessageRecord[]): ChatMessage[] {
+  return messages.map((msg) => ({
+    role: msg.role === "user" ? "user" : "assistant",
+    content: msg.content,
+  }));
+}
+
+function sendChunk(
+  event: IpcMainInvokeEvent,
+  sessionId: string,
+  chunk: string,
+  type: ChatMessageRecord["type"],
+) {
+  event.sender.send("stream-chunk", {
+    chunk,
+    type,
+    sessionId,
+  });
+}
+
+async function generatePlanText(
   messages: ChatMessageRecord[],
   apiKey: string,
   event: IpcMainInvokeEvent,
   sessionId: string,
   config: any,
   signal?: AbortSignal,
-): Promise<{ steps: OrchestratorStep[]; error?: string }> {
-  try {
+): Promise<PlannerResult> {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+
+  const openrouter = createOpenRouter({ apiKey });
+  const result = streamText({
+    model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
+    abortSignal: signal,
+    system: PLANNER_SYSTEM_PROMPT,
+    messages: toChatHistory(messages),
+  });
+
+  let planText = "";
+  sendChunk(event, sessionId, "Planning approach...\n", "log");
+
+  for await (const part of result.fullStream) {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
-    const openrouter = createOpenRouter({ apiKey: apiKey });
-    const chatHistory: ChatMessage[] = messages.map((msg) => ({
-      role: msg.role === "user" ? "user" : "assistant",
-      content: msg.content,
-    }));
 
-    const result = streamText({
-      model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
-      abortSignal: signal,
-      system: SYSTEM_PROMPT_PLANNER,
-      messages: chatHistory,
-    });
-
-    const buffer = new StreamChunkBuffer(event.sender, sessionId);
-    let rawText = "";
-    for await (const part of result.fullStream) {
-      if (signal?.aborted) {
-        buffer.flush();
-        throw new DOMException("Aborted", "AbortError");
+    switch (part.type) {
+      case "reasoning-delta": {
+        sendChunk(event, sessionId, part.text, "log");
+        break;
       }
-      switch (part.type) {
-        case "reasoning-delta": {
-          buffer.send(part.text, "log");
-          break;
-        }
-        case "text-delta": {
-          rawText += part.text;
-          break;
-        }
-        case "error": {
-          buffer.send(`\nError: ${(part as any).error}\n`, "log");
-          LOG(TAG).ERROR("Stream error:", (part as any).error);
-          break;
-        }
+      case "text-delta": {
+        planText += part.text;
+        sendChunk(event, sessionId, planText, "plan");
+        break;
+      }
+      case "error": {
+        LOG(TAG).ERROR("Planner stream error:", (part as any).error);
+        break;
       }
     }
-    buffer.flush();
-    await result;
-
-    const stepSchema = z.object({
-      step_number: z
-        .number()
-        .describe("Sequential step number starting from 1"),
-      agent: z
-        .enum(["terminal", "general"])
-        .describe("The agent to execute this step"),
-      action: z
-        .string()
-        .describe(
-          "For terminal: goal to achieve. For general: task description",
-        ),
-    });
-    const planSchema = z.object({
-      steps: z.array(stepSchema),
-    });
-
-    const parseJsonFromText = (text: string): unknown | null => {
-      const trimmed = text.trim();
-      if (!trimmed) return null;
-      try {
-        return JSON.parse(trimmed);
-      } catch {}
-
-      const objectMatch = trimmed.match(/\{[\s\S]*\}/);
-      const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
-      const match =
-        objectMatch && arrayMatch
-          ? objectMatch.index! < arrayMatch.index!
-            ? objectMatch
-            : arrayMatch
-          : (objectMatch ?? arrayMatch);
-      if (!match) return null;
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return null;
-      }
-    };
-
-    const parsed = parseJsonFromText(rawText);
-    const normalized = Array.isArray(parsed) ? { steps: parsed } : parsed;
-
-    const validated = planSchema.safeParse(normalized);
-    if (!validated.success) {
-      LOG(TAG).ERROR("Failed to parse plan JSON", validated.error);
-      return { steps: [], error: "Failed to parse plan JSON" };
-    }
-
-    const steps: OrchestratorStep[] = validated.data.steps.map((s) => ({
-      step_number: s.step_number,
-      agent: s.agent,
-      action: s.action,
-      status: "pending" as const,
-    }));
-    return { steps };
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw error;
-    }
-    LOG(TAG).ERROR("Failed to generate plan:", error);
-    return {
-      steps: [],
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
   }
+
+  await result;
+
+  const markdown = planText.trim();
+  if (!markdown) {
+    throw new Error("Planner produced an empty plan");
+  }
+
+  return { markdown };
 }
 
-async function executeGeneralStep(
-  step: OrchestratorStep,
+function buildExecutionMessages(
   messages: ChatMessageRecord[],
-  context: OrchestratorContext,
+  planText: string,
+): ChatMessage[] {
+  const history = toChatHistory(messages);
+  const lastMessage = history[history.length - 1];
+
+  if (!lastMessage || lastMessage.role !== "user") {
+    return history;
+  }
+
+  history[history.length - 1] = {
+    role: "user",
+    content: `${lastMessage.content}\n\n<PLAN_GUIDANCE>\n${planText}\n</PLAN_GUIDANCE>\n\nUse the plan guidance above if it helps, but adapt to the actual tool outputs and conversation context.`,
+  };
+
+  return history;
+}
+
+async function executePlan(
+  messages: ChatMessageRecord[],
+  plan: PlannerResult,
   event: IpcMainInvokeEvent,
   apiKey: string,
+  sessionId: string,
   config: any,
   signal?: AbortSignal,
 ): Promise<{ output: string }> {
-  // Build context summary from all previous steps
-  const contextSummary =
-    context.history.length > 0
-      ? "\n\n<EXECUTION_RESULTS>\n" +
-        context.history
-          .map((h) => `[Step ${h.step}]: ${h.command}\nOutput: ${h.output}`)
-          .join("\n\n") +
-        "\n</EXECUTION_RESULTS>"
-      : "";
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
-  return generalTool(
-    messages,
-    step.action + contextSummary,
+  const openrouter = createOpenRouter({ apiKey });
+  const { tools, availableToolNames } = buildChatExecutionTools({
     event,
+    sessionId,
     apiKey,
     config,
     signal,
-  );
+  });
+
+  const result = streamText({
+    model: openrouter(config?.textModelOverride || "moonshotai/kimi-k2-0905"),
+    abortSignal: signal,
+    system: buildExecutionSystemPrompt({
+      planText: plan.markdown,
+      availableTools: availableToolNames,
+    }),
+    messages: buildExecutionMessages(messages, plan.markdown),
+    tools,
+    stopWhen: stepCountIs(20),
+  });
+
+  let finalText = "";
+  let stepCount = 0;
+  sendChunk(event, sessionId, "Executing plan...\n", "log");
+
+  for await (const part of result.fullStream) {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
+    switch (part.type) {
+      case "start-step": {
+        stepCount += 1;
+        if (stepCount > 1) {
+          sendChunk(
+            event,
+            sessionId,
+            `\n--- Continuing execution step ${stepCount} ---\n`,
+            "log",
+          );
+        }
+        break;
+      }
+      case "reasoning-delta": {
+        const reasoningContent =
+          (part as any).text || (part as any).textDelta || "";
+        if (reasoningContent) {
+          sendChunk(event, sessionId, reasoningContent, "log");
+        }
+        break;
+      }
+      case "text-delta": {
+        const textContent = (part as any).text || (part as any).textDelta || "";
+        if (textContent) {
+          finalText += textContent;
+          sendChunk(event, sessionId, textContent, "general");
+        }
+        break;
+      }
+      case "tool-call": {
+        sendChunk(event, sessionId, "\n", "log");
+        break;
+      }
+      case "error": {
+        sendChunk(
+          event,
+          sessionId,
+          `\nError: ${(part as any).error}\n`,
+          "log",
+        );
+        LOG(TAG).ERROR("Execution stream error:", (part as any).error);
+        break;
+      }
+    }
+  }
+
+  await result;
+
+  const output = finalText.trim();
+  if (!output) {
+    sendChunk(event, sessionId, "Task completed.", "general");
+    return { output: "Task completed." };
+  }
+
+  return { output };
 }
 
 export async function orchestrate(
@@ -241,157 +259,36 @@ export async function orchestrate(
   config: any,
   signal?: AbortSignal,
 ): Promise<{ text: string; error?: string }> {
-  const planResult = await generatePlan(
-    messages,
-    apiKey,
-    event,
-    sessionId,
-    config,
-    signal,
-  );
+  try {
+    const plan = await generatePlanText(
+      messages,
+      apiKey,
+      event,
+      sessionId,
+      config,
+      signal,
+    );
 
-  if (planResult.error || planResult.steps.length === 0) {
+    const result = await executePlan(
+      messages,
+      plan,
+      event,
+      apiKey,
+      sessionId,
+      config,
+      signal,
+    );
+
+    return { text: result.output };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+
+    LOG(TAG).ERROR("Failed to orchestrate chat:", error);
     return {
       text: "",
-      error: planResult.error || "No plan steps generated",
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-
-  const steps = planResult.steps;
-
-  // Prepare plan payload
-  const planPayload = steps.map((s) => ({
-    step_number: s.step_number,
-    tool_name: s.agent === "terminal" ? "terminal_tool" : "general_tool",
-    description: s.action,
-    status: "todo" as const,
-  }));
-
-  // Compute plan hash (must match renderer logic)
-  const djb2Hash = (str: string): string => {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash * 33) ^ str.charCodeAt(i);
-    }
-    return (hash >>> 0).toString(16);
-  };
-  const planHash = djb2Hash(JSON.stringify(planPayload));
-
-  // Persist initial plan steps
-  try {
-    dbService.upsertPlanSteps(sessionId, planHash, planPayload);
-  } catch {}
-
-  // Send plan to UI
-  event.sender.send("stream-chunk", {
-    chunk: JSON.stringify(planPayload, null, 2),
-    type: "plan",
-    sessionId,
-  });
-  // Artificial delay to simulate processing time
-
-  // Initialize execution context
-  const context: OrchestratorContext = {
-    goal: messages[messages.length - 1]?.content || "",
-    cwd: os.homedir(),
-    currentStep: 0,
-    steps,
-    history: [],
-    done: false,
-  };
-
-  let finalOutput = "";
-
-  // Execute each step
-  for (let i = 0; i < steps.length; i++) {
-    // Check cancellation before starting step
-    if (signal?.aborted) {
-      throw new DOMException("Aborted", "AbortError");
-    }
-
-    const step = steps[i];
-    context.currentStep = step.step_number;
-    step.status = "running";
-
-    // Emit plan with running status
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify(
-        steps.map((s) => ({
-          step_number: s.step_number,
-          tool_name: s.agent === "terminal" ? "terminal_tool" : "general_tool",
-          description: s.action,
-          status: s.status === "pending" ? "todo" : s.status,
-        })),
-        null,
-        2,
-      ),
-      type: "plan",
-      sessionId,
-    });
-
-    event.sender.send("stream-chunk", {
-      chunk: `\n📍 Step ${step.step_number}: [${step.agent}] ${step.action}\n`,
-      type: "log",
-      sessionId,
-    });
-
-    if (step.agent === "terminal") {
-      const result = await terminalAgent(
-        step.action,
-        event,
-        apiKey,
-        20,
-        config.textModelOverride,
-        signal!,
-      );
-      context.history.push({
-        step: step.step_number,
-        command: step.action,
-        output: result.output,
-      });
-      step.status = "done";
-      step.result = result.output;
-    } else if (step.agent === "general") {
-      const result = await executeGeneralStep(
-        step,
-        messages,
-        context,
-        event,
-        apiKey,
-        config,
-        signal,
-      );
-
-      step.status = "done";
-      step.result = result.output;
-      finalOutput = result.output;
-    }
-
-    // Persist step completion
-    if (step.status === "done") {
-      try {
-        dbService.markPlanStepDone(sessionId, planHash, step.step_number);
-      } catch {}
-    }
-
-    // Re-send updated plan with current statuses
-    event.sender.send("stream-chunk", {
-      chunk: JSON.stringify(
-        steps.map((s) => ({
-          step_number: s.step_number,
-          tool_name: s.agent === "terminal" ? "terminal_tool" : "general_tool",
-          description: s.action,
-          status: s.status === "pending" ? "todo" : s.status,
-        })),
-        null,
-        2,
-      ),
-      type: "plan",
-      sessionId,
-    });
-  }
-
-  context.done = true;
-
-  return { text: finalOutput };
 }

@@ -1,7 +1,16 @@
 import { contextBridge, ipcRenderer } from "electron";
 export interface StreamChunk {
   chunk: string;
-  type: "stream" | "general" | "log" | "plan" | "source";
+  type:
+    | "stream"
+    | "general"
+    | "log"
+    | "plan"
+    | "source"
+    | "search-status"
+    | "terminal-confirmation"
+    | "error"
+    | "cancelled";
   role?: "user" | "assistant" | "execution";
   sessionId?: string;
 }
@@ -135,23 +144,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db:delete-chat-messages-by-session", sessionId),
   dbGetAllSessionsWithMessages: (limit: number) =>
     ipcRenderer.invoke("db:get-all-sessions-with-messages", limit),
-
-  // Plan steps APIs
-  dbUpsertPlanSteps: (sessionId: string, planHash: string, steps: any[]) =>
-    ipcRenderer.invoke("db:upsert-plan-steps", sessionId, planHash, steps),
-  dbMarkPlanStepDone: (
-    sessionId: string,
-    planHash: string,
-    stepNumber: number,
-  ) =>
-    ipcRenderer.invoke(
-      "db:mark-plan-step-done",
-      sessionId,
-      planHash,
-      stepNumber,
-    ),
-  dbGetPlanSteps: (sessionId: string, planHash: string) =>
-    ipcRenderer.invoke("db:get-plan-steps", sessionId, planHash),
 
   // RAG folders APIs
   dbGetRagFolders: (type: "image" | "text") =>
