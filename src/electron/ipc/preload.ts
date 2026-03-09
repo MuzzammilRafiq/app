@@ -191,6 +191,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ),
   dbDeleteTranscriptionRun: (id: string) =>
     ipcRenderer.invoke("db:delete-transcription-run", id),
+  dbEnsureMeetChatSession: (transcriptionRunId: string, title?: string) =>
+    ipcRenderer.invoke("db:ensure-meet-chat-session", transcriptionRunId, title),
+  dbGetMeetChatSessionWithMessages: (transcriptionRunId: string) =>
+    ipcRenderer.invoke(
+      "db:get-meet-chat-session-with-messages",
+      transcriptionRunId,
+    ),
+  meetChatProcessTranscript: (
+    request: any,
+    apiKey: string,
+    config?: any,
+  ) =>
+    ipcRenderer.invoke("meet-chat:process-transcript", request, apiKey, config),
 
   // RAG folders APIs
   dbGetRagFolders: (type: "image" | "text") =>

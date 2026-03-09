@@ -10,7 +10,8 @@ import {
   type ModelTranscriptionResult,
   type TranscriptionModel,
 } from "../_lib/progressive-streaming";
-import { useMeetHistoryStore } from "../../../utils/store";
+import { useMeetChatStore, useMeetHistoryStore } from "../../../utils/store";
+import { loadSettings } from "../../../utils/localstore";
 import WorkerUrl from "../../../workers/parakeet.worker.ts?worker&url";
 
 type ModelStatus = "not_loaded" | "loading" | "ready" | "error";
@@ -74,6 +75,12 @@ export function useMeetTranscription(): MeetTranscriptionState {
   const clearCurrentTranscriptionRun = useMeetHistoryStore(
     (s) => s.clearCurrentTranscriptionRun,
   );
+  const setMeetChatSessionForRun = useMeetChatStore((s) => s.setSessionForRun);
+  const updateMeetChatSessionForRun = useMeetChatStore(
+    (s) => s.updateSessionForRun,
+  );
+  const setMeetChatLoadingForRun = useMeetChatStore((s) => s.setLoadingForRun);
+  const setMeetChatErrorForRun = useMeetChatStore((s) => s.setErrorForRun);
 
   const workerRef = useRef<Worker | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -86,6 +93,9 @@ export function useMeetTranscription(): MeetTranscriptionState {
     useRef<Promise<ModelTranscriptionResult> | null>(null);
   const baseTranscriptRef = useRef("");
   const baseDurationRef = useRef(0);
+  const latestFixedTextRef = useRef("");
+  const lastProcessedTranscriptLengthRef = useRef(0);
+  const meetChatInFlightRef = useRef(false);
   const pendingLoadRef = useRef<PendingPromise<void> | null>(null);
   const pendingTranscribeRef =
     useRef<PendingPromise<ModelTranscriptionResult> | null>(null);
@@ -265,6 +275,132 @@ export function useMeetTranscription(): MeetTranscriptionState {
     [syncRunInStore],
   );
 
+  const hydrateMeetChatSession = useCallback(
+    async (run: TranscriptionRunRecord) => {
+      setMeetChatLoadingForRun(run.id, true);
+      setMeetChatErrorForRun(run.id, null);
+
+      try {
+        const ensuredSession = await window.electronAPI.dbEnsureMeetChatSession(
+          run.id,
+        );
+        const session =
+          await window.electronAPI.dbGetMeetChatSessionWithMessages(run.id);
+        const nextSession = session ?? { ...ensuredSession, messages: [] };
+        setMeetChatSessionForRun(run.id, nextSession);
+
+        if (useMeetHistoryStore.getState().currentTranscriptionRun?.id === run.id) {
+          lastProcessedTranscriptLengthRef.current = Math.max(
+            lastProcessedTranscriptLengthRef.current,
+            nextSession.lastProcessedTranscriptLength,
+            run.transcriptText.length,
+          );
+        }
+      } catch (sessionError) {
+        const message =
+          sessionError instanceof Error
+            ? sessionError.message
+            : "Failed to load Meet Chat session";
+        setMeetChatErrorForRun(run.id, message);
+      } finally {
+        setMeetChatLoadingForRun(run.id, false);
+      }
+    },
+    [setMeetChatErrorForRun, setMeetChatLoadingForRun, setMeetChatSessionForRun],
+  );
+
+  const runMeetChatProcessing = useCallback(
+    async (
+      transcriptionRunId: string,
+      transcriptText: string,
+      options?: { force?: boolean },
+    ) => {
+      if (meetChatInFlightRef.current) {
+        return;
+      }
+
+      const newText = transcriptText
+        .slice(lastProcessedTranscriptLengthRef.current)
+        .trim();
+      if (!options?.force && newText.length === 0) {
+        return;
+      }
+
+      const settings = loadSettings();
+      if (!settings.openrouterApiKey?.trim()) {
+        setMeetChatErrorForRun(
+          transcriptionRunId,
+          "OpenRouter API key required for Meet Chat.",
+        );
+        return;
+      }
+
+      meetChatInFlightRef.current = true;
+      setMeetChatLoadingForRun(transcriptionRunId, true);
+      setMeetChatErrorForRun(transcriptionRunId, null);
+      updateMeetChatSessionForRun(transcriptionRunId, {
+        status: "processing",
+        lastError: "",
+      });
+
+      try {
+        const result = await window.electronAPI.meetChatProcessTranscript(
+          {
+            transcriptionRunId,
+            transcriptText,
+            newText,
+            force: options?.force,
+          },
+          settings.openrouterApiKey,
+          {
+            model: settings.meetChatModel || settings.textModel || undefined,
+          },
+        );
+
+        setMeetChatSessionForRun(transcriptionRunId, result.session);
+        lastProcessedTranscriptLengthRef.current = transcriptText.length;
+      } catch (monitorError) {
+        const message =
+          monitorError instanceof Error
+            ? monitorError.message
+            : "Meet Chat failed";
+        setMeetChatErrorForRun(transcriptionRunId, message);
+        updateMeetChatSessionForRun(transcriptionRunId, {
+          status: "error",
+          lastError: message,
+        });
+
+        const latestSession =
+          await window.electronAPI.dbGetMeetChatSessionWithMessages(
+            transcriptionRunId,
+          );
+        if (latestSession) {
+          setMeetChatSessionForRun(transcriptionRunId, latestSession);
+        }
+      } finally {
+        meetChatInFlightRef.current = false;
+        setMeetChatLoadingForRun(transcriptionRunId, false);
+
+        const latestRun = useMeetHistoryStore.getState().currentTranscriptionRun;
+        if (
+          latestRun?.id === transcriptionRunId &&
+          latestFixedTextRef.current.length > lastProcessedTranscriptLengthRef.current
+        ) {
+          void runMeetChatProcessing(
+            transcriptionRunId,
+            latestFixedTextRef.current,
+          );
+        }
+      }
+    },
+    [
+      setMeetChatErrorForRun,
+      setMeetChatLoadingForRun,
+      setMeetChatSessionForRun,
+      updateMeetChatSessionForRun,
+    ],
+  );
+
   const finalizeTranscription = useCallback(
     async (audio: Float32Array): Promise<string> => {
       if (!streamingRef.current) {
@@ -307,6 +443,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
     const audio = audioBufferRef.current?.getBuffer() ?? new Float32Array(0);
     let nextTranscript = baseTranscriptRef.current;
     let nextDuration = baseDurationRef.current;
+    let activeRun = currentTranscriptionRun;
     if (audio.length > 0 && streamingRef.current) {
       try {
         const finalText = await finalizeTranscription(audio);
@@ -318,7 +455,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
         nextDuration = baseDurationRef.current + audio.length / SAMPLE_RATE;
         setFixedText(nextTranscript);
 
-        const activeRun = currentTranscriptionRun ?? (await ensureActiveRun());
+        activeRun = currentTranscriptionRun ?? (await ensureActiveRun());
         await persistRunContent(activeRun.id, nextTranscript, nextDuration);
       } catch (stopError) {
         const message =
@@ -328,6 +465,14 @@ export function useMeetTranscription(): MeetTranscriptionState {
         setError(message);
       }
     }
+
+    if (
+      activeRun &&
+      nextTranscript.length > lastProcessedTranscriptLengthRef.current
+    ) {
+      await runMeetChatProcessing(activeRun.id, nextTranscript, { force: true });
+    }
+
     setActiveText("");
     setAudioLevel(0);
     setTimestampSeconds(nextDuration);
@@ -340,6 +485,7 @@ export function useMeetTranscription(): MeetTranscriptionState {
     finalizeTranscription,
     isRecording,
     persistRunContent,
+    runMeetChatProcessing,
     waitForPendingTranscription,
   ]);
 
@@ -362,6 +508,10 @@ export function useMeetTranscription(): MeetTranscriptionState {
     setActiveText("");
     setTimestampSeconds(activeRun.durationSeconds);
     setAudioLevel(0);
+    lastProcessedTranscriptLengthRef.current = Math.max(
+      lastProcessedTranscriptLengthRef.current,
+      initialTranscript.length,
+    );
 
     audioBufferRef.current = new AudioBufferStore();
     const modelWrapper: TranscriptionModel = {
@@ -462,12 +612,19 @@ export function useMeetTranscription(): MeetTranscriptionState {
     clearCurrentTranscriptionRun();
     baseTranscriptRef.current = "";
     baseDurationRef.current = 0;
+    latestFixedTextRef.current = "";
+    lastProcessedTranscriptLengthRef.current = 0;
+    meetChatInFlightRef.current = false;
     setFixedText("");
     setActiveText("");
     setTimestampSeconds(0);
     setAudioLevel(0);
     setError(null);
   }, [clearCurrentTranscriptionRun, isRecording, stopRecording]);
+
+  useEffect(() => {
+    latestFixedTextRef.current = fixedText;
+  }, [fixedText]);
 
   useEffect(() => {
     if (!currentTranscriptionRun || isRecording) {
@@ -482,6 +639,32 @@ export function useMeetTranscription(): MeetTranscriptionState {
     baseTranscriptRef.current = currentTranscriptionRun.transcriptText.trim();
     baseDurationRef.current = currentTranscriptionRun.durationSeconds;
   }, [currentTranscriptionRun, isRecording]);
+
+  useEffect(() => {
+    if (!currentTranscriptionRun) {
+      lastProcessedTranscriptLengthRef.current = 0;
+      meetChatInFlightRef.current = false;
+      return;
+    }
+
+    void hydrateMeetChatSession(currentTranscriptionRun);
+  }, [currentTranscriptionRun, hydrateMeetChatSession]);
+
+  useEffect(() => {
+    if (!isRecording || !currentTranscriptionRun) {
+      return;
+    }
+
+    if (meetChatInFlightRef.current) {
+      return;
+    }
+
+    if (fixedText.length <= lastProcessedTranscriptLengthRef.current) {
+      return;
+    }
+
+    void runMeetChatProcessing(currentTranscriptionRun.id, fixedText);
+  }, [currentTranscriptionRun, fixedText, isRecording, runMeetChatProcessing]);
 
   useEffect(() => {
     return () => {

@@ -4,6 +4,7 @@ import type {
   ChatSessionWithMessages,
   ChatMessageRecord,
   ChatType,
+  MeetChatSessionWithMessages,
   StreamChunk,
   TranscriptionRunRecord,
   VisionLogType,
@@ -84,6 +85,80 @@ export const useMeetHistoryStore = create<MeetHistoryStore>((set) => ({
   setTranscriptionRuns: (runs) => set({ transcriptionRuns: runs }),
   setCurrentTranscriptionRun: (run) => set({ currentTranscriptionRun: run }),
   clearCurrentTranscriptionRun: () => set({ currentTranscriptionRun: null }),
+}));
+
+interface MeetChatStore {
+  sessionsByRunId: Record<string, MeetChatSessionWithMessages>;
+  loadingByRunId: Record<string, boolean>;
+  errorByRunId: Record<string, string | null>;
+  setSessionForRun: (runId: string, session: MeetChatSessionWithMessages) => void;
+  updateSessionForRun: (
+    runId: string,
+    updates: Partial<MeetChatSessionWithMessages>,
+  ) => void;
+  setLoadingForRun: (runId: string, loading: boolean) => void;
+  setErrorForRun: (runId: string, error: string | null) => void;
+  clearRunState: (runId: string) => void;
+}
+
+export const useMeetChatStore = create<MeetChatStore>((set) => ({
+  sessionsByRunId: {},
+  loadingByRunId: {},
+  errorByRunId: {},
+  setSessionForRun: (runId, session) =>
+    set((state) => ({
+      sessionsByRunId: {
+        ...state.sessionsByRunId,
+        [runId]: session,
+      },
+    })),
+  updateSessionForRun: (runId, updates) =>
+    set((state) => {
+      const existing = state.sessionsByRunId[runId];
+      if (!existing) {
+        return state;
+      }
+
+      return {
+        sessionsByRunId: {
+          ...state.sessionsByRunId,
+          [runId]: {
+            ...existing,
+            ...updates,
+          },
+        },
+      };
+    }),
+  setLoadingForRun: (runId, loading) =>
+    set((state) => ({
+      loadingByRunId: {
+        ...state.loadingByRunId,
+        [runId]: loading,
+      },
+    })),
+  setErrorForRun: (runId, error) =>
+    set((state) => ({
+      errorByRunId: {
+        ...state.errorByRunId,
+        [runId]: error,
+      },
+    })),
+  clearRunState: (runId) =>
+    set((state) => {
+      const sessionsByRunId = { ...state.sessionsByRunId };
+      const loadingByRunId = { ...state.loadingByRunId };
+      const errorByRunId = { ...state.errorByRunId };
+
+      delete sessionsByRunId[runId];
+      delete loadingByRunId[runId];
+      delete errorByRunId[runId];
+
+      return {
+        sessionsByRunId,
+        loadingByRunId,
+        errorByRunId,
+      };
+    }),
 }));
 
 interface Store {

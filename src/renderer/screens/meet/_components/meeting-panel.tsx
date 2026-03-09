@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import type { MeetChatSessionWithMessages } from "../../../../common/types";
+import MeetChatPanel from "./meet-chat-panel";
 import ModelLoadingIndicator from "./model-loading-indicator";
 
 interface MeetingPanelProps {
@@ -9,6 +11,9 @@ interface MeetingPanelProps {
   isRecording: boolean;
   timestampSeconds: number;
   audioLevel: number;
+  meetChatSession: MeetChatSessionWithMessages | null;
+  meetChatLoading: boolean;
+  meetChatError: string | null;
   onLoadModel: () => Promise<void>;
   onStartRecording: () => Promise<void>;
   onStopRecording: () => Promise<void>;
@@ -41,6 +46,9 @@ export default function MeetingPanel({
   isRecording,
   timestampSeconds,
   audioLevel,
+  meetChatSession,
+  meetChatLoading,
+  meetChatError,
   onLoadModel,
   onStartRecording,
   onStopRecording,
@@ -60,7 +68,7 @@ export default function MeetingPanel({
   }, [fixedText]);
 
   return (
-    <div className="flex h-full flex-col p-6 max-w-4xl mx-auto w-full">
+    <div className="flex h-full w-full flex-col p-6">
       <div className="flex items-center justify-between mb-8">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
@@ -128,61 +136,70 @@ export default function MeetingPanel({
         </div>
       )}
 
-      <div className="relative flex-1 min-h-0 rounded-2xl border border-border/50 bg-surface/50 shadow-sm backdrop-blur-sm overflow-hidden flex flex-col">
-        <div
-          ref={contentRef}
-          className="flex-1 overflow-y-auto p-6 md:p-8 text-[1.1rem] leading-relaxed text-text-main"
-        >
-          {!hasText && !isRecording && (
-            <div className="flex h-full items-center justify-center text-text-muted">
-              Ready to start transcription
+      <div className="flex flex-1 min-h-0 flex-col gap-6 xl:flex-row">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/50 bg-surface/50 shadow-sm backdrop-blur-sm">
+          <div
+            ref={contentRef}
+            className="flex-1 overflow-y-auto p-6 text-[1.1rem] leading-relaxed text-text-main md:p-8"
+          >
+            {!hasText && !isRecording && (
+              <div className="flex h-full items-center justify-center text-text-muted">
+                Ready to start transcription
+              </div>
+            )}
+            {!hasFixedText && isRecording && (
+              <div className="flex h-full items-center justify-center animate-pulse text-text-muted">
+                Listening...
+              </div>
+            )}
+
+            <div className="w-full">
+              {hasFixedText && (
+                <span className="text-text-main/90">{fixedText}</span>
+              )}
             </div>
-          )}
-          {!hasFixedText && isRecording && (
-            <div className="flex h-full items-center justify-center text-text-muted animate-pulse">
-              Listening...
+          </div>
+
+          {(isRecording || hasActiveText) && (
+            <div className="border-t border-border/60 bg-bg-app/70 px-6 py-4 backdrop-blur-sm md:px-8">
+              <div className="flex w-full flex-col gap-2">
+                <div className="text-sm font-medium text-text-muted">
+                  Live transcription
+                </div>
+                <div className="min-h-24 rounded-2xl border border-border bg-surface px-4 py-3 text-[1rem] leading-relaxed text-text-main shadow-sm">
+                  {hasActiveText ? (
+                    <span className="relative inline-block font-medium text-text-main">
+                      {activeText}
+                      <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-primary/20 animate-pulse" />
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">
+                      {isRecording
+                        ? "Current speech will appear here until it is finalized."
+                        : "Waiting for the next live segment."}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="max-w-prose mx-auto w-full">
-            {hasFixedText && (
-              <span className="text-text-main/90">{fixedText}</span>
-            )}
-          </div>
+          {isRecording && (
+            <div className="absolute bottom-0 left-0 h-1 w-full bg-primary/10">
+              <div
+                className="h-full bg-primary/40 transition-all duration-75"
+                style={{ width: `${Math.min(100, audioLevel * 200)}%` }}
+              />
+            </div>
+          )}
         </div>
 
-        {(isRecording || hasActiveText) && (
-          <div className="border-t border-border/60 bg-bg-app/70 px-6 py-4 backdrop-blur-sm md:px-8">
-            <div className="mx-auto flex w-full max-w-prose flex-col gap-2">
-              <div className="text-sm font-medium text-text-muted">
-                Live transcription
-              </div>
-              <div className="min-h-24 rounded-2xl border border-border bg-surface px-4 py-3 text-[1rem] leading-relaxed text-text-main shadow-sm">
-                {hasActiveText ? (
-                  <span className="relative inline-block font-medium text-text-main">
-                    {activeText}
-                    <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-primary/20 animate-pulse" />
-                  </span>
-                ) : (
-                  <span className="text-text-muted">
-                    {isRecording
-                      ? "Current speech will appear here until it is finalized."
-                      : "Waiting for the next live segment."}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isRecording && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/10">
-            <div
-              className="h-full bg-primary/40 transition-all duration-75"
-              style={{ width: `${Math.min(100, audioLevel * 200)}%` }}
-            />
-          </div>
-        )}
+        <MeetChatPanel
+          session={meetChatSession}
+          isLoading={meetChatLoading}
+          error={meetChatError}
+          isRecording={isRecording}
+        />
       </div>
     </div>
   );

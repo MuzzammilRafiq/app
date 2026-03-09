@@ -128,6 +128,52 @@ interface TranscriptionRunRecord {
   durationSeconds: number;
 }
 
+type MeetChatSessionStatus = "idle" | "processing" | "responded" | "error";
+
+type MeetChatMessageType = "query" | "response";
+
+interface MeetChatSessionRecord {
+  id: string;
+  transcriptionRunId: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  status: MeetChatSessionStatus;
+  lastProcessedAt: number | null;
+  lastProcessedTranscriptLength: number;
+  lastQuery: string;
+  lastError: string;
+}
+
+interface MeetChatMessageRecord {
+  id: string;
+  sessionId: string;
+  type: MeetChatMessageType;
+  content: string;
+  timestamp: number;
+}
+
+interface MeetChatSessionWithMessages extends MeetChatSessionRecord {
+  messages: MeetChatMessageRecord[];
+}
+
+interface MeetChatProcessRequest {
+  transcriptionRunId: string;
+  transcriptText: string;
+  newText: string;
+  force?: boolean;
+}
+
+interface MeetChatProcessConfig {
+  model?: string;
+}
+
+interface MeetChatProcessResult {
+  session: MeetChatSessionWithMessages;
+  queryMessage: MeetChatMessageRecord | null;
+  responseMessage: MeetChatMessageRecord | null;
+}
+
 interface ChatMessageRecord {
   id: string;
   sessionId: string;
@@ -212,4 +258,12 @@ export type {
   VisionLogRecord,
   VisionSessionWithLogs,
   TranscriptionRunRecord,
+  MeetChatSessionStatus,
+  MeetChatMessageType,
+  MeetChatSessionRecord,
+  MeetChatMessageRecord,
+  MeetChatSessionWithMessages,
+  MeetChatProcessRequest,
+  MeetChatProcessConfig,
+  MeetChatProcessResult,
 };

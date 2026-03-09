@@ -430,6 +430,20 @@ interface Window {
       durationSeconds: number,
     ) => Promise<import("../common/types").TranscriptionRunRecord>;
     dbDeleteTranscriptionRun: (id: string) => Promise<boolean>;
+    dbEnsureMeetChatSession: (
+      transcriptionRunId: string,
+      title?: string,
+    ) => Promise<import("../common/types").MeetChatSessionRecord>;
+    dbGetMeetChatSessionWithMessages: (
+      transcriptionRunId: string,
+    ) => Promise<
+      import("../common/types").MeetChatSessionWithMessages | null
+    >;
+    meetChatProcessTranscript: (
+      request: import("../common/types").MeetChatProcessRequest,
+      apiKey: string,
+      config?: import("../common/types").MeetChatProcessConfig,
+    ) => Promise<import("../common/types").MeetChatProcessResult>;
 
     /**
      * RAG folders persistence APIs

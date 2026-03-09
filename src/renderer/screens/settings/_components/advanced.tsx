@@ -90,6 +90,23 @@ export default function AdvancedSettings() {
                 className="w-full px-4 py-3 rounded-lg bg-surface text-text-main placeholder-text-subtle focus:ring-2 focus:ring-primary border border-border"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-text-main mb-2">
+                Meet Chat Model (ID)
+              </label>
+              <input
+                type="text"
+                placeholder="moonshotai/kimi-k2-0905"
+                value={settings.meetChatModel || ""}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    meetChatModel: e.target.value,
+                  }))
+                }
+                className="w-full px-4 py-3 rounded-lg bg-surface text-text-main placeholder-text-subtle focus:ring-2 focus:ring-primary border border-border"
+              />
+            </div>
           </div>
         </div>
       </div>

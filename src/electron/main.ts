@@ -9,6 +9,7 @@ import { setupDatabaseHandlers } from "./ipc/database.js";
 import { setupTextEmbeddingHandlers } from "./ipc/textEmbeddings.js";
 import { setupWindowHandlers } from "./ipc/window.js";
 import { setupAutomationHandlers } from "./ipc/automation.js";
+import { setupMeetChatHandlers } from "./ipc/meetChat.js";
 import { LOG, RENDERER_LOG, truncateLines } from "./utils/logging.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,6 +135,7 @@ app.whenReady().then(() => {
   setupDatabaseHandlers();
   setupWindowHandlers();
   setupAutomationHandlers();
+  setupMeetChatHandlers();
   if (process.env.NODE_ENV === "development") {
     registerDevelopmentDebugShortcuts();
   }

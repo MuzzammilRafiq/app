@@ -113,6 +113,22 @@ export function setupDatabaseHandlers() {
     return dbService.deleteTranscriptionRun(id);
   });
 
+  ipcMain.handle(
+    "db:ensure-meet-chat-session",
+    async (_event, transcriptionRunId: string, title?: string) => {
+      return dbService.ensureMeetChatSession(transcriptionRunId, title);
+    },
+  );
+
+  ipcMain.handle(
+    "db:get-meet-chat-session-with-messages",
+    async (_event, transcriptionRunId: string) => {
+      return dbService.getMeetChatSessionWithMessagesByTranscriptionRunId(
+        transcriptionRunId,
+      );
+    },
+  );
+
   // Vision sessions
   ipcMain.handle(
     "db:create-vision-session",
