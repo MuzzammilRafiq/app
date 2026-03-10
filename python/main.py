@@ -12,7 +12,6 @@ from routes import (
     text_router,
     web_search_router,
     automation_router,
-    audio_router,
 )
 
 
@@ -83,43 +82,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "embedding", "version": "1.0.0"}
-
-
-app.include_router(image_router)
-app.include_router(text_router)
-app.include_router(web_search_router)
-app.include_router(automation_router)
-app.include_router(audio_router)
-
-
-@app.get("/help")
-async def help_routes():
-    """Comprehensive API documentation for all available routes."""
-    return {
-        "service": "Embedding & Automation API",
-        "version": "1.0.0",
-        "routes": {
-            "health": {
-                "GET /": {
-                    "description": "Health check endpoint",
-                    "expects": "No parameters",
-                    "returns": {
-                        "status": "string",
-                        "service": "string",
-                        "version": "string",
-                    },
-                }
-            },
-            "image": {
-                "POST /image/scan-folder": {
-                    "description": "Scan and add images from a folder to the database",
-                    "expects": {
-                        "folder_path": "string (required) - Path to the folder containing images",
-                        "batch_size": "int (optional, default: 100) - Number of images to process in each batch",
-                    },
                     "returns": {
                         "total_found": "int - Total images found",
                         "total_added": "int - Total images added to database",
@@ -286,42 +248,6 @@ async def help_routes():
                         "duration_ms": "int (required) - Duration to sleep in milliseconds"
                     },
                     "returns": {"status": "string", "slept_ms": "int"},
-                },
-            },
-            "transcription": {
-                "POST /transcription/start-listening": {
-                    "description": "Start microphone listening with configurable VAD settings",
-                    "expects": {
-                        "vad_threshold": "float (optional, default: 0.013) - Voice activity threshold (0.0 to 1.0)",
-                        "pre_roll_seconds": "float (optional, default: 0.5) - Audio pre-roll to include before speech starts",
-                        "silence_timeout": "float (optional, default: 0.3) - Silence duration before finalizing a segment",
-                        "max_chunk_duration": "float (optional, default: 5.0) - Max duration per transcription segment",
-                    },
-                    "returns": {
-                        "status": "string - 'recording'",
-                        "session_id": "string - Unique session identifier",
-                        "message": "string - Status message",
-                    },
-                },
-                "POST /transcription/stop-listening": {
-                    "description": "Stop listening and return captured transcription segments",
-                    "expects": "No parameters",
-                    "returns": {
-                        "status": "string - 'stopped'",
-                        "session_id": "string - Session identifier",
-                        "transcriptions": "list - All transcribed text segments with timestamps",
-                    },
-                },
-                "GET /transcription/status": {
-                    "description": "Get active listening status and current transcription segments",
-                    "expects": "No parameters",
-                    "returns": {
-                        "status": "string - 'recording' or 'idle'",
-                        "session_id": "string|null - Active session identifier",
-                        "is_recording": "bool - Whether recording is active",
-                        "transcription_count": "int - Number of segments currently captured",
-                        "transcriptions": "list - Current transcription segments",
-                    },
                 },
             },
         },

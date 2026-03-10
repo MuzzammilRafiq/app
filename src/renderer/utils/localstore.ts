@@ -24,7 +24,6 @@ export interface AppSettings {
   folders: string[];
   textModel?: string;
   imageModel?: string;
-  meetChatModel?: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -33,7 +32,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   folders: [],
   textModel: "",
   imageModel: "",
-  meetChatModel: "",
 };
 
 const SETTINGS_KEY = "app-settings";

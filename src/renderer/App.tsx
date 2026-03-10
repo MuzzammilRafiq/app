@@ -1,6 +1,5 @@
 import ChatScreen from "./screens/chat";
 import VisionScreen from "./screens/vision";
-import MeetScreen from "./screens/meet";
 import SettingsScreen from "./screens/settings";
 import Sidebar from "./components/sidebar";
 import TitleBar from "./components/title-bar";
@@ -45,11 +44,6 @@ function App() {
       // The SidebarInner does this via window hack, but here we can just clear state directly
       if ((window as any).__visionSidebarNewSession) {
         (window as any).__visionSidebarNewSession();
-      }
-    } else if (currentView === "meet") {
-      // Handle new meet session
-      if ((window as any).__meetNewSession) {
-        (window as any).__meetNewSession();
       }
     } else {
       setCurrentSession(undefined);
@@ -102,18 +96,14 @@ function App() {
           className="flex-1 flex overflow-hidden"
           style={{ backgroundColor: "transparent" }}
         >
-          {/* Sidebar for Chat, Vision, and Meet views */}
-          {(currentView === "chat" ||
-            currentView === "vision" ||
-            currentView === "meet") &&
+          {/* Sidebar for Chat and Vision views */}
+          {(currentView === "chat" || currentView === "vision") &&
             !sidebarCollapsed && <Sidebar />}
 
           {/* Main content area */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
-            {/* Floating icons when sidebar is collapsed (for Chat, Vision, and Meet views) */}
-            {(currentView === "chat" ||
-              currentView === "vision" ||
-              currentView === "meet") &&
+            {/* Floating icons when sidebar is collapsed (for Chat and Vision views) */}
+            {(currentView === "chat" || currentView === "vision") &&
               sidebarCollapsed && (
                 <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
                   <button
@@ -129,9 +119,7 @@ function App() {
                     title={
                       currentView === "vision"
                         ? "New Vision Task"
-                        : currentView === "meet"
-                          ? "New Meeting"
-                          : "New Chat"
+                        : "New Chat"
                     }
                   >
                     {PlusSVG}
@@ -152,8 +140,6 @@ function App() {
                   return <SettingsScreen />;
                 case "vision":
                   return <VisionScreen />;
-                case "meet":
-                  return <MeetScreen />;
                 default:
                   return <ChatScreen />;
               }

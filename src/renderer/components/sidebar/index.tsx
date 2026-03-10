@@ -1,4 +1,4 @@
-import { PlusSVG, MenuSVG, GearSVG, CrosshairSVG, SDIcon, VideoCameraSVG } from "../icons";
+import { PlusSVG, MenuSVG, GearSVG, CrosshairSVG, SDIcon } from "../icons";
 import {
   useCurrentViewStore,
   useSidebarCollapsedStore,
@@ -9,7 +9,6 @@ import { useVisionLogStore } from "../../utils/store";
 import { ChatIcon, iconClass } from "../icons";
 import ChatSidebar from "../../screens/chat/_components/sidebar";
 import VisionSidebar from "../../screens/vision/_components/sidebar";
-import MeetSidebar from "../../screens/meet/_components/sidebar";
 
 function SidebarInner() {
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarCollapsedStore();
@@ -28,13 +27,6 @@ function SidebarInner() {
     // Also trigger the vision sidebar's new session handler if available
     if ((window as any).__visionSidebarNewSession) {
       (window as any).__visionSidebarNewSession();
-    }
-  };
-
-  const onNewMeetSession = () => {
-    // Trigger the meet sidebar's new session handler if available
-    if ((window as any).__meetNewSession) {
-      (window as any).__meetNewSession();
     }
   };
 
@@ -57,13 +49,7 @@ function SidebarInner() {
           </button>
           <div className="w-6 h-px bg-border my-1" />
           <button
-            onClick={
-              currentView === "vision"
-                ? onNewVisionSession
-                : currentView === "meet"
-                  ? onNewMeetSession
-                  : onNewSession
-            }
+            onClick={currentView === "vision" ? onNewVisionSession : onNewSession}
             className="w-10 h-10 flex items-center justify-center rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer"
             style={{
               backgroundColor: "var(--btn-accent-bg)",
@@ -72,9 +58,7 @@ function SidebarInner() {
             title={
               currentView === "vision"
                 ? "New Vision Task"
-                : currentView === "meet"
-                  ? "New Meeting"
-                  : "New Chat"
+                : "New Chat"
             }
           >
             {PlusSVG}
@@ -112,7 +96,7 @@ function SidebarInner() {
           </button>
         </div>
 
-        {/* Chat/Vision/Meet Toggle */}
+        {/* Chat/Vision Toggle */}
         <div className="px-4 pb-3">
           <div className="flex bg-primary-light/50 rounded-xl p-1 gap-0.5">
             <button
@@ -148,30 +132,13 @@ function SidebarInner() {
               {CrosshairSVG}
               <span>Vision</span>
             </button>
-            <button
-              onClick={() => setCurrentView("meet")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-                currentView === "meet"
-                  ? "bg-surface text-primary shadow-sm"
-                  : "text-text-muted hover:text-text-main hover:bg-surface/50"
-              }`}
-            >
-              {VideoCameraSVG}
-              <span>Meet</span>
-            </button>
           </div>
         </div>
 
         {/* New Button */}
         <div className="px-4 pb-3">
           <button
-            onClick={
-              currentView === "vision"
-                ? onNewVisionSession
-                : currentView === "meet"
-                  ? onNewMeetSession
-                  : onNewSession
-            }
+            onClick={currentView === "vision" ? onNewVisionSession : onNewSession}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 font-medium text-sm group"
             style={{
               backgroundColor: "var(--btn-accent-bg)",
@@ -191,9 +158,7 @@ function SidebarInner() {
             <span>
               {currentView === "vision"
                 ? "New Vision Task"
-                : currentView === "meet"
-                  ? "New Meeting"
-                  : "New Conversation"}
+                : "New Conversation"}
             </span>
           </button>
         </div>
@@ -202,8 +167,6 @@ function SidebarInner() {
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
           {currentView === "vision" ? (
             <VisionSidebar />
-          ) : currentView === "meet" ? (
-            <MeetSidebar />
           ) : (
             <ChatSidebar />
           )}
